@@ -419,7 +419,7 @@ const DriverPage = () => {
         {/* Statistics Cards */}
         <Row gutter={[20, 20]}>
           <Col xs={12} sm={12} lg={6}>
-            <Card  className="shadow-sm">
+            <Card className="shadow-sm">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
                   <MaterialSymbolsPersonRounded className="text-blue-600 text-2xl" />
@@ -434,7 +434,7 @@ const DriverPage = () => {
             </Card>
           </Col>
           <Col xs={12} sm={12} lg={6}>
-            <Card  className="shadow-sm">
+            <Card className="shadow-sm">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
                   <MaterialSymbolsCheckCircle className="text-green-600 text-2xl" />
@@ -449,7 +449,7 @@ const DriverPage = () => {
             </Card>
           </Col>
           <Col xs={12} sm={12} lg={6}>
-            <Card  className="shadow-sm">
+            <Card className="shadow-sm">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
                   <Fa6RegularHourglassHalf className="text-orange-600 text-2xl" />
@@ -464,7 +464,7 @@ const DriverPage = () => {
             </Card>
           </Col>
           <Col xs={12} sm={12} lg={6}>
-            <Card  className="shadow-sm">
+            <Card className="shadow-sm">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
                   <AntDesignCloseCircleOutlined className="text-red-600 text-2xl" />
@@ -481,7 +481,7 @@ const DriverPage = () => {
         </Row>
 
         {/* Filter and Actions */}
-        <Card  className="shadow-sm">
+        <Card className="shadow-sm">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-center gap-3 flex-wrap">
@@ -501,7 +501,11 @@ const DriverPage = () => {
                 />
                 <div className="flex gap-2">
                   <Button
-                    type={selectedDate.isSame(dayjs(), "day") ? "primary" : "default"}
+                    type={
+                      selectedDate.isSame(dayjs(), "day")
+                        ? "primary"
+                        : "default"
+                    }
                     onClick={() => {
                       setSelectedDate(dayjs());
                       setCurrentPage(1);
@@ -514,7 +518,10 @@ const DriverPage = () => {
                       setSelectedDate(selectedDate.add(1, "day"));
                       setCurrentPage(1);
                     }}
-                    disabled={selectedDate.isAfter(dayjs().add(6, "day"), "day")}
+                    disabled={selectedDate.isAfter(
+                      dayjs().add(6, "day"),
+                      "day"
+                    )}
                   >
                     Next Day
                   </Button>
@@ -582,28 +589,29 @@ const DriverPage = () => {
         {/* Bookings List */}
         <div className="space-y-4">
           {paginatedBookings.length === 0 && (
-            <Card  className="shadow-sm">
-              <div className="text-center py-12">
-                <Fa6RegularClock className="text-gray-300 text-5xl mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  No bookings found
-                </h3>
-                <p className="text-gray-500">
-                  {filterStatus === "all"
-                    ? `You don't have any bookings scheduled for ${selectedDate.format(
-                        "DD MMMM YYYY"
-                      )}.`
-                    : `No ${filterStatus} bookings found for ${selectedDate.format(
-                        "DD MMMM YYYY"
-                      )}.`}
-                </p>
-              </div>
-            </Card>
+            <div>
+              <Card className="shadow-sm">
+                <div className="text-center py-12">
+                  <Fa6RegularClock className="text-gray-300 text-5xl mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    No bookings found
+                  </h3>
+                  <p className="text-gray-500">
+                    {filterStatus === "all"
+                      ? `You don't have any bookings scheduled for ${selectedDate.format(
+                          "DD MMMM YYYY"
+                        )}.`
+                      : `No ${filterStatus} bookings found for ${selectedDate.format(
+                          "DD MMMM YYYY"
+                        )}.`}
+                  </p>
+                </div>
+              </Card>
+            </div>
           )}
           {paginatedBookings.map((booking) => (
             <Card
               key={booking.key}
-              
               className="shadow-sm hover:shadow transition-all"
             >
               <div className="flex flex-col lg:flex-row gap-6">
@@ -638,9 +646,7 @@ const DriverPage = () => {
                           {booking.course}
                         </span>
                         <span className="text-gray-600">
-                          <span className="font-medium text-gray-900">
-                            ID:
-                          </span>{" "}
+                          <span className="font-medium text-gray-900">ID:</span>{" "}
                           {booking.bookingId}
                         </span>
                       </div>

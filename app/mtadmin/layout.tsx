@@ -68,6 +68,11 @@ const menuItems: MenuItem[] = [
     icon: <Fa6RegularCalendarXmark className="text-lg" />,
     label: "Holidays",
   },
+  {
+    key: "/mtadmin/profile",
+    icon: <span className="text-lg">🏫</span>,
+    label: "School Profile",
+  },
 ];
 
 export default function MtAdminLayout({

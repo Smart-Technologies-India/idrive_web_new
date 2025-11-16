@@ -6,7 +6,10 @@ export const AddServiceSchema = v.object({
     v.string(),
     v.minLength(3, "Service name must be at least 3 characters")
   ),
-  serviceType: v.pipe(v.string(), v.minLength(1, "Service type is required")),
+  serviceType: v.pipe(
+    v.string(),
+    v.minLength(1, "Service type is required")
+  ),
   category: v.pipe(
     v.string(),
     v.minLength(2, "Category must be at least 2 characters")

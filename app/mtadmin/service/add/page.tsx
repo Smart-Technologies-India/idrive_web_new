@@ -24,6 +24,9 @@ const AddServicePage = () => {
 
   const methods = useForm<AddServiceForm>({
     resolver: valibotResolver(AddServiceSchema),
+    defaultValues: {
+      serviceType: "LICENSE",
+    },
   });
 
   const createServiceMutation = useMutation({

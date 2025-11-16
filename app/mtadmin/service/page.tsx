@@ -55,9 +55,12 @@ const ServiceManagementPage = () => {
     ],
     queryFn: () =>
       getPaginatedServices({
-        page: currentPage,
-        limit: pageSize,
-        where: {
+        searchPaginationInput: {
+          skip: (currentPage - 1) * pageSize,
+          take: pageSize,
+          search: searchText || undefined,
+        },
+        whereSearchInput: {
           schoolId: schoolId,
           status: filterStatus === "all" ? undefined : filterStatus.toUpperCase(),
           serviceType: filterType === "all" ? undefined : filterType.toUpperCase(),

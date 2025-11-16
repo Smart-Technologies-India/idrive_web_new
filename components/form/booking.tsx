@@ -2,13 +2,18 @@
 import { FormProvider, useForm } from "react-hook-form";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { ApiCall } from "@/services/api";
 import { toast } from "react-toastify";
 import { useState, useEffect } from "react";
 import { TextInput } from "./inputfields/textinput";
 import { TaxtAreaInput } from "./inputfields/textareainput";
-import { Modal, Button, Tag, Select, Checkbox, Spin } from "antd";
+import { Select } from "./inputfields/select";
+import { Modal, Button, Tag, Checkbox, Spin } from "antd";
+import { getCookie } from "cookies-next";
+import { getAllCourses, type Course as APICourse } from "@/services/course.api";
+import { getAllServices, type Service as APIService } from "@/services/service.api";
+import { searchUserByContact, type User } from "@/services/user.api";
 import {
   CheckCircleOutlined,
   CarOutlined,
@@ -28,81 +33,80 @@ import type {
   Customer,
 } from "@/schema/booking";
 
-// Mock data - Replace with API calls
-const COURSES: Course[] = [
-  {
-    id: "course-1",
-    name: "Basic Driving Course",
-    description: "Learn fundamental driving skills",
-    price: 5000,
-    duration: "30 days",
-  },
-  {
-    id: "course-2",
-    name: "Advanced Driving Course",
-    description: "Master advanced driving techniques",
-    price: 8000,
-    duration: "45 days",
-  },
-  {
-    id: "course-3",
-    name: "Highway Driving Course",
-    description: "Highway and long-distance driving",
-    price: 6500,
-    duration: "20 days",
-  },
-  {
-    id: "course-4",
-    name: "Defensive Driving Course",
-    description: "Safety-focused driving techniques",
-    price: 7000,
-    duration: "35 days",
-  },
-];
+// Types for form data
+type FormCourse = {
+  id: number;
+  name: string;
+  price: number;
+  courseType: string;
+  courseDays: number;
+};
 
-const ADDONS: Addon[] = [
-  {
-    id: "addon-1",
-    name: "License Application Service",
-    description: "Assistance with license application process",
-    price: 1500,
-  },
-  {
-    id: "addon-2",
-    name: "RTO Documentation Support",
-    description: "Complete RTO documentation support",
-    price: 1000,
-  },
-  {
-    id: "addon-3",
-    name: "Medical Certificate Arrangement",
-    description: "Medical certificate facilitation",
-    price: 500,
-  },
-  {
-    id: "addon-4",
-    name: "Online Test Practice Access",
-    description: "1-year access to online test platform",
-    price: 800,
-  },
-  {
-    id: "addon-5",
-    name: "Extra Practice Sessions (5 hours)",
-    description: "Additional 5 hours of driving practice",
-    price: 2000,
-  },
-];
+type FormService = {
+  id: number;
+  name: string;
+  price: number;
+  serviceType: string;
+  description: string;
+};
 
 const BookingForm = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingData, setPendingData] = useState<BookingFormData | null>(null);
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [selectedCourse, setSelectedCourse] = useState<FormCourse | null>(null);
+  const [selectedServices, setSelectedServices] = useState<number[]>([]);
   const [customerData, setCustomerData] = useState<Customer | null>(null);
   const [loadingCustomer, setLoadingCustomer] = useState(false);
   const [bookingDate, setBookingDate] = useState<Dayjs | null>(null);
+
+  // Get school ID from cookie
+  const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
+
+  // Fetch courses for the school
+  const {
+    data: coursesResponse,
+    isLoading: loadingCourses,
+  } = useQuery({
+    queryKey: ["courses", schoolId],
+    queryFn: () =>
+      getAllCourses({
+        schoolId: schoolId,
+        status: "ACTIVE",
+      }),
+    enabled: schoolId > 0,
+  });
+
+  // Fetch services for the school
+  const {
+    data: servicesResponse,
+    isLoading: loadingServices,
+  } = useQuery({
+    queryKey: ["services", schoolId],
+    queryFn: () =>
+      getAllServices({
+        schoolId: schoolId,
+        status: "ACTIVE",
+      }),
+    enabled: schoolId > 0,
+  });
+
+  const courses: FormCourse[] = coursesResponse?.data?.getAllCourse?.map((course: APICourse) => ({
+    id: course.id,
+    name: course.courseName,
+    price: course.price,
+    courseType: course.courseType,
+    courseDays: course.courseDays,
+  })) || [];
+
+  const services: FormService[] = servicesResponse?.data?.getAllService?.map((service: APIService) => ({
+    id: service.id,
+    name: service.serviceName,
+    price: service.price,
+    serviceType: service.serviceType,
+    description: service.description,
+  })) || [];
 
   // Get car and slot from URL params
   const carId = searchParams.get("carId") || "";
@@ -123,8 +127,8 @@ const BookingForm = () => {
       courseId: "",
       courseName: "",
       coursePrice: 0,
-      addons: [],
-      selectedAddons: [],
+      services: [],
+      selectedServices: [],
       totalAmount: 0,
       notes: "",
     },
@@ -133,34 +137,58 @@ const BookingForm = () => {
   const { watch, setValue } = methods;
   const formValues = watch();
 
+  // Watch for course selection changes
+  useEffect(() => {
+    const courseId = formValues.courseId;
+    if (courseId && courses.length > 0) {
+      handleCourseChange(courseId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formValues.courseId, courses]);
+
   // Fetch customer details when mobile number is entered
   const fetchCustomerDetails = async (mobile: string) => {
     if (mobile.length < 10) {
       setCustomerData(null);
+      setValue("customerName", "");
+      setValue("customerEmail", "");
       return;
     }
 
     setLoadingCustomer(true);
     try {
-      // Mock API call - Replace with actual API
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const response = await searchUserByContact(mobile, schoolId);
+      
+      if (response.status && response.data.searchUser) {
+        const user: User = response.data.searchUser;
+        
+        const customerData: Customer = {
+          id: user.id,
+          name: user.name,
+          contact1: user.contact1,
+          contact2: user.contact2,
+          email: user.email,
+          address: user.address,
+          role: user.role,
+          status: user.status,
+        };
 
-      // Mock customer data
-      const mockCustomer: Customer = {
-        mobile: mobile,
-        name: "John Doe",
-        email: "john.doe@example.com",
-        licenseNumber: "TN1234567890",
-        address: "123 Main Street, Chennai",
-      };
-
-      setCustomerData(mockCustomer);
-      setValue("customerName", mockCustomer.name);
-      setValue("customerEmail", mockCustomer.email);
-      toast.success("Customer details loaded successfully!");
-    } catch {
+        setCustomerData(customerData);
+        setValue("customerName", user.name);
+        setValue("customerEmail", user.email || "");
+        toast.success("Customer details loaded successfully!");
+      } else {
+        setCustomerData(null);
+        setValue("customerName", "");
+        setValue("customerEmail", "");
+        toast.info("Customer not found. Please enter details manually.");
+      }
+    } catch (error) {
+      console.error("Error fetching customer:", error);
       toast.error("Failed to fetch customer details");
       setCustomerData(null);
+      setValue("customerName", "");
+      setValue("customerEmail", "");
     } finally {
       setLoadingCustomer(false);
     }
@@ -180,39 +208,39 @@ const BookingForm = () => {
 
   // Handle course selection
   const handleCourseChange = (courseId: string) => {
-    const course = COURSES.find((c) => c.id === courseId);
+    const course = courses.find((c) => c.id.toString() === courseId);
     if (course) {
       setSelectedCourse(course);
-      setValue("courseId", course.id);
+      setValue("courseId", courseId);
       setValue("courseName", course.name);
       setValue("coursePrice", course.price);
-      calculateTotal(course.price, selectedAddons);
+      calculateTotal(course.price, selectedServices);
     }
   };
 
-  // Handle addon selection
-  const handleAddonToggle = (addonId: string) => {
-    const newSelectedAddons = selectedAddons.includes(addonId)
-      ? selectedAddons.filter((id) => id !== addonId)
-      : [...selectedAddons, addonId];
+  // Handle service selection
+  const handleServiceToggle = (serviceId: number) => {
+    const newSelectedServices = selectedServices.includes(serviceId)
+      ? selectedServices.filter((id) => id !== serviceId)
+      : [...selectedServices, serviceId];
 
-    setSelectedAddons(newSelectedAddons);
-    setValue("addons", newSelectedAddons);
+    setSelectedServices(newSelectedServices);
+    setValue("services", newSelectedServices.map(id => id.toString()));
 
-    const addonsData = ADDONS.filter((a) => newSelectedAddons.includes(a.id));
-    setValue("selectedAddons", addonsData);
+    const servicesData = services.filter((s) => newSelectedServices.includes(s.id));
+    setValue("selectedServices", servicesData);
 
-    calculateTotal(selectedCourse?.price || 0, newSelectedAddons);
+    calculateTotal(selectedCourse?.price || 0, newSelectedServices);
   };
 
   // Calculate total amount
-  const calculateTotal = (coursePrice: number, addonIds: string[]) => {
-    const addonsTotal = ADDONS.filter((a) => addonIds.includes(a.id)).reduce(
-      (sum, addon) => sum + addon.price,
+  const calculateTotal = (coursePrice: number, serviceIds: number[]) => {
+    const servicesTotal = services.filter((s) => serviceIds.includes(s.id)).reduce(
+      (sum, service) => sum + service.price,
       0
     );
 
-    const total = coursePrice + addonsTotal;
+    const total = coursePrice + servicesTotal;
     setValue("totalAmount", total);
   };
 
@@ -249,8 +277,8 @@ const BookingForm = () => {
       }
     }
 
-    if (!formValues.customerMobile || formValues.customerMobile.length < 10) {
-      errors.push("Please enter a valid mobile number");
+    if (!formValues.customerMobile || formValues.customerMobile.length !== 10) {
+      errors.push("Please enter a valid 10-digit mobile number");
     }
 
     if (!customerData) {
@@ -461,7 +489,8 @@ const BookingForm = () => {
                       title="Mobile Number"
                       placeholder="Enter 10-digit mobile number"
                       required
-                      maxlength={15}
+                      maxlength={10}
+                      onlynumber
                     />
                     {loadingCustomer && (
                       <div className="absolute right-3 top-11">
@@ -488,25 +517,37 @@ const BookingForm = () => {
                         <div>
                           <span className="text-gray-600">Email:</span>
                           <p className="font-semibold text-gray-900">
-                            {customerData.email}
+                            {customerData.email || "Not provided"}
                           </p>
                         </div>
-                        {customerData.licenseNumber && (
+                        <div>
+                          <span className="text-gray-600">Primary Contact:</span>
+                          <p className="font-semibold text-gray-900">
+                            {customerData.contact1}
+                          </p>
+                        </div>
+                        {customerData.contact2 && (
                           <div>
-                            <span className="text-gray-600">License:</span>
+                            <span className="text-gray-600">Secondary Contact:</span>
                             <p className="font-semibold text-gray-900">
-                              {customerData.licenseNumber}
+                              {customerData.contact2}
                             </p>
                           </div>
                         )}
                         {customerData.address && (
-                          <div>
+                          <div className="md:col-span-2">
                             <span className="text-gray-600">Address:</span>
                             <p className="font-semibold text-gray-900">
                               {customerData.address}
                             </p>
                           </div>
                         )}
+                        <div>
+                          <span className="text-gray-600">Role:</span>
+                          <p className="font-semibold text-gray-900 capitalize">
+                            {customerData.role?.toLowerCase()}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -520,66 +561,42 @@ const BookingForm = () => {
                   Select Course
                 </h2>
 
-                <Select
-                  size="large"
-                  placeholder="Choose a driving course"
-                  className="w-full mb-4"
-                  onChange={handleCourseChange}
-                  value={formValues.courseId || undefined}
-                  popupClassName="course-dropdown"
-                  options={COURSES.map((course) => ({
-                    value: course.id,
-                    label: course.name,
-                  }))}
-                  optionRender={(option) => {
-                    const course = COURSES.find((c) => c.id === option.value);
-                    if (!course) return null;
-                    return (
-                      <div className="py-1">
-                        <div className="font-bold text-gray-900 text-sm">
-                          {course.name}
+                <div className="space-y-4">
+                  <Select<BookingFormData>
+                    name="courseId"
+                    title=""
+                    placeholder={loadingCourses ? "Loading courses..." : "Choose a driving course"}
+                    required
+                    options={courses.map((course) => ({
+                      value: course.id.toString(),
+                      label: course.name,
+                    }))}
+                    disable={loadingCourses}
+                  />
+
+                  {selectedCourse && (
+                    <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-bold text-gray-900">
+                            {selectedCourse.name}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {selectedCourse.courseType} • {selectedCourse.courseDays} days
+                          </p>
                         </div>
-                        <div className="text-xs text-gray-600 mt-0.5">
-                          {course.description}
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-blue-600">
+                            ₹{selectedCourse.price.toLocaleString('en-IN')}
+                          </p>
                         </div>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-sm font-semibold text-blue-600">
-                            ₹{course.price}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            • {course.duration}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  }}
-                />
-                <div className=" my-4"></div>
-                {selectedCourse && (
-                  <div className="bg-blue-50 rounded-lg p-4 border-2 border-blue-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-bold text-gray-900">
-                          {selectedCourse.name}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {selectedCourse.description}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Duration: {selectedCourse.duration}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-blue-600">
-                          ₹{selectedCourse.price}
-                        </p>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
-              {/* Addons Card */}
+              {/* Services Card */}
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                   <CheckSquareOutlined className="text-blue-600" />
@@ -589,39 +606,59 @@ const BookingForm = () => {
                   </Tag>
                 </h2>
 
-                <div className="space-y-3">
-                  {ADDONS.map((addon) => (
-                    <div
-                      key={addon.id}
-                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                        selectedAddons.includes(addon.id)
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-gray-200 bg-white hover:border-blue-300"
-                      }`}
-                      onClick={() => handleAddonToggle(addon.id)}
-                    >
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={selectedAddons.includes(addon.id)}
-                          className="mt-1"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className="font-bold text-gray-900">
-                              {addon.name}
-                            </p>
-                            <p className="text-lg font-bold text-blue-600">
-                              ₹{addon.price}
+                {loadingServices ? (
+                  <div className="flex justify-center py-8">
+                    <Spin size="large" />
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {services.map((service) => (
+                      <div
+                        key={service.id}
+                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                          selectedServices.includes(service.id)
+                            ? "border-blue-500 bg-blue-50"
+                            : "border-gray-200 bg-white hover:border-blue-300"
+                        }`}
+                        onClick={() => handleServiceToggle(service.id)}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={selectedServices.includes(service.id)}
+                            className="mt-1"
+                            onChange={() => handleServiceToggle(service.id)}
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-bold text-gray-900">
+                                  {service.name}
+                                </p>
+                                <Tag
+                                  color={service.serviceType === 'LICENSE' ? 'purple' : 'cyan'}
+                                  className="mt-1"
+                                >
+                                  {service.serviceType}
+                                </Tag>
+                              </div>
+                              <p className="text-lg font-bold text-blue-600">
+                                ₹{service.price.toLocaleString('en-IN')}
+                              </p>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-2">
+                              {service.description}
                             </p>
                           </div>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {addon.description}
-                          </p>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                    {services.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>No services available for this school</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Notes Card */}
@@ -681,7 +718,7 @@ const BookingForm = () => {
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600">Mobile:</span>
                         <span className="font-semibold text-gray-900">
-                          {customerData.mobile}
+                          {customerData.contact1}
                         </span>
                       </div>
                     </div>
@@ -704,21 +741,21 @@ const BookingForm = () => {
                     </div>
                   )}
 
-                  {/* Addons */}
-                  {selectedAddons.length > 0 && (
+                  {/* Services */}
+                  {selectedServices.length > 0 && (
                     <div className="pb-4 border-b border-gray-200">
-                      <div className="text-sm text-gray-600 mb-2">Add-ons:</div>
-                      {ADDONS.filter((a) => selectedAddons.includes(a.id)).map(
-                        (addon) => (
+                      <div className="text-sm text-gray-600 mb-2">Services:</div>
+                      {services.filter((s) => selectedServices.includes(s.id)).map(
+                        (service) => (
                           <div
-                            key={addon.id}
+                            key={service.id}
                             className="flex items-center justify-between mb-2"
                           >
                             <span className="text-sm text-gray-900">
-                              {addon.name}
+                              {service.name}
                             </span>
                             <span className="text-sm font-semibold text-blue-600">
-                              ₹{addon.price}
+                              ₹{service.price.toLocaleString('en-IN')}
                             </span>
                           </div>
                         )
@@ -733,11 +770,11 @@ const BookingForm = () => {
                         Total Amount
                       </span>
                       <span className="text-3xl font-bold text-blue-600">
-                        ₹{formValues.totalAmount || 0}
+                        ₹{(formValues.totalAmount || 0).toLocaleString('en-IN')}
                       </span>
                     </div>
                     <p className="text-xs text-gray-600">
-                      Including all courses and add-ons
+                      Including all courses and services
                     </p>
                   </div>
 
@@ -852,30 +889,30 @@ const BookingForm = () => {
             </div>
 
             <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-              <h3 className="font-bold text-gray-900 mb-3">Course & Add-ons</h3>
+              <h3 className="font-bold text-gray-900 mb-3">Course & Services</h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-gray-900">
                     {pendingData.courseName}
                   </span>
                   <span className="text-blue-600 font-bold">
-                    ₹{pendingData.coursePrice}
+                    ₹{pendingData.coursePrice.toLocaleString('en-IN')}
                   </span>
                 </div>
-                {pendingData.selectedAddons &&
-                  pendingData.selectedAddons.length > 0 && (
+                {pendingData.selectedServices &&
+                  pendingData.selectedServices.length > 0 && (
                     <div className="pt-2 border-t border-purple-200">
                       <p className="text-xs text-gray-600 mb-2">
-                        Selected Add-ons:
+                        Selected Services:
                       </p>
-                      {pendingData.selectedAddons.map((addon) => (
+                      {pendingData.selectedServices.map((service) => (
                         <div
-                          key={addon.id}
+                          key={service.id}
                           className="flex items-center justify-between text-sm"
                         >
-                          <span className="text-gray-700">• {addon.name}</span>
+                          <span className="text-gray-700">• {service.name}</span>
                           <span className="text-blue-600 font-semibold">
-                            ₹{addon.price}
+                            ₹{service.price.toLocaleString('en-IN')}
                           </span>
                         </div>
                       ))}
@@ -890,7 +927,7 @@ const BookingForm = () => {
                   Total Amount
                 </span>
                 <span className="text-3xl font-bold text-blue-600">
-                  ₹{pendingData.totalAmount}
+                  ₹{pendingData.totalAmount.toLocaleString('en-IN')}
                 </span>
               </div>
             </div>

@@ -19,8 +19,8 @@ export const BookingSchema = v.pipe(
     customerMobile: v.pipe(
       v.string(),
       v.minLength(10, "Mobile number must be at least 10 digits"),
-      v.maxLength(15, "Mobile number must not exceed 15 digits"),
-      v.regex(/^[0-9+\-\s()]+$/, "Please enter a valid mobile number")
+      v.maxLength(10, "Mobile number must not exceed 10 digits"),
+      v.regex(/^[0-9]+$/, "Please enter a valid mobile number")
     ),
     customerName: v.optional(v.string()),
     customerEmail: v.optional(v.string()),
@@ -30,12 +30,14 @@ export const BookingSchema = v.pipe(
     ),
     courseName: v.string(),
     coursePrice: v.number(),
-    addons: v.optional(v.array(v.string())),
-    selectedAddons: v.optional(v.array(
+    services: v.optional(v.array(v.string())),
+    selectedServices: v.optional(v.array(
       v.object({
-        id: v.string(),
+        id: v.number(),
         name: v.string(),
         price: v.number(),
+        serviceType: v.string(),
+        description: v.string(),
       })
     )),
     totalAmount: v.number(),
@@ -62,11 +64,14 @@ export interface Addon {
   price: number;
 }
 
-// Customer interface
+// Customer interface (based on User entity)
 export interface Customer {
-  mobile: string;
+  id: number;
   name: string;
-  email: string;
-  licenseNumber?: string;
+  contact1: string;
+  contact2?: string;
+  email?: string;
   address?: string;
+  role?: string;
+  status?: string;
 }

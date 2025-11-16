@@ -235,6 +235,7 @@ const ServiceDetailPage = ({
             )}
           </Descriptions>
         </Card>
+        <div></div>
 
         {/* Features and Included Services */}
         <Row gutter={16}>

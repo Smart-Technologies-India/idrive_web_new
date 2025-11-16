@@ -26,8 +26,8 @@ export interface ServicePagination {
   getPaginatedService: {
     data: Service[];
     total: number;
-    page: number;
-    limit: number;
+    skip: number;
+    take: number;
   };
 }
 
@@ -43,10 +43,14 @@ export interface UpdateServiceResponse {
   updateService: Service;
 }
 
+export interface AllServicesResponse {
+  getAllService: Service[];
+}
+
 // GraphQL Queries
 const GET_PAGINATED_SERVICES = `
-  query GetPaginatedService($page: Int!, $limit: Int!, $where: WhereServiceSearchInput) {
-    getPaginatedService(page: $page, limit: $limit, where: $where) {
+  query GetPaginatedService($searchPaginationInput: SearchPaginationInput!, $whereSearchInput: WhereServiceSearchInput!) {
+    getPaginatedService(searchPaginationInput: $searchPaginationInput, whereSearchInput: $whereSearchInput) {
       data {
         id
         schoolId
@@ -68,8 +72,24 @@ const GET_PAGINATED_SERVICES = `
         updatedAt
       }
       total
-      page
-      limit
+      skip
+      take
+    }
+  }
+`;
+
+const GET_ALL_SERVICES = `
+  query GetAllService($whereSearchInput: WhereServiceSearchInput!) {
+    getAllService(whereSearchInput: $whereSearchInput) {
+      id
+      serviceId
+      serviceName
+      serviceType
+      category
+      price
+      duration
+      description
+      status
     }
   }
 `;
@@ -150,10 +170,24 @@ const DELETE_SERVICE = `
 `;
 
 // API Functions
+export const getAllServices = async (whereSearchInput: {
+  schoolId?: number;
+  serviceType?: string;
+  status?: string;
+}) => {
+  return ApiCall<AllServicesResponse>({
+    query: GET_ALL_SERVICES,
+    variables: { whereSearchInput },
+  });
+};
+
 export const getPaginatedServices = async (variables: {
-  page: number;
-  limit: number;
-  where?: {
+  searchPaginationInput: {
+    skip: number;
+    take: number;
+    search?: string;
+  };
+  whereSearchInput: {
     schoolId?: number;
     serviceType?: string;
     status?: string;

@@ -13,7 +13,6 @@ import {
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getPaginatedCars, type Car } from "@/services/car.api";
-import { getAllDrivers } from "@/services/driver.api";
 import { getCookie } from "cookies-next";
 
 const { Search } = Input;
@@ -63,27 +62,7 @@ const CarManagementPage = () => {
     enabled: schoolId > 0,
   });
 
-  // Fetch all drivers for the school to map driver names
-  const { data: driversResponse } = useQuery({
-    queryKey: ["allDrivers", schoolId],
-    queryFn: async () => {
-      if (!schoolId || schoolId === 0) {
-        throw new Error("School ID not found");
-      }
-      return await getAllDrivers({
-        schoolId,
-      });
-    },
-    enabled: schoolId > 0,
-  });
-
-  // Create a driver lookup map
-  const driverMap = new Map(
-    driversResponse?.data?.getAllDriver?.map((driver) => [
-      driver.id,
-      { name: driver.name, driverId: driver.driverId }
-    ]) || []
-  );
+  // No longer need to fetch drivers separately - using assignedDriver from car query
 
   const cars: CarData[] = carsResponse?.data?.getPaginatedCar?.data?.map((car: Car) => {
     // Convert fuel type from API format to display format
@@ -103,8 +82,8 @@ const CarManagementPage = () => {
       "INACTIVE": "inactive" as const,
     };
 
-    // Get driver info from the map
-    const driverInfo = car.assignedDriverId ? driverMap.get(car.assignedDriverId) : null;
+    // Get driver info from the assignedDriver field
+    const driverInfo = car.assignedDriver;
 
     return {
       key: car.id.toString(),

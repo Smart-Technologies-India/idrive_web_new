@@ -41,47 +41,59 @@ export function DateRangePicker<T extends FieldValues>(
       name={props.name}
       render={({ field }) => (
         <>
-          <label htmlFor={props.name} className="text-sm font-semibold mb-2 block text-gray-900">
+          <label
+            htmlFor={props.name}
+            className="text-sm font-semibold mb-2 block text-gray-900"
+          >
             {props.title}
             {props.required && <span className="text-rose-500 ml-1">*</span>}
           </label>
-          <RangePicker
-            disabled={props.disable ?? false}
-            className="w-full"
-            size="large"
-            value={
-              field.value && Array.isArray(field.value)
-                ? [
-                    field.value[0] ? dayjs(field.value[0]) : null,
-                    field.value[1] ? dayjs(field.value[1]) : null,
-                  ]
-                : null
-            }
-            status={error ? "error" : undefined}
-            onChange={(dates) => {
-              if (dates && dates[0] && dates[1]) {
-                field.onChange([
-                  dates[0].toDate().toISOString(),
-                  dates[1].toDate().toISOString(),
-                ]);
-              } else if (dates && dates[0] && !dates[1] && props.allowSingleDate) {
-                // Allow single date selection if enabled
-                field.onChange([
-                  dates[0].toDate().toISOString(),
-                  dates[0].toDate().toISOString(),
-                ]);
-              } else {
-                field.onChange(null);
+          <div>
+            <RangePicker
+              disabled={props.disable ?? false}
+              className="w-full"
+              size="large"
+              value={
+                field.value && Array.isArray(field.value)
+                  ? [
+                      field.value[0] ? dayjs(field.value[0]) : null,
+                      field.value[1] ? dayjs(field.value[1]) : null,
+                    ]
+                  : null
               }
-            }}
-            minDate={getMinDate()}
-            maxDate={props.maxdate ? props.maxdate : undefined}
-            placeholder={props.placeholder ?? ["Start Date", "End Date"]}
-            format={props.format ?? "DD-MM-YYYY"}
-          />
-          {error && (
-            <p className="text-xs text-red-500 mt-1">{error.message?.toString()}</p>
-          )}
+              status={error ? "error" : undefined}
+              onChange={(dates) => {
+                if (dates && dates[0] && dates[1]) {
+                  field.onChange([
+                    dates[0].toDate().toISOString(),
+                    dates[1].toDate().toISOString(),
+                  ]);
+                } else if (
+                  dates &&
+                  dates[0] &&
+                  !dates[1] &&
+                  props.allowSingleDate
+                ) {
+                  // Allow single date selection if enabled
+                  field.onChange([
+                    dates[0].toDate().toISOString(),
+                    dates[0].toDate().toISOString(),
+                  ]);
+                } else {
+                  field.onChange(null);
+                }
+              }}
+              minDate={getMinDate()}
+              maxDate={props.maxdate ? props.maxdate : undefined}
+              placeholder={props.placeholder ?? ["Start Date", "End Date"]}
+              format={props.format ?? "DD-MM-YYYY"}
+            />
+            {error && (
+              <p className="text-xs text-red-500 mt-1">
+                {error.message?.toString()}
+              </p>
+            )}
+          </div>
         </>
       )}
     />

@@ -227,8 +227,8 @@ const AddSchoolPage = () => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <TextInput<AddSchoolForm>
-                    title="Email Address"
-                    required={true}
+                    title="Email Address (Optional)"
+                    required={false}
                     name="email"
                     placeholder="school@example.com"
                   />

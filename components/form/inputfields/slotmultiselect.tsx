@@ -27,30 +27,39 @@ export function SlotMultiSelect<T extends FieldValues>(
       render={({ field }) => (
         <>
           {props.title && (
-            <label htmlFor={props.name} className="text-sm font-semibold mb-2 block text-gray-900">
+            <label
+              htmlFor={props.name}
+              className="text-sm font-semibold mb-2 block text-gray-900"
+            >
               {props.title}
               {props.required && <span className="text-rose-500 ml-1">*</span>}
             </label>
           )}
-          <Select
-            mode="multiple"
-            disabled={props.disable ?? false}
-            showSearch={true}
-            status={error ? "error" : undefined}
-            className="w-full"
-            size="large"
-            onChange={(value) => field.onChange(value)}
-            value={field.value ?? undefined}
-            placeholder={props.placeholder}
-            options={props.options}
-            filterOption={(input, option) =>
-              (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
-            }
-            maxTagCount="responsive"
-          />
-          {error && (
-            <p className="text-xs text-red-500 mt-1">{error.message?.toString()}</p>
-          )}
+          <div>
+            <Select
+              mode="multiple"
+              disabled={props.disable ?? false}
+              showSearch={true}
+              status={error ? "error" : undefined}
+              className="w-full"
+              size="large"
+              onChange={(value) => field.onChange(value)}
+              value={field.value ?? undefined}
+              placeholder={props.placeholder}
+              options={props.options}
+              filterOption={(input, option) =>
+                (option?.label ?? "")
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
+              maxTagCount="responsive"
+            />
+            {error && (
+              <p className="text-xs text-red-500 mt-1">
+                {error.message?.toString()}
+              </p>
+            )}
+          </div>
         </>
       )}
     />

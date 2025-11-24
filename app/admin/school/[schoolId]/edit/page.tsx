@@ -240,10 +240,9 @@ const EditSchoolPage = ({
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Form.Item
-                  label="Email Address"
+                  label="Email Address (Optional)"
                   name="email"
                   rules={[
-                    { required: true, message: "Please enter email address" },
                     {
                       type: "email",
                       message: "Please enter valid email address",

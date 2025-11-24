@@ -58,7 +58,10 @@ export const AddCarSchema = v.object({
   nextServiceDate: v.optional(v.string()),
 
   // Assignment
-  assignedDriverId: v.optional(v.string()),
+  assignedDriverId: v.pipe(
+    v.string(),
+    v.minLength(1, "Driver assignment is required")
+  ),
 });
 
 export type AddCarForm = v.InferOutput<typeof AddCarSchema>;

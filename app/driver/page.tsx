@@ -7,23 +7,18 @@ import {
   Col,
   Button,
   Tag,
-  Avatar,
-  Dropdown,
   Space,
   Modal,
   Input,
   Select,
   Pagination,
   DatePicker,
+  Spin,
 } from "antd";
 import dayjs from "dayjs";
-import type { MenuProps } from "antd";
 import {
   AntDesignCheckOutlined,
   Fa6RegularClock,
-  MaterialSymbolsPersonRounded,
-  MaterialSymbolsLogout,
-  IcBaselineAccountCircle,
   MaterialSymbolsLocationOn,
   MaterialSymbolsCall,
   MaterialSymbolsFreeCancellation,
@@ -31,14 +26,23 @@ import {
   AntDesignCloseCircleOutlined,
   MaterialSymbolsCheckCircle,
   Fa6RegularHourglassHalf,
+  MaterialSymbolsPersonRounded,
 } from "@/components/icons";
-import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  getAllBookings,
+  updateBookingSession,
+  type Booking,
+  type BookingSession,
+} from "@/services/booking.api";
+import { getCookie } from "cookies-next";
 
 const { TextArea } = Input;
 
 interface BookingSlot {
   key: string;
+  sessionId: number;
   bookingId: string;
   customerName: string;
   mobile: string;
@@ -53,182 +57,100 @@ interface BookingSlot {
 }
 
 const DriverPage = () => {
-  const router = useRouter();
+  const queryClient = useQueryClient();
+  const userId: number = parseInt(getCookie("id")?.toString() || "0");
+
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("time");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs>(dayjs());
   const pageSize = 10;
-  const [bookings, setBookings] = useState<BookingSlot[]>([
-    {
-      key: "1",
-      bookingId: "BK-2024-001",
-      customerName: "Rajesh Kumar",
-      mobile: "9876543210",
-      address: "House No. 123, Sector 15, Rohini, New Delhi - 110085",
-      course: "Basic Driving",
-      slot: "09:00 AM - 10:00 AM",
-      date: dayjs().format("YYYY-MM-DD"),
-      carName: "Swift Dzire - DL01AB1234",
-      status: "pending",
-      attendanceMarked: false,
+
+  // Fetch bookings from backend - using userId to get driver's bookings
+  const {
+    data: bookingsResponse,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["driverBookings", userId],
+    queryFn: async () => {
+      if (!userId || userId === 0) {
+        throw new Error("User ID not found");
+      }
+      // Fetch all bookings - we'll filter by driver's userId on the sessions
+      const data = await getAllBookings({});
+      return data;
     },
-    {
-      key: "2",
-      bookingId: "BK-2024-002",
-      customerName: "Priya Sharma",
-      mobile: "9876543211",
-      address: "Flat 45, Green Park Apartments, Dwarka, New Delhi - 110075",
-      course: "Advanced Driving",
-      slot: "10:00 AM - 11:00 AM",
-      date: dayjs().format("YYYY-MM-DD"),
-      carName: "Swift Dzire - DL01AB1234",
-      status: "completed",
-      attendanceMarked: true,
-      attendanceNotes: "Session completed successfully",
+    enabled: userId > 0,
+  });
+
+  // Transform backend data to BookingSlot format
+  // Filter sessions where the driver's userId matches the logged-in user's ID
+  const allBookings: BookingSlot[] =
+    bookingsResponse?.data?.getAllBooking?.flatMap((booking: Booking) =>
+      (booking.sessions || [])
+        .filter((session: BookingSession) => session.driver?.userId === userId)
+        .map((session: BookingSession) => ({
+          key: `${booking.id}-${session.id}`,
+          sessionId: session.id,
+          bookingId: booking.bookingId,
+          customerName:
+            booking.customer?.name || booking.customerName || "Unknown",
+          mobile: booking.customer?.contact1 || booking.customerMobile,
+          address: booking.customer?.address || "Address not provided",
+          course: booking.course?.courseName || booking.courseName,
+          slot: session.slot,
+          date: dayjs(session.sessionDate).format("YYYY-MM-DD"),
+          carName: `${booking.car?.carName || booking.carName} - ${
+            booking.car?.registrationNumber || ""
+          }`,
+          status: session.status.toLowerCase() as
+            | "pending"
+            | "completed"
+            | "cancelled",
+          attendanceMarked:
+            session.attended ||
+            session.status === "COMPLETED" ||
+            session.status === "NO_SHOW",
+          attendanceNotes: session.instructorNotes || "",
+        }))
+    ) || [];
+
+  // Update booking session mutation
+  const updateSessionMutation = useMutation({
+    mutationKey: ["updateBookingSession"],
+    mutationFn: async (data: {
+      sessionId: number;
+      status: "COMPLETED" | "NO_SHOW";
+      notes: string;
+    }) => {
+      return await updateBookingSession({
+        id: data.sessionId,
+        status: data.status,
+        attended: data.status === "COMPLETED",
+        completedAt: new Date(),
+        instructorNotes: data.notes,
+      });
     },
-    {
-      key: "3",
-      bookingId: "BK-2024-003",
-      customerName: "Amit Singh",
-      mobile: "9876543212",
-      address: "B-67, Janakpuri, Near Metro Station, New Delhi - 110058",
-      course: "Highway Driving",
-      slot: "11:00 AM - 12:00 PM",
-      date: dayjs().format("YYYY-MM-DD"),
-      carName: "Swift Dzire - DL01AB1234",
-      status: "pending",
-      attendanceMarked: false,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["driverBookings"] });
+      toast.success("Attendance marked successfully");
     },
-    {
-      key: "4",
-      bookingId: "BK-2024-004",
-      customerName: "Sneha Reddy",
-      mobile: "9876543213",
-      address: "Tower 3, Apartment 901, Vasant Kunj, New Delhi - 110070",
-      course: "Basic Driving",
-      slot: "02:00 PM - 03:00 PM",
-      date: dayjs().add(1, "day").format("YYYY-MM-DD"),
-      carName: "Swift Dzire - DL01AB1234",
-      status: "pending",
-      attendanceMarked: false,
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to mark attendance");
     },
-    {
-      key: "5",
-      bookingId: "BK-2024-005",
-      customerName: "Vikram Patel",
-      mobile: "9876543214",
-      address: "Plot 89, Saket, Near Hospital, New Delhi - 110017",
-      course: "Parking Practice",
-      slot: "03:00 PM - 04:00 PM",
-      date: dayjs().add(2, "day").format("YYYY-MM-DD"),
-      carName: "Swift Dzire - DL01AB1234",
-      status: "cancelled",
-      attendanceMarked: false,
-    },
-    {
-      key: "6",
-      bookingId: "BK-2024-006",
-      customerName: "Neha Gupta",
-      mobile: "9876543215",
-      address: "House 234, Pitampura, Near Mall, New Delhi - 110034",
-      course: "Basic Driving",
-      slot: "04:00 PM - 05:00 PM",
-      date: dayjs().add(3, "day").format("YYYY-MM-DD"),
-      carName: "Swift Dzire - DL01AB1234",
-      status: "pending",
-      attendanceMarked: false,
-    },
-    {
-      key: "7",
-      bookingId: "BK-2024-007",
-      customerName: "Arjun Verma",
-      mobile: "9876543216",
-      address: "A-45, Model Town, New Delhi - 110009",
-      course: "Advanced Driving",
-      slot: "09:00 AM - 10:00 AM",
-      date: dayjs().add(1, "day").format("YYYY-MM-DD"),
-      carName: "Swift Dzire - DL01AB1234",
-      status: "pending",
-      attendanceMarked: false,
-    },
-    {
-      key: "8",
-      bookingId: "BK-2024-008",
-      customerName: "Kavya Nair",
-      mobile: "9876543217",
-      address: "C-12, Connaught Place, New Delhi - 110001",
-      course: "Basic Driving",
-      slot: "11:00 AM - 12:00 PM",
-      date: dayjs().add(4, "day").format("YYYY-MM-DD"),
-      carName: "Swift Dzire - DL01AB1234",
-      status: "pending",
-      attendanceMarked: false,
-    },
-    {
-      key: "9",
-      bookingId: "BK-2024-009",
-      customerName: "Rohan Malhotra",
-      mobile: "9876543218",
-      address: "D-78, Defence Colony, New Delhi - 110024",
-      course: "Highway Driving",
-      slot: "01:00 PM - 02:00 PM",
-      date: dayjs().add(5, "day").format("YYYY-MM-DD"),
-      carName: "Swift Dzire - DL01AB1234",
-      status: "pending",
-      attendanceMarked: false,
-    },
-    {
-      key: "10",
-      bookingId: "BK-2024-010",
-      customerName: "Meera Kapoor",
-      mobile: "9876543219",
-      address: "E-23, Greater Kailash, New Delhi - 110048",
-      course: "Parking Practice",
-      slot: "03:00 PM - 04:00 PM",
-      date: dayjs().add(6, "day").format("YYYY-MM-DD"),
-      carName: "Swift Dzire - DL01AB1234",
-      status: "pending",
-      attendanceMarked: false,
-    },
-    {
-      key: "11",
-      bookingId: "BK-2024-011",
-      customerName: "Siddharth Roy",
-      mobile: "9876543220",
-      address: "F-56, Hauz Khas, New Delhi - 110016",
-      course: "Basic Driving",
-      slot: "10:00 AM - 11:00 AM",
-      date: dayjs().format("YYYY-MM-DD"),
-      carName: "Swift Dzire - DL01AB1234",
-      status: "pending",
-      attendanceMarked: false,
-    },
-    {
-      key: "12",
-      bookingId: "BK-2024-012",
-      customerName: "Ananya Das",
-      mobile: "9876543221",
-      address: "G-90, Lajpat Nagar, New Delhi - 110024",
-      course: "Advanced Driving",
-      slot: "02:00 PM - 03:00 PM",
-      date: dayjs().format("YYYY-MM-DD"),
-      carName: "Swift Dzire - DL01AB1234",
-      status: "completed",
-      attendanceMarked: true,
-      attendanceNotes: "Excellent progress",
-    },
-  ]);
+  });
 
   const [attendanceModal, setAttendanceModal] = useState({
     visible: false,
     booking: null as BookingSlot | null,
+    sessionId: null as number | null,
     notes: "",
-    status: "completed" as "completed" | "cancelled",
+    status: "completed" as "completed" | "no_show",
   });
 
   // Filter bookings by date and status
-  const filteredBookings = bookings.filter((booking) => {
+  const filteredBookings = allBookings.filter((booking) => {
     const bookingDate = dayjs(booking.date);
     const isDateMatch = bookingDate.isSame(selectedDate, "day");
     if (!isDateMatch) return false;
@@ -249,7 +171,7 @@ const DriverPage = () => {
   const paginatedBookings = sortedBookings.slice(startIndex, endIndex);
 
   // Calculate statistics for selected date
-  const dateFilteredBookings = bookings.filter((booking) => {
+  const dateFilteredBookings = allBookings.filter((booking) => {
     const bookingDate = dayjs(booking.date);
     return bookingDate.isSame(selectedDate, "day");
   });
@@ -263,71 +185,34 @@ const DriverPage = () => {
       .length,
   };
 
-  // Disable dates outside the 7-day range
-  const disabledDate = (current: dayjs.Dayjs) => {
-    const today = dayjs().startOf("day");
-    const maxDate = dayjs().add(7, "day").endOf("day");
-    return current < today || current > maxDate;
-  };
-
-  const handleMarkAttendance = (booking: BookingSlot) => {
+  const handleMarkAttendance = (
+    booking: BookingSlot & { sessionId: number }
+  ) => {
     setAttendanceModal({
       visible: true,
       booking,
+      sessionId: booking.sessionId,
       notes: "",
       status: "completed",
     });
   };
 
   const handleAttendanceSubmit = () => {
-    if (!attendanceModal.booking) return;
+    if (!attendanceModal.sessionId) return;
 
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.key === attendanceModal.booking?.key
-          ? {
-              ...b,
-              status: attendanceModal.status,
-              attendanceMarked: true,
-              attendanceNotes: attendanceModal.notes,
-            }
-          : b
-      )
-    );
-
-    toast.success(
-      `Attendance marked as ${attendanceModal.status} for ${attendanceModal.booking.customerName}`
-    );
+    updateSessionMutation.mutate({
+      sessionId: attendanceModal.sessionId,
+      status: attendanceModal.status === "completed" ? "COMPLETED" : "NO_SHOW",
+      notes: attendanceModal.notes,
+    });
 
     setAttendanceModal({
       visible: false,
       booking: null,
+      sessionId: null,
       notes: "",
       status: "completed",
     });
-  };
-
-  const userMenuItems: MenuProps["items"] = [
-    {
-      key: "profile",
-      icon: <MaterialSymbolsPersonRounded className="text-lg" />,
-      label: "Profile",
-    },
-    {
-      type: "divider",
-    },
-    {
-      key: "logout",
-      icon: <MaterialSymbolsLogout className="text-lg" />,
-      label: "Logout",
-      danger: true,
-    },
-  ];
-
-  const handleUserMenuClick: MenuProps["onClick"] = (e) => {
-    if (e.key === "logout") {
-      router.push("/login");
-    }
   };
 
   const getStatusTag = (status: "pending" | "completed" | "cancelled") => {
@@ -364,256 +249,205 @@ const DriverPage = () => {
     );
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Spin size="large" tip="Loading bookings..." />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Driver Dashboard
-              </h1>
-              <p className="text-gray-600 mt-1 text-sm">
-                {new Date().toLocaleDateString("en-IN", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button
-                type="default"
-                icon={<IcBaselineRefresh className="text-lg" />}
-                size="large"
-              >
-                Refresh
-              </Button>
-              <Dropdown
-                menu={{ items: userMenuItems, onClick: handleUserMenuClick }}
-                trigger={["click"]}
-                placement="bottomRight"
-              >
-                <div className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-all border border-gray-200">
-                  <Avatar
-                    size={40}
-                    icon={<IcBaselineAccountCircle />}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600"
-                  />
-                  <div className="text-left hidden md:block">
-                    <p className="text-gray-900 font-semibold text-sm">
-                      Ramesh Kumar
-                    </p>
-                    <p className="text-gray-500 text-xs">Driver ID: DRV-001</p>
-                  </div>
-                </div>
-              </Dropdown>
-            </div>
+    <div className="space-y-6 p-6">
+      {/* Page Header */}
+      <Card className="shadow-sm">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-1">
+              Today&apos;s Sessions
+            </h2>
+            <p className="text-gray-600 text-sm">
+              Manage your driving sessions and mark attendance
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <DatePicker
+              value={selectedDate}
+              onChange={(date) => date && setSelectedDate(date)}
+              format="DD MMM, YYYY"
+              size="large"
+              className="!w-48"
+              disabledDate={(current) => {
+                const today = dayjs();
+                return (
+                  current &&
+                  (current.isBefore(today, "day") ||
+                    current.isAfter(today.add(7, "day"), "day"))
+                );
+              }}
+            />
+            <Button
+              type="default"
+              icon={<IcBaselineRefresh className="text-lg" />}
+              size="large"
+              onClick={() => refetch()}
+            >
+              Refresh
+            </Button>
           </div>
         </div>
-      </div>
+      </Card>
+      <div></div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {/* Statistics Cards */}
-        <Row gutter={[20, 20]}>
-          <Col xs={12} sm={12} lg={6}>
-            <Card className="shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                  <MaterialSymbolsPersonRounded className="text-blue-600 text-2xl" />
-                </div>
-                <div>
-                  <p className="text-gray-600 text-xs mb-1">Total Slots</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {stats.totalSlots}
-                  </p>
-                </div>
+      {/* Statistics Cards */}
+      <Row gutter={[16, 16]}>
+        <Col xs={12} sm={12} lg={6}>
+          <Card className="shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                <MaterialSymbolsPersonRounded className="text-blue-600 text-2xl" />
               </div>
-            </Card>
-          </Col>
-          <Col xs={12} sm={12} lg={6}>
-            <Card className="shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
-                  <MaterialSymbolsCheckCircle className="text-green-600 text-2xl" />
-                </div>
-                <div>
-                  <p className="text-gray-600 text-xs mb-1">Completed</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {stats.completed}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </Col>
-          <Col xs={12} sm={12} lg={6}>
-            <Card className="shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
-                  <Fa6RegularHourglassHalf className="text-orange-600 text-2xl" />
-                </div>
-                <div>
-                  <p className="text-gray-600 text-xs mb-1">Pending</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {stats.pending}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </Col>
-          <Col xs={12} sm={12} lg={6}>
-            <Card className="shadow-sm">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
-                  <AntDesignCloseCircleOutlined className="text-red-600 text-2xl" />
-                </div>
-                <div>
-                  <p className="text-gray-600 text-xs mb-1">Cancelled</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {stats.cancelled}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </Col>
-        </Row>
-
-        {/* Filter and Actions */}
-        <Card className="shadow-sm">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-gray-700 font-medium">Date:</span>
-                <DatePicker
-                  value={selectedDate}
-                  onChange={(date) => {
-                    if (date) {
-                      setSelectedDate(date);
-                      setCurrentPage(1);
-                    }
-                  }}
-                  disabledDate={disabledDate}
-                  format="DD MMM YYYY"
-                  size="large"
-                  className="!w-[180px]"
-                />
-                <div className="flex gap-2">
-                  <Button
-                    type={
-                      selectedDate.isSame(dayjs(), "day")
-                        ? "primary"
-                        : "default"
-                    }
-                    onClick={() => {
-                      setSelectedDate(dayjs());
-                      setCurrentPage(1);
-                    }}
-                  >
-                    Today
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setSelectedDate(selectedDate.add(1, "day"));
-                      setCurrentPage(1);
-                    }}
-                    disabled={selectedDate.isAfter(
-                      dayjs().add(6, "day"),
-                      "day"
-                    )}
-                  >
-                    Next Day
-                  </Button>
-                </div>
+              <div>
+                <p className="text-gray-600 text-xs mb-1">Total Slots</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {stats.totalSlots}
+                </p>
               </div>
             </div>
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-gray-700 font-medium">Filter:</span>
-                <Space.Compact>
-                  <Button
-                    type={filterStatus === "all" ? "primary" : "default"}
-                    onClick={() => {
-                      setFilterStatus("all");
-                      setCurrentPage(1);
-                    }}
-                  >
-                    All ({dateFilteredBookings.length})
-                  </Button>
-                  <Button
-                    type={filterStatus === "pending" ? "primary" : "default"}
-                    onClick={() => {
-                      setFilterStatus("pending");
-                      setCurrentPage(1);
-                    }}
-                  >
-                    Pending ({stats.pending})
-                  </Button>
-                  <Button
-                    type={filterStatus === "completed" ? "primary" : "default"}
-                    onClick={() => {
-                      setFilterStatus("completed");
-                      setCurrentPage(1);
-                    }}
-                  >
-                    Completed ({stats.completed})
-                  </Button>
-                  <Button
-                    type={filterStatus === "cancelled" ? "primary" : "default"}
-                    onClick={() => {
-                      setFilterStatus("cancelled");
-                      setCurrentPage(1);
-                    }}
-                  >
-                    Cancelled ({stats.cancelled})
-                  </Button>
-                </Space.Compact>
+          </Card>
+        </Col>
+        <Col xs={12} sm={12} lg={6}>
+          <Card className="shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
+                <MaterialSymbolsCheckCircle className="text-green-600 text-2xl" />
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-gray-700 font-medium">Sort:</span>
-                <Select
-                  value={sortBy}
-                  onChange={setSortBy}
-                  style={{ width: 150 }}
-                  options={[
-                    { label: "By Time", value: "time" },
-                    { label: "By Status", value: "status" },
-                  ]}
-                />
+              <div>
+                <p className="text-gray-600 text-xs mb-1">Completed</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {stats.completed}
+                </p>
               </div>
             </div>
+          </Card>
+        </Col>
+        <Col xs={12} sm={12} lg={6}>
+          <Card className="shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
+                <Fa6RegularHourglassHalf className="text-orange-600 text-2xl" />
+              </div>
+              <div>
+                <p className="text-gray-600 text-xs mb-1">Pending</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {stats.pending}
+                </p>
+              </div>
+            </div>
+          </Card>
+        </Col>
+        <Col xs={12} sm={12} lg={6}>
+          <Card className="shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
+                <AntDesignCloseCircleOutlined className="text-red-600 text-2xl" />
+              </div>
+              <div>
+                <p className="text-gray-600 text-xs mb-1">Cancelled</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {stats.cancelled}
+                </p>
+              </div>
+            </div>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Filter and Actions */}
+      <Card className="shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-gray-700 font-medium">Filter:</span>
+            <Space.Compact>
+              <Button
+                type={filterStatus === "all" ? "primary" : "default"}
+                onClick={() => {
+                  setFilterStatus("all");
+                  setCurrentPage(1);
+                }}
+              >
+                All ({dateFilteredBookings.length})
+              </Button>
+              <Button
+                type={filterStatus === "pending" ? "primary" : "default"}
+                onClick={() => {
+                  setFilterStatus("pending");
+                  setCurrentPage(1);
+                }}
+              >
+                Pending ({stats.pending})
+              </Button>
+              <Button
+                type={filterStatus === "completed" ? "primary" : "default"}
+                onClick={() => {
+                  setFilterStatus("completed");
+                  setCurrentPage(1);
+                }}
+              >
+                Completed ({stats.completed})
+              </Button>
+              <Button
+                type={filterStatus === "cancelled" ? "primary" : "default"}
+                onClick={() => {
+                  setFilterStatus("cancelled");
+                  setCurrentPage(1);
+                }}
+              >
+                Cancelled ({stats.cancelled})
+              </Button>
+            </Space.Compact>
           </div>
-        </Card>
-
-        {/* Bookings List */}
-        <div className="space-y-4">
-          {paginatedBookings.length === 0 && (
-            <div>
-              <Card className="shadow-sm">
-                <div className="text-center py-12">
-                  <Fa6RegularClock className="text-gray-300 text-5xl mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    No bookings found
-                  </h3>
-                  <p className="text-gray-500">
-                    {filterStatus === "all"
-                      ? `You don't have any bookings scheduled for ${selectedDate.format(
-                          "DD MMMM YYYY"
-                        )}.`
-                      : `No ${filterStatus} bookings found for ${selectedDate.format(
-                          "DD MMMM YYYY"
-                        )}.`}
-                  </p>
-                </div>
-              </Card>
-            </div>
-          )}
-          {paginatedBookings.map((booking) => (
-            <Card
-              key={booking.key}
-              className="shadow-sm hover:shadow transition-all"
-            >
+          <div className="flex items-center gap-3">
+            <span className="text-gray-700 font-medium">Sort:</span>
+            <Select
+              value={sortBy}
+              onChange={setSortBy}
+              style={{ width: 150 }}
+              options={[
+                { label: "By Time", value: "time" },
+                { label: "By Status", value: "status" },
+              ]}
+            />
+          </div>
+        </div>
+      </Card>
+      <div></div>
+      {/* Bookings List */}
+      <div className="space-y-4">
+        {paginatedBookings.length === 0 && (
+          <div>
+            <Card className="shadow-sm">
+              <div className="text-center py-12">
+                <Fa6RegularClock className="text-gray-300 text-5xl mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  No bookings found
+                </h3>
+                <p className="text-gray-500">
+                  {filterStatus === "all"
+                    ? `You don't have any bookings scheduled for ${selectedDate.format(
+                        "DD MMMM YYYY"
+                      )}.`
+                    : `No ${filterStatus} bookings found for ${selectedDate.format(
+                        "DD MMMM YYYY"
+                      )}.`}
+                </p>
+              </div>
+            </Card>
+          </div>
+        )}
+        {paginatedBookings.map((booking) => (
+          <div key={booking.key} className="mt-3">
+            <Card className="shadow-sm hover:shadow transition-all">
               <div className="flex flex-col lg:flex-row gap-6">
                 {/* Left Section - Time */}
                 <div className="flex-shrink-0">
@@ -696,7 +530,11 @@ const DriverPage = () => {
                         type="primary"
                         size="large"
                         icon={<AntDesignCheckOutlined />}
-                        onClick={() => handleMarkAttendance(booking)}
+                        onClick={() =>
+                          handleMarkAttendance(
+                            booking as BookingSlot & { sessionId: number }
+                          )
+                        }
                         className="!bg-blue-600 hover:!bg-blue-700"
                       >
                         Mark Attendance
@@ -713,8 +551,8 @@ const DriverPage = () => {
                 </div>
               </div>
             </Card>
-          ))}
-        </div>
+          </div>
+        ))}
 
         {/* Pagination */}
         {sortedBookings.length > pageSize && (
@@ -749,12 +587,17 @@ const DriverPage = () => {
           setAttendanceModal({
             visible: false,
             booking: null,
+            sessionId: null,
             notes: "",
             status: "completed",
           })
         }
         okText="Submit Attendance"
-        okButtonProps={{ size: "large", className: "!h-11" }}
+        okButtonProps={{
+          size: "large",
+          className: "!h-11",
+          loading: updateSessionMutation.isPending,
+        }}
         cancelButtonProps={{ size: "large", className: "!h-11" }}
         width={650}
       >
@@ -768,25 +611,25 @@ const DriverPage = () => {
                 <div>
                   <span className="text-gray-600 block mb-1">Name</span>
                   <span className="font-semibold text-gray-900">
-                    {attendanceModal.booking.customerName}
+                    {attendanceModal.booking?.customerName}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-600 block mb-1">Mobile</span>
                   <span className="font-semibold text-gray-900">
-                    {attendanceModal.booking.mobile}
+                    {attendanceModal.booking?.mobile}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-600 block mb-1">Time Slot</span>
                   <span className="font-semibold text-gray-900">
-                    {attendanceModal.booking.slot}
+                    {attendanceModal.booking?.slot}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-600 block mb-1">Course</span>
                   <span className="font-semibold text-gray-900">
-                    {attendanceModal.booking.course}
+                    {attendanceModal.booking?.course}
                   </span>
                 </div>
               </div>
@@ -821,17 +664,15 @@ const DriverPage = () => {
                 </Button>
                 <Button
                   type={
-                    attendanceModal.status === "cancelled"
-                      ? "primary"
-                      : "default"
+                    attendanceModal.status === "no_show" ? "primary" : "default"
                   }
                   size="large"
-                  danger={attendanceModal.status === "cancelled"}
+                  danger={attendanceModal.status === "no_show"}
                   icon={<MaterialSymbolsFreeCancellation />}
                   onClick={() =>
                     setAttendanceModal((prev) => ({
                       ...prev,
-                      status: "cancelled",
+                      status: "no_show",
                     }))
                   }
                 >

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   DatePicker,
   Table,
@@ -167,14 +167,14 @@ const CarScheduler = () => {
 
   // Get school ID from cookie
   const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
-
+  
   // Fetch school data for timing information
   const { data: schoolResponse, isLoading: loadingSchool } = useQuery({
     queryKey: ["school", schoolId],
     queryFn: () => getSchoolById(schoolId),
     enabled: schoolId > 0,
   });
-
+  
   const schoolData = schoolResponse?.data?.getSchoolById;
 
   // Generate all available time slots based on school timings
@@ -218,7 +218,7 @@ const CarScheduler = () => {
     [carsResponse]
   );
 
-  // Fetch all booking sessions for the school
+  // Fetch booking sessions for the selected date
   const {
     data: sessionsResponse,
     isLoading: loadingBookings,
@@ -256,7 +256,7 @@ const CarScheduler = () => {
         }`,
         variables: {
           whereSearchInput: {
-            sessionDate: selectedDate.format('YYYY-MM-DD'),
+            sessionDate: selectedDate.format("YYYY-MM-DD"),
           },
         },
       });
@@ -264,6 +264,83 @@ const CarScheduler = () => {
     },
     enabled: schoolId > 0,
   });
+
+  // Get all booking IDs from current sessions to fetch complete session data
+  const bookingIds = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = sessionsResponse?.data as any;
+    const sessions = (data?.getAllBookingSession || []) as (BookingSession & {
+      booking: Booking;
+    })[];
+    const ids = new Set<number>();
+    sessions.forEach((session) => {
+      if (session.booking?.id && session.booking?.schoolId === schoolId) {
+        ids.add(session.booking.id);
+      }
+    });
+    return Array.from(ids);
+  }, [sessionsResponse, schoolId]);
+
+  // Fetch all sessions for each booking to get accurate free dates
+  const { data: futureSessionsResponse, isLoading: loadingFutureSessions } =
+    useQuery({
+      queryKey: [
+        "scheduler-all-booking-sessions",
+        schoolId,
+        bookingIds.join(","),
+      ],
+      queryFn: async () => {
+        if (bookingIds.length === 0)
+          return { data: { getAllBookingSession: [] } };
+
+        // Fetch sessions for all bookings in parallel
+        const promises = bookingIds.map((bookingId) =>
+          ApiCall({
+            query: `query GetAllBookingSession($whereSearchInput: WhereBookingSessionSearchInput!) {
+            getAllBookingSession(whereSearchInput: $whereSearchInput) {
+              id
+              bookingId
+              dayNumber
+              sessionDate
+              slot
+              status
+              attended
+              booking {
+                id
+                bookingId
+                carId
+                slot
+                bookingDate
+                customerName
+                customerMobile
+                courseName
+                status
+                schoolId
+              }
+            }
+          }`,
+            variables: {
+              whereSearchInput: {
+                bookingId: bookingId,
+              },
+            },
+          })
+        );
+
+        const results = await Promise.all(promises);
+
+        // Combine all sessions from all bookings
+        const allSessions: (BookingSession & { booking: Booking })[] = [];
+        results.forEach((result) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const data = result?.data as any;
+          const sessions = data?.getAllBookingSession || [];
+          allSessions.push(...sessions);
+        });
+        return { data: { getAllBookingSession: allSessions } };
+      },
+      enabled: schoolId > 0 && bookingIds.length > 0,
+    });
 
   const allSessions = useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -274,6 +351,21 @@ const CarScheduler = () => {
     // Filter sessions by schoolId since the query doesn't support it directly
     return sessions.filter((session) => session.booking?.schoolId === schoolId);
   }, [sessionsResponse, schoolId]);
+
+  // Get all sessions from bookings and filter for future dates
+  const allFutureSessions = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = futureSessionsResponse?.data as any;
+    const sessions = (data?.getAllBookingSession || []) as (BookingSession & {
+      booking: Booking;
+    })[];
+    // Filter by school and only include current/future sessions
+    const today = selectedDate.format("YYYY-MM-DD");
+    return sessions.filter(
+      (session) =>
+        session.booking?.schoolId === schoolId && session.sessionDate >= today
+    );
+  }, [futureSessionsResponse, schoolId, selectedDate]);
 
   // Fetch holidays for the school
   const { data: holidaysResponse, isLoading: loadingHolidays } = useQuery({
@@ -314,17 +406,29 @@ const CarScheduler = () => {
   // Enrich cars with bookings and holiday information
   const enrichedCars: EnrichedCar[] = useMemo(() => {
     return carsData.map((car) => {
-      // Get sessions for this car
+      // Get all sessions for this car (including future sessions for accurate free date)
       const carSessions = allSessions.filter(
         (session) => session.booking?.carId === car.id
       );
+
+      const carFutureSessions = allFutureSessions.filter(
+        (session) => session.booking?.carId === car.id
+      );
+
+      // Combine current and future sessions, removing duplicates
+      const allCarSessions = [...carSessions];
+      carFutureSessions.forEach((futureSession) => {
+        if (!allCarSessions.some((s) => s.id === futureSession.id)) {
+          allCarSessions.push(futureSession);
+        }
+      });
 
       // Group sessions by booking
       const bookingsMap = new Map<
         number,
         Booking & { sessions: BookingSession[] }
       >();
-      carSessions.forEach((session) => {
+      allCarSessions.forEach((session) => {
         if (session.booking) {
           if (!bookingsMap.has(session.booking.id)) {
             bookingsMap.set(session.booking.id, {
@@ -393,7 +497,14 @@ const CarScheduler = () => {
         holidaySlots: [...new Set(holidaySlots)], // Remove duplicates
       };
     });
-  }, [carsData, allSessions, holidays, selectedDate, allSlots]);
+  }, [
+    carsData,
+    allSessions,
+    allFutureSessions,
+    holidays,
+    selectedDate,
+    allSlots,
+  ]);
 
   // Filter cars by status
   const filteredCars = useMemo(() => {
@@ -464,30 +575,35 @@ const CarScheduler = () => {
     return null;
   };
 
-  // Get next available date for a booked slot
+  // Get next available date for a booked slot by checking ALL sessions for this car and slot
   const getNextFreeDate = (car: EnrichedCar, slot: string): string | null => {
-    const bookingInfo = getBookingInfo(car, slot);
-    if (!bookingInfo) return null;
+    // Collect all sessions for this car and slot from ALL bookings
+    const allSlotSessions: BookingSession[] = [];
 
-    const { booking } = bookingInfo;
-    if (!booking.sessions || booking.sessions.length === 0) return null;
+    car.bookings.forEach((booking) => {
+      if (booking.sessions) {
+        const sessions = booking.sessions.filter(
+          (s) => s.slot === slot && s.status !== "CANCELLED"
+        );
+        allSlotSessions.push(...sessions);
+      }
+    });
 
-    // Find the last session for this booking and slot
-    const slotSessions = booking.sessions
-      .filter((s) => s.slot === slot && s.status !== "CANCELLED")
-      .sort(
-        (a, b) =>
-          dayjs(a.sessionDate).valueOf() - dayjs(b.sessionDate).valueOf()
-      );
+    if (allSlotSessions.length === 0) return null;
 
-    if (slotSessions.length === 0) return null;
 
-    const lastSession = slotSessions[slotSessions.length - 1];
+    // Sort all sessions by date to find the absolute last one
+    const sortedSessions = allSlotSessions.sort(
+      (a, b) => dayjs(a.sessionDate).valueOf() - dayjs(b.sessionDate).valueOf()
+    );
 
-    // Add 1 day after last session, skipping weekly holiday
-    let nextDate = dayjs(lastSession.sessionDate).add(1, "day");
+    const lastSession = sortedSessions[sortedSessions.length - 1];
 
-    // Skip weekly holiday
+    // Add 1 day after the last session across all bookings
+    // Use UTC to ensure consistent date parsing
+    let nextDate = dayjs.utc(lastSession.sessionDate).add(1, "day");
+
+    // Skip weekly holiday if the next day falls on it
     if (schoolData?.weeklyHoliday) {
       const weeklyHoliday = schoolData.weeklyHoliday.toUpperCase();
       const dayMap: { [key: string]: number } = {
@@ -505,6 +621,7 @@ const CarScheduler = () => {
         nextDate = nextDate.add(1, "day");
       }
     }
+
 
     return nextDate.format("YYYY-MM-DD");
   };
@@ -699,22 +816,30 @@ const CarScheduler = () => {
     0
   );
 
-  const isLoading =
-    loadingSchool || loadingCars || loadingBookings || loadingHolidays;
+  // Initial loading - only wait for essential data
+  const isInitialLoading = loadingSchool || loadingCars;
+  
+  // Background loading for heavy queries
+  const isBackgroundLoading = loadingBookings || loadingHolidays || (bookingIds.length > 0 && loadingFutureSessions);
 
-  if (isLoading) {
+
+  // Show loading spinner while essential data is being fetched
+  if (isInitialLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
         <div className="text-center">
           <Spin size="large" />
           <p className="text-gray-600 text-lg mt-4">
-            Loading scheduler data...
+            Loading scheduler...
           </p>
         </div>
       </div>
     );
   }
 
+
+
+  // Only check for missing data after loading is complete
   if (!schoolData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
@@ -726,6 +851,8 @@ const CarScheduler = () => {
       </div>
     );
   }
+
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
@@ -744,10 +871,10 @@ const CarScheduler = () => {
             </div>
             <Button
               type="primary"
-              icon={<ReloadOutlined spin={isLoading} />}
+              icon={<ReloadOutlined spin={isBackgroundLoading} />}
               onClick={handleRefresh}
               size="large"
-              loading={isLoading}
+              loading={isBackgroundLoading}
             >
               Refresh
             </Button>
@@ -888,29 +1015,7 @@ const CarScheduler = () => {
         </div>
 
         {/* School Info Banner */}
-        {schoolData.weeklyHoliday && (
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-5 border-2 border-blue-300">
-            <div className="flex items-center gap-3">
-              <div className="text-2xl">📅</div>
-              <div>
-                <p className="font-bold text-blue-800">School Schedule</p>
-                <p className="text-sm text-blue-700">
-                  Operating Hours: {schoolData.dayStartTime} -{" "}
-                  {schoolData.dayEndTime}
-                  {schoolData.lunchStartTime && schoolData.lunchEndTime && (
-                    <span>
-                      {" "}
-                      (Lunch: {schoolData.lunchStartTime} -{" "}
-                      {schoolData.lunchEndTime})
-                    </span>
-                  )}
-                  {" • "}Weekly Holiday:{" "}
-                  <span className="font-bold">{schoolData.weeklyHoliday}s</span>
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        {/*   */}
 
         {/* Legend & Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
@@ -931,8 +1036,12 @@ const CarScheduler = () => {
                 <div className="w-14 h-14 bg-red-50 border-2 border-red-300 rounded flex flex-col items-center justify-center p-1">
                   <CloseCircleOutlined className="text-red-600 text-base" />
                   <div className="text-center">
-                    <div className="text-[9px] text-red-600 font-medium leading-tight">Free from</div>
-                    <div className="text-[10px] text-red-700 font-bold leading-tight">15 Nov</div>
+                    <div className="text-[9px] text-red-600 font-medium leading-tight">
+                      Free from
+                    </div>
+                    <div className="text-[10px] text-red-700 font-bold leading-tight">
+                      15 Nov
+                    </div>
                   </div>
                 </div>
                 <span className="text-sm text-gray-700">
@@ -992,7 +1101,15 @@ const CarScheduler = () => {
         </div>
 
         {/* Time Period Tabs with Schedule Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden relative">
+          {isBackgroundLoading && (
+            <div className="absolute top-0 left-0 right-0 bg-blue-50 border-b border-blue-200 px-4 py-2 z-10 flex items-center gap-2">
+              <Spin size="small" />
+              <span className="text-sm text-blue-700 font-medium">
+                Loading booking details...
+              </span>
+            </div>
+          )}
           <Tabs
             activeKey={activeTab}
             onChange={(key) =>

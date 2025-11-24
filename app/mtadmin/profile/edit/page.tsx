@@ -17,6 +17,8 @@ import { IcBaselineArrowBack, AntDesignCheckOutlined } from "@/components/icons"
 import { Button, Spin, Alert } from "antd";
 import { getCookie } from "cookies-next";
 import { getSchoolById, updateSchool } from "@/services/school.api";
+import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
 
 const weekDays = [
   { label: "Monday", value: "Monday" },
@@ -28,10 +30,40 @@ const weekDays = [
   { label: "Sunday", value: "Sunday" },
 ];
 
+dayjs.extend(customParseFormat);
+
 const EditSchoolProfilePage = () => {
   const router = useRouter();
   const initialDataLoaded = useRef(false);
   const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
+
+  // Helper function to convert 24-hour time to 12-hour format
+  const convertTo12Hour = (time24: string | null | undefined): string => {
+    if (!time24) return "";
+    
+    // Try parsing various 24-hour formats (HH:mm, HH:mm:ss, H:mm)
+    const parsedTime = dayjs(time24, ["HH:mm:ss", "HH:mm", "H:mm"], true);
+    
+    // If parsing failed, return empty string
+    if (!parsedTime.isValid()) return "";
+    
+    // Convert to 12-hour format
+    return parsedTime.format("h:mm A");
+  };
+
+  // Helper function to convert 12-hour time to 24-hour format
+  const convertTo24Hour = (time12: string | null | undefined): string => {
+    if (!time12) return "";
+    
+    // Parse 12-hour format (h:mm A)
+    const parsedTime = dayjs(time12, "h:mm A", true);
+    
+    // If parsing failed, return empty string
+    if (!parsedTime.isValid()) return "";
+    
+    // Convert to 24-hour format
+    return parsedTime.format("HH:mm");
+  };
 
   const methods = useForm<EditProfileForm>({
     resolver: valibotResolver(EditProfileSchema),
@@ -63,10 +95,10 @@ const EditSchoolProfilePage = () => {
         gstNumber: school.gstNumber || "",
         establishedYear: school.establishedYear || "",
         website: school.website || "",
-        dayStartTime: school.dayStartTime || "",
-        dayEndTime: school.dayEndTime || "",
-        lunchStartTime: school.lunchStartTime || "",
-        lunchEndTime: school.lunchEndTime || "",
+        dayStartTime: convertTo12Hour(school.dayStartTime),
+        dayEndTime: convertTo12Hour(school.dayEndTime),
+        lunchStartTime: convertTo12Hour(school.lunchStartTime),
+        lunchEndTime: convertTo12Hour(school.lunchEndTime),
         weeklyHoliday: school.weeklyHoliday || "",
         ownerName: school.ownerName || "",
         ownerPhone: school.ownerPhone || "",
@@ -95,22 +127,22 @@ const EditSchoolProfilePage = () => {
       const updateData = {
         id: schoolId,
         name: data.name,
-        email: data.email,
+        email: data.email || undefined,
         phone: data.phone,
         alternatePhone: data.alternatePhone || undefined,
         address: data.address,
         registrationNumber: data.registrationNumber,
-        gstNumber: data.gstNumber || undefined,
+        gstNumber: data.gstNumber && data.gstNumber.trim() !== "" ? data.gstNumber : undefined,
         establishedYear: data.establishedYear,
         website: data.website || undefined,
-        dayStartTime: data.dayStartTime,
-        dayEndTime: data.dayEndTime,
-        lunchStartTime: data.lunchStartTime,
-        lunchEndTime: data.lunchEndTime,
+        dayStartTime: convertTo24Hour(data.dayStartTime),
+        dayEndTime: convertTo24Hour(data.dayEndTime),
+        lunchStartTime: convertTo24Hour(data.lunchStartTime),
+        lunchEndTime: convertTo24Hour(data.lunchEndTime),
         weeklyHoliday: data.weeklyHoliday,
         ownerName: data.ownerName,
         ownerPhone: data.ownerPhone,
-        ownerEmail: data.ownerEmail,
+        ownerEmail: data.ownerEmail && data.ownerEmail.trim() !== "" ? data.ownerEmail : undefined,
         bankName: data.bankName,
         accountNumber: data.accountNumber,
         ifscCode: data.ifscCode,
@@ -124,6 +156,7 @@ const EditSchoolProfilePage = () => {
         instagram: data.instagram || undefined,
         twitter: data.twitter || undefined,
       };
+
 
       const response = await updateSchool(updateData);
       if (!response.status) {
@@ -190,10 +223,10 @@ const EditSchoolProfilePage = () => {
         </div>
       </div>
 
-      <div className="px-8 py-6">
-        <div className="shadow-sm max-w-6xl mx-auto bg-white rounded-lg p-8">
+      <div className="px-4 sm:px-8 py-6">
+        <div className="shadow-sm max-w-6xl mx-auto bg-white rounded-lg p-4 sm:p-8 overflow-x-hidden">
           <FormProvider {...methods}>
-            <form onSubmit={methods.handleSubmit(onSubmit, onFormError)} className="space-y-6">
+            <form onSubmit={methods.handleSubmit(onSubmit, onFormError)} className="space-y-6 w-full">
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
                   Basic Information
@@ -249,8 +282,8 @@ const EditSchoolProfilePage = () => {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <TextInput<EditProfileForm>
-                    title="Email Address"
-                    required={true}
+                    title="Email Address (Optional)"
+                    required={false}
                     name="email"
                     placeholder="school@example.com"
                   />
@@ -282,15 +315,19 @@ const EditSchoolProfilePage = () => {
                     title="Day Start Time"
                     required={true}
                     name="dayStartTime"
-                    placeholder="08:00"
-                    format="HH:mm"
+                    placeholder="08:00 AM"
+                    format="h:mm A"
+                    use12Hours={true}
+                    minuteStep={30}
                   />
                   <TimeInput<EditProfileForm>
                     title="Day End Time"
                     required={true}
                     name="dayEndTime"
-                    placeholder="20:00"
-                    format="HH:mm"
+                    placeholder="08:00 PM"
+                    format="h:mm A"
+                    use12Hours={true}
+                    minuteStep={30}
                   />
                   <MultiSelect<EditProfileForm>
                     title="Weekly Holiday"
@@ -303,15 +340,19 @@ const EditSchoolProfilePage = () => {
                     title="Lunch Start Time"
                     required={true}
                     name="lunchStartTime"
-                    placeholder="13:00"
-                    format="HH:mm"
+                    placeholder="01:00 PM"
+                    format="h:mm A"
+                    use12Hours={true}
+                    minuteStep={30}
                   />
                   <TimeInput<EditProfileForm>
                     title="Lunch End Time"
                     required={true}
                     name="lunchEndTime"
-                    placeholder="14:00"
-                    format="HH:mm"
+                    placeholder="02:00 PM"
+                    format="h:mm A"
+                    use12Hours={true}
+                    minuteStep={30}
                   />
                 </div>
               </div>
@@ -336,8 +377,8 @@ const EditSchoolProfilePage = () => {
                     maxlength={10}
                   />
                   <TextInput<EditProfileForm>
-                    title="Owner Email"
-                    required={true}
+                    title="Owner Email (Optional)"
+                    required={false}
                     name="ownerEmail"
                     placeholder="owner@school.com"
                   />

@@ -117,7 +117,7 @@ const EditDriverPage = ({
       const response = await updateDriver({
         id: numericDriverId,
         name: values.name,
-        email: values.email,
+        email: values.email || undefined,
         mobile: values.mobile,
         alternatePhone: values.alternatePhone,
         dateOfBirth: values.dateOfBirth?.toDate(),
@@ -215,11 +215,11 @@ const EditDriverPage = ({
                 </Form.Item>
 
                 <Form.Item
-                  label="Email"
+                  label="Email (Optional)"
                   name="email"
                   rules={[
-                    { required: true, message: "Please enter email" },
                     { type: "email", message: "Please enter valid email" },
+                    { required: false }
                   ]}
                 >
                   <Input size="large" placeholder="Enter email address" />
@@ -266,6 +266,7 @@ const EditDriverPage = ({
                     className="w-full"
                     placeholder="Select date of birth"
                     format="DD/MM/YYYY"
+                    maxDate={dayjs().subtract(18, "years")}
                   />
                 </Form.Item>
 
@@ -336,6 +337,7 @@ const EditDriverPage = ({
                     className="w-full"
                     placeholder="Select issue date"
                     format="DD/MM/YYYY"
+                    maxDate={dayjs()}
                   />
                 </Form.Item>
 
@@ -348,6 +350,7 @@ const EditDriverPage = ({
                     className="w-full"
                     placeholder="Select expiry date"
                     format="DD/MM/YYYY"
+                    minDate={dayjs()}
                   />
                 </Form.Item>
 

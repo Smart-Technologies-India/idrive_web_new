@@ -33,25 +33,29 @@ export function RabioInput<T extends FieldValues>(props: RabioInputProps<T>) {
             </label>
             {props.extratax && props.extratax}
           </div>
-          <div className="flex gap-4">
-            {props.options.map((val: OptionValue, index: number) => {
-              return (
-                <label className="flex items-center gap-2" key={index}>
-                  <input
-                    type="radio"
-                    value={val.value}
-                    checked={field.value === val.value}
-                    onChange={() => field.onChange(val.value)}
-                    disabled={props.disable ?? false}
-                  />
-                  <p className="text-sm">{capitalcase(val.label)}</p>
-                </label>
-              );
-            })}
+          <div>
+            <div className="flex gap-4">
+              {props.options.map((val: OptionValue, index: number) => {
+                return (
+                  <label className="flex items-center gap-2" key={index}>
+                    <input
+                      type="radio"
+                      value={val.value}
+                      checked={field.value === val.value}
+                      onChange={() => field.onChange(val.value)}
+                      disabled={props.disable ?? false}
+                    />
+                    <p className="text-sm">{capitalcase(val.label)}</p>
+                  </label>
+                );
+              })}
+            </div>
+            {error && (
+              <p className="text-xs text-red-500">
+                {error.message?.toString()}
+              </p>
+            )}
           </div>
-          {error && (
-            <p className="text-xs text-red-500">{error.message?.toString()}</p>
-          )}
         </>
       )}
     />

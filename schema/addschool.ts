@@ -16,9 +16,11 @@ const AddSchoolSchema = object({
     string("Enter school name"),
     minLength(5, "School name must be at least 5 characters")
   ),
-  email: pipe(
-    string("Enter email address"),
-    regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Please enter valid email address")
+  email: optional(
+    pipe(
+      string("Enter email address"),
+      regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Please enter valid email address")
+    )
   ),
   phone: pipe(
     string("Enter phone number"),

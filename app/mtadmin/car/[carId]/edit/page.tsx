@@ -19,6 +19,7 @@ import {
 import { getCarById, updateCar } from "@/services/car.api";
 import { getAllDrivers } from "@/services/driver.api";
 import { getCookie } from "cookies-next";
+import dayjs from "dayjs";
 
 const EditCarPage = ({ params }: { params: Promise<{ carId: string }> }) => {
   const router = useRouter();
@@ -119,7 +120,7 @@ const EditCarPage = ({ params }: { params: Promise<{ carId: string }> }) => {
         fitnessExpiry: data.fitnessExpiry ? new Date(data.fitnessExpiry) : new Date(),
         lastServiceDate: data.lastServiceDate ? new Date(data.lastServiceDate) : undefined,
         nextServiceDate: data.nextServiceDate ? new Date(data.nextServiceDate) : undefined,
-        assignedDriverId: data.assignedDriverId ? parseInt(data.assignedDriverId) : undefined,
+        assignedDriverId: parseInt(data.assignedDriverId),
         status: data.status as "AVAILABLE" | "IN_USE" | "MAINTENANCE" | "INACTIVE",
       };
       return await updateCar(updateData);
@@ -366,6 +367,7 @@ const EditCarPage = ({ params }: { params: Promise<{ carId: string }> }) => {
                       title="Purchase Date"
                       placeholder="Select purchase date"
                       required
+                      maxDate={dayjs()}
                     />
                   </div>
                 </div>
@@ -391,6 +393,7 @@ const EditCarPage = ({ params }: { params: Promise<{ carId: string }> }) => {
                       title="Insurance Expiry Date"
                       placeholder="Select expiry date"
                       required
+                      minDate={dayjs()}
                     />
                   </div>
                 </div>
@@ -402,6 +405,7 @@ const EditCarPage = ({ params }: { params: Promise<{ carId: string }> }) => {
                       title="PUC Expiry Date"
                       placeholder="Select expiry date"
                       required
+                      minDate={dayjs()}
                     />
                   </div>
                   <div>
@@ -410,6 +414,7 @@ const EditCarPage = ({ params }: { params: Promise<{ carId: string }> }) => {
                       title="Fitness Expiry Date"
                       placeholder="Select expiry date"
                       required
+                      minDate={dayjs()}
                     />
                   </div>
                 </div>
@@ -441,9 +446,9 @@ const EditCarPage = ({ params }: { params: Promise<{ carId: string }> }) => {
                   <div>
                     <MultiSelect<EditCarForm>
                       name="assignedDriverId"
-                      title="Assign Driver (Optional)"
+                      title="Assign Driver"
                       placeholder="Select a driver"
-                      required={false}
+                      required={true}
                       options={driverOptions}
                     />
                   </div>

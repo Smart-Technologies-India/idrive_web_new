@@ -55,7 +55,10 @@ export const EditCarSchema = v.object({
   nextServiceDate: v.optional(v.string()),
 
   // Assignment
-  assignedDriverId: v.optional(v.string()),
+  assignedDriverId: v.pipe(
+    v.string(),
+    v.minLength(1, "Driver assignment is required")
+  ),
 
   // Status
   status: v.optional(

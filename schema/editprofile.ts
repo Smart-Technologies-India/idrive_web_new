@@ -16,9 +16,14 @@ const EditProfileSchema = object({
     string("Enter school name"),
     minLength(5, "School name must be at least 5 characters")
   ),
-  email: pipe(
-    string("Enter email address"),
-    regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Please enter valid email address")
+  email: optional(
+    pipe(
+      string(),
+      check(
+        (value) => value === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+        "Please enter valid email address"
+      )
+    )
   ),
   phone: pipe(
     string("Enter phone number"),
@@ -36,9 +41,13 @@ const EditProfileSchema = object({
   ),
   gstNumber: optional(
     pipe(
-      string("Enter GST number"),
-      regex(
-        /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
+      string(),
+      check(
+        (value) =>
+          value === "" ||
+          /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(
+            value
+          ),
         "Please enter valid GST number"
       )
     )
@@ -47,30 +56,44 @@ const EditProfileSchema = object({
     string("Enter established year"),
     regex(/^(19|20)\d{2}$/, "Please enter valid year (e.g., 2022)")
   ),
-  website: optional(pipe(string("Enter website URL"), url("Please enter valid URL"))),
-  
+  website: optional(
+    pipe(string("Enter website URL"), url("Please enter valid URL"))
+  ),
+
   // Operating Hours
   dayStartTime: pipe(
     string("Enter day start time"),
-    regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Please enter valid time in HH:mm format")
+    regex(
+      /^(1[0-2]|0?[1-9]):[0-5][0-9] (AM|PM)$/,
+      "Please enter valid time in 12-hour format (e.g., 8:00 AM)"
+    )
   ),
   dayEndTime: pipe(
     string("Enter day end time"),
-    regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Please enter valid time in HH:mm format")
+    regex(
+      /^(1[0-2]|0?[1-9]):[0-5][0-9] (AM|PM)$/,
+      "Please enter valid time in 12-hour format (e.g., 8:00 PM)"
+    )
   ),
   lunchStartTime: pipe(
     string("Enter lunch start time"),
-    regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Please enter valid time in HH:mm format")
+    regex(
+      /^(1[0-2]|0?[1-9]):[0-5][0-9] (AM|PM)$/,
+      "Please enter valid time in 12-hour format (e.g., 1:00 PM)"
+    )
   ),
   lunchEndTime: pipe(
     string("Enter lunch end time"),
-    regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Please enter valid time in HH:mm format")
+    regex(
+      /^(1[0-2]|0?[1-9]):[0-5][0-9] (AM|PM)$/,
+      "Please enter valid time in 12-hour format (e.g., 2:00 PM)"
+    )
   ),
   weeklyHoliday: pipe(
     string("Select weekly holiday"),
     minLength(1, "Please select weekly holiday")
   ),
-  
+
   // Owner Details
   ownerName: pipe(
     string("Enter owner name"),
@@ -81,11 +104,16 @@ const EditProfileSchema = object({
     minLength(10, "Phone number should be at least 10 digits"),
     check(isContainSpace, "Phone number cannot contain space")
   ),
-  ownerEmail: pipe(
-    string("Enter owner email"),
-    regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Please enter valid email address")
+  ownerEmail: optional(
+    pipe(
+      string(),
+      check(
+        (value) => value === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+        "Please enter valid email address"
+      )
+    )
   ),
-  
+
   // Bank Details
   bankName: pipe(
     string("Enter bank name"),
@@ -103,7 +131,7 @@ const EditProfileSchema = object({
     string("Enter branch name"),
     minLength(3, "Branch name must be at least 3 characters")
   ),
-  
+
   // License & Certifications
   rtoLicenseNumber: pipe(
     string("Enter RTO license number"),
@@ -113,7 +141,7 @@ const EditProfileSchema = object({
   insuranceProvider: optional(string()),
   insurancePolicyNumber: optional(string()),
   insuranceExpiry: optional(string()),
-  
+
   // Social Media
   facebook: optional(string()),
   instagram: optional(string()),

@@ -29,31 +29,35 @@ export function YesNoRabioInput<T extends FieldValues>(
             {props.title}
             {props.required && <span className="text-rose-500">*</span>}
           </label>
-          <div className="flex sm:gap-4 mt-1 flex-col sm:flex-row ">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                value="yes"
-                disabled={props.disable ?? false}
-                checked={field.value === true}
-                onChange={() => field.onChange(true)}
-              />
-              {props.valueOne ?? "Yes"}
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                value="no"
-                disabled={props.disable ?? false}
-                checked={field.value === false}
-                onChange={() => field.onChange(false)}
-              />
-              {props.valueTwo ?? "No"}
-            </label>
+          <div>
+            <div className="flex sm:gap-4 mt-1 flex-col sm:flex-row ">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  value="yes"
+                  disabled={props.disable ?? false}
+                  checked={field.value === true}
+                  onChange={() => field.onChange(true)}
+                />
+                {props.valueOne ?? "Yes"}
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  value="no"
+                  disabled={props.disable ?? false}
+                  checked={field.value === false}
+                  onChange={() => field.onChange(false)}
+                />
+                {props.valueTwo ?? "No"}
+              </label>
+            </div>
+            {error && (
+              <p className="text-xs text-red-500">
+                {error.message?.toString()}
+              </p>
+            )}
           </div>
-          {error && (
-            <p className="text-xs text-red-500">{error.message?.toString()}</p>
-          )}
         </>
       )}
     />

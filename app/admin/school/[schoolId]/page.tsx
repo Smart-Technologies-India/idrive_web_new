@@ -198,9 +198,13 @@ const SchoolDetailPage = ({ params }: { params: Promise<{ schoolId: string }> })
               {schoolData.establishedYear}
             </Descriptions.Item>
             <Descriptions.Item label="Email">
-              <a href={`mailto:${schoolData.email}`} className="text-blue-600">
-                {schoolData.email}
-              </a>
+              {schoolData.email ? (
+                <a href={`mailto:${schoolData.email}`} className="text-blue-600">
+                  {schoolData.email}
+                </a>
+              ) : (
+                <span className="text-gray-400 italic">N/A</span>
+              )}
             </Descriptions.Item>
             <Descriptions.Item label="Phone">
               <a href={`tel:${schoolData.phone}`} className="text-blue-600">

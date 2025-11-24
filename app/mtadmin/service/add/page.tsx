@@ -167,11 +167,17 @@ const AddServicePage = () => {
                     />
                   </div>
                   <div>
-                    <TextInput<AddServiceForm>
+                    <MultiSelect<AddServiceForm>
                       name="category"
                       title="Category"
-                      placeholder="e.g., Two Wheeler, Four Wheeler"
-                      required
+                      placeholder="Select category"
+                      required={true}
+                      options={[
+                        { label: "Two Wheeler", value: "Two Wheeler" },
+                        { label: "Four Wheeler", value: "Four Wheeler" },
+                        { label: "Heavy Vehicle", value: "Heavy Vehicle" },
+                        { label: "Commercial Vehicle", value: "Commercial Vehicle" },
+                      ]}
                     />
                   </div>
                   <div>

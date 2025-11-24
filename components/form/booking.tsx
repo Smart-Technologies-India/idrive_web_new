@@ -9,10 +9,13 @@ import { useState, useEffect } from "react";
 import { TextInput } from "./inputfields/textinput";
 import { TaxtAreaInput } from "./inputfields/textareainput";
 import { MultiSelect } from "./inputfields/multiselect";
-import { Modal, Button, Tag, Checkbox, Spin } from "antd";
+import { Modal, Button, Tag, Checkbox, Spin, Drawer, Input } from "antd";
 import { getCookie } from "cookies-next";
 import { getAllCourses, type Course as APICourse } from "@/services/course.api";
-import { getAllServices, type Service as APIService } from "@/services/service.api";
+import {
+  getAllServices,
+  type Service as APIService,
+} from "@/services/service.api";
 import { searchUserByContact, type User } from "@/services/user.api";
 import { getPaginatedCars, getCarById } from "@/services/car.api";
 import { getSchoolById } from "@/services/school.api";
@@ -27,11 +30,12 @@ import {
   CheckSquareOutlined,
 } from "@ant-design/icons";
 import dayjs, { Dayjs } from "dayjs";
+import utc from "dayjs/plugin/utc";
 import { DatePicker } from "antd";
-import type {
-  BookingFormData,
-  Customer,
-} from "@/schema/booking";
+import type { BookingFormData, Customer } from "@/schema/booking";
+
+// Extend dayjs with UTC plugin
+dayjs.extend(utc);
 
 // Types for form data
 type FormCourse = {
@@ -60,12 +64,6 @@ type CreateBookingResponse = {
   };
 };
 
-type CreateBookingSessionResponse = {
-  createBookingSession: {
-    id: number;
-  };
-};
-
 // Types for availability checking
 type BookingSession = {
   id: number;
@@ -87,6 +85,15 @@ type Holiday = {
   schoolId: number;
 };
 
+// GraphQL response types
+type GetAllHolidayResponse = {
+  getAllHoliday: Holiday[];
+};
+
+type GetAllBookingSessionResponse = {
+  getAllBookingSession: BookingSession[];
+};
+
 // Helper function to generate time slots
 const generateTimeSlots = (
   startTime: string,
@@ -95,16 +102,18 @@ const generateTimeSlots = (
   lunchEnd?: string
 ): string[] => {
   const slots: string[] = [];
-  
+
   const parseTime = (time: string) => {
-    const [hours, minutes] = time.split(':').map(Number);
+    const [hours, minutes] = time.split(":").map(Number);
     return hours * 60 + minutes;
   };
 
   const formatTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
-    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+    return `${hours.toString().padStart(2, "0")}:${mins
+      .toString()
+      .padStart(2, "0")}`;
   };
 
   const startMinutes = parseTime(startTime);
@@ -116,14 +125,15 @@ const generateTimeSlots = (
 
   while (currentMinutes < endMinutes) {
     const nextMinutes = currentMinutes + 60;
-    
+
     // Skip if slot overlaps with lunch time
     if (lunchStartMinutes !== null && lunchEndMinutes !== null) {
-      const isInLunchTime = 
-        (currentMinutes >= lunchStartMinutes && currentMinutes < lunchEndMinutes) ||
+      const isInLunchTime =
+        (currentMinutes >= lunchStartMinutes &&
+          currentMinutes < lunchEndMinutes) ||
         (nextMinutes > lunchStartMinutes && nextMinutes <= lunchEndMinutes) ||
         (currentMinutes < lunchStartMinutes && nextMinutes > lunchEndMinutes);
-      
+
       if (!isInLunchTime) {
         slots.push(`${formatTime(currentMinutes)}-${formatTime(nextMinutes)}`);
       }
@@ -145,9 +155,15 @@ const BookingForm = () => {
   const [selectedCourse, setSelectedCourse] = useState<FormCourse | null>(null);
   const [selectedServices, setSelectedServices] = useState<number[]>([]);
   const [customerData, setCustomerData] = useState<Customer | null>(null);
-  const [loadingCustomer, setLoadingCustomer] = useState(false);
   const [bookingDate, setBookingDate] = useState<Dayjs | null>(null);
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
+  const [showCreateUserDrawer, setShowCreateUserDrawer] = useState(false);
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserContact, setNewUserContact] = useState("");
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [dropdownSelectedCar, setDropdownSelectedCar] = useState<
+    typeof selectedCarData | null
+  >(null);
 
   // Get school ID from cookie
   const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
@@ -160,7 +176,8 @@ const BookingForm = () => {
   // Parse carId as number if provided
   const numericCarId = carIdFromUrl ? parseInt(carIdFromUrl) : null;
 
-  // Fetch car details if carId is provided in URL
+  // Fetch car details ONLY if carId is provided in URL
+  // This query will NOT run when user selects car from dropdown
   const {
     data: selectedCarResponse,
     isLoading: loadingSelectedCar,
@@ -173,7 +190,7 @@ const BookingForm = () => {
       }
       return await getCarById(numericCarId);
     },
-    enabled: !!numericCarId && !isNaN(numericCarId),
+    enabled: !!numericCarId && !isNaN(numericCarId), // Only runs when carId exists in URL
   });
 
   const selectedCarData = selectedCarResponse?.data?.getCarById;
@@ -182,9 +199,7 @@ const BookingForm = () => {
   const carBelongsToSchool = selectedCarData?.schoolId === schoolId;
 
   // Fetch school profile for timing information
-  const {
-    data: schoolResponse,
-  } = useQuery({
+  const { data: schoolResponse } = useQuery({
     queryKey: ["school", schoolId],
     queryFn: () => getSchoolById(schoolId),
     enabled: schoolId > 0,
@@ -193,15 +208,13 @@ const BookingForm = () => {
   const schoolData = schoolResponse?.data?.getSchoolById;
 
   // Fetch booking sessions for selected date to check availability
-  const {
-    data: sessionsResponse,
-  } = useQuery({
+  const { data: sessionsResponse } = useQuery({
     queryKey: ["booking-sessions", bookingDate?.format("YYYY-MM-DD"), schoolId],
     queryFn: async () => {
       if (!bookingDate) return null;
-      
+
       return await ApiCall({
-        query: `query GetAllBookingSession($whereSearchInput: BookingSessionWhereSearchInput) {
+        query: `query GetAllBookingSession($whereSearchInput: WhereBookingSessionSearchInput!) {
           getAllBookingSession(whereSearchInput: $whereSearchInput) {
             id
             slot
@@ -225,19 +238,17 @@ const BookingForm = () => {
   });
 
   // Fetch holidays to check if selected date is a holiday
-  const {
-    data: holidaysResponse,
-  } = useQuery({
+  const { data: holidaysResponse } = useQuery({
     queryKey: ["holidays", schoolId],
     queryFn: async () => {
       return await ApiCall({
-        query: `query GetAllHoliday($whereSearchInput: HolidayWhereSearchInput) {
+        query: `query GetAllHoliday($whereSearchInput: SearchHolidayInput!) {
           getAllHoliday(whereSearchInput: $whereSearchInput) {
             id
             startDate
             endDate
-            holidayName
             schoolId
+            declarationType
           }
         }`,
         variables: {
@@ -251,10 +262,7 @@ const BookingForm = () => {
   });
 
   // Fetch cars for the school (only if car not provided in URL)
-  const {
-    data: carsResponse,
-    isLoading: loadingCars,
-  } = useQuery({
+  const { data: carsResponse, isLoading: loadingCars } = useQuery({
     queryKey: ["cars", schoolId],
     queryFn: () =>
       getPaginatedCars({
@@ -273,10 +281,7 @@ const BookingForm = () => {
   const availableCars = carsResponse?.data?.getPaginatedCar?.data || [];
 
   // Fetch courses for the school
-  const {
-    data: coursesResponse,
-    isLoading: loadingCourses,
-  } = useQuery({
+  const { data: coursesResponse, isLoading: loadingCourses } = useQuery({
     queryKey: ["courses", schoolId],
     queryFn: () =>
       getAllCourses({
@@ -287,10 +292,7 @@ const BookingForm = () => {
   });
 
   // Fetch services for the school
-  const {
-    data: servicesResponse,
-    isLoading: loadingServices,
-  } = useQuery({
+  const { data: servicesResponse, isLoading: loadingServices } = useQuery({
     queryKey: ["services", schoolId],
     queryFn: () =>
       getAllServices({
@@ -300,23 +302,25 @@ const BookingForm = () => {
     enabled: schoolId > 0,
   });
 
-  const courses: FormCourse[] = coursesResponse?.data?.getAllCourse?.map((course: APICourse) => ({
-    id: course.id,
-    name: course.courseName,
-    price: course.price,
-    courseType: course.courseType,
-    courseDays: course.courseDays,
-    minsPerDay: course.minsPerDay,
-    enrolledStudents: course.enrolledStudents,
-  })) || [];
+  const courses: FormCourse[] =
+    coursesResponse?.data?.getAllCourse?.map((course: APICourse) => ({
+      id: course.id,
+      name: course.courseName,
+      price: course.price,
+      courseType: course.courseType,
+      courseDays: course.courseDays,
+      minsPerDay: course.minsPerDay,
+      enrolledStudents: course.enrolledStudents,
+    })) || [];
 
-  const services: FormService[] = servicesResponse?.data?.getAllService?.map((service: APIService) => ({
-    id: service.id,
-    name: service.serviceName,
-    price: service.price,
-    serviceType: service.serviceType,
-    description: service.description,
-  })) || [];
+  const services: FormService[] =
+    servicesResponse?.data?.getAllService?.map((service: APIService) => ({
+      id: service.id,
+      name: service.serviceName,
+      price: service.price,
+      serviceType: service.serviceType,
+      description: service.description,
+    })) || [];
 
   const methods = useForm<BookingFormData>({
     mode: "onChange",
@@ -367,6 +371,7 @@ const BookingForm = () => {
   }, [formValues.courseId, courses]);
 
   // Generate time slots based on school timings and filter by availability
+  // This prevents double booking by locking already booked date and time slots
   useEffect(() => {
     if (schoolData?.dayStartTime && schoolData?.dayEndTime) {
       const allSlots = generateTimeSlots(
@@ -376,19 +381,25 @@ const BookingForm = () => {
         schoolData.lunchEndTime || undefined
       );
 
-      // Filter out booked and holiday slots
+      // Filter out booked and holiday slots to prevent double booking
       if (bookingDate && (formValues.carId || carIdFromUrl)) {
         const selectedCarId = parseInt(formValues.carId || carIdFromUrl);
         const selectedDateStr = bookingDate.format("YYYY-MM-DD");
 
         // Get holidays data
-        const holidays: Holiday[] = holidaysResponse?.data?.getAllHoliday || [];
+        const holidays: Holiday[] =
+          (holidaysResponse?.data as GetAllHolidayResponse)?.getAllHoliday ||
+          [];
 
         // Check if selected date is a holiday
         const isHoliday = holidays.some((holiday: Holiday) => {
-          const holidayStart = dayjs.utc(holiday.startDate).format("YYYY-MM-DD");
+          const holidayStart = dayjs
+            .utc(holiday.startDate)
+            .format("YYYY-MM-DD");
           const holidayEnd = dayjs.utc(holiday.endDate).format("YYYY-MM-DD");
-          return selectedDateStr >= holidayStart && selectedDateStr <= holidayEnd;
+          return (
+            selectedDateStr >= holidayStart && selectedDateStr <= holidayEnd
+          );
         });
 
         if (isHoliday) {
@@ -396,7 +407,9 @@ const BookingForm = () => {
           setAvailableTimeSlots([]);
         } else {
           // Get booking sessions data and filter for current school
-          const allSessions: BookingSession[] = sessionsResponse?.data?.getAllBookingSession || [];
+          const allSessions: BookingSession[] =
+            (sessionsResponse?.data as GetAllBookingSessionResponse)
+              ?.getAllBookingSession || [];
           const bookingSessions = allSessions.filter(
             (session: BookingSession) => session.booking?.schoolId === schoolId
           );
@@ -410,7 +423,9 @@ const BookingForm = () => {
             )
             .map((session: BookingSession) => session.slot);
 
-          const availableSlots = allSlots.filter((slot) => !bookedSlots.includes(slot));
+          const availableSlots = allSlots.filter(
+            (slot) => !bookedSlots.includes(slot)
+          );
           setAvailableTimeSlots(availableSlots);
         }
       } else {
@@ -428,23 +443,20 @@ const BookingForm = () => {
     schoolId,
   ]);
 
-  // Fetch customer details when mobile number is entered
-  const fetchCustomerDetails = async (mobile: string) => {
-    if (mobile.length < 10) {
-      setCustomerData(null);
-      setValue("customerName", "");
-      setValue("customerEmail", "");
-      return;
-    }
-
-    setLoadingCustomer(true);
-    try {
+  // Mutation for fetching customer details
+  const { mutate: fetchCustomer, isPending: loadingCustomer } = useMutation({
+    mutationFn: async (mobile: string) => {
+      if (mobile.length < 10) {
+        throw new Error("Invalid mobile number");
+      }
       // Search for user across all schools with USER role
-      const response = await searchUserByContact(mobile);
-      
-      if (response.status && response.data.searchUser) {
-        const user: User = response.data.searchUser;
-        
+      return await searchUserByContact(mobile);
+    },
+    onSuccess: (response) => {
+      const data = response.data as { searchUser?: User };
+      if (response.status && data.searchUser) {
+        const user: User = data.searchUser;
+
         const customerData: Customer = {
           id: user.id,
           name: user.name,
@@ -464,43 +476,147 @@ const BookingForm = () => {
         setCustomerData(null);
         setValue("customerName", "");
         setValue("customerEmail", "");
-        toast.info("Customer not found. Please enter details manually.");
+        setNewUserContact(formValues.customerMobile);
+        setShowCreateUserDrawer(true);
       }
-    } catch (error) {
-      console.error("Error fetching customer:", error);
+    },
+    onError: () => {
       toast.error("Failed to fetch customer details");
       setCustomerData(null);
       setValue("customerName", "");
       setValue("customerEmail", "");
-    } finally {
-      setLoadingCustomer(false);
-    }
-  };
+    },
+  });
 
   // Handle mobile number change with debounce
   useEffect(() => {
     const mobile = formValues.customerMobile;
     if (mobile && mobile.length >= 10) {
       const timer = setTimeout(() => {
-        fetchCustomerDetails(mobile);
+        fetchCustomer(mobile);
       }, 800);
       return () => clearTimeout(timer);
+    } else {
+      setCustomerData(null);
+      setValue("customerName", "");
+      setValue("customerEmail", "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formValues.customerMobile]);
 
-  // Handle car selection
+  // Mutation for fetching car details when selected from dropdown
+  const { mutate: fetchCarDetails, isPending: loadingCarDetails } = useMutation(
+    {
+      mutationFn: async (carId: number) => {
+        return await getCarById(carId);
+      },
+      onSuccess: (response) => {
+        if (response?.data?.getCarById) {
+          setDropdownSelectedCar(response.data.getCarById);
+        }
+      },
+      onError: () => {
+        toast.error("Failed to load car details");
+      },
+    }
+  );
+
+  // Mutation for creating new user
+  const { mutate: createUser } = useMutation({
+    mutationFn: async (data: { name: string; contact1: string }) => {
+      return await ApiCall({
+        query: `mutation CreateUser($inputType: CreateUserInput!) {
+          createUser(inputType: $inputType) {
+            id
+            name
+            contact1
+            email
+            role
+            status
+          }
+        }`,
+        variables: {
+          inputType: {
+            name: data.name,
+            contact1: data.contact1,
+            role: "USER",
+            status: "ACTIVE",
+            schoolId: schoolId,
+          },
+        },
+      });
+    },
+    onSuccess: (response) => {
+      const data = response.data as { createUser?: User };
+      if (response.status && data.createUser) {
+        const newUser = data.createUser;
+
+        const customerData: Customer = {
+          id: newUser.id,
+          name: newUser.name,
+          contact1: newUser.contact1,
+          contact2: "",
+          email: newUser.email || "",
+          address: "",
+          role: newUser.role,
+          status: newUser.status,
+        };
+
+        setCustomerData(customerData);
+        setValue("customerName", newUser.name);
+        setValue("customerEmail", newUser.email || "");
+        setShowCreateUserDrawer(false);
+        setNewUserName("");
+        setNewUserContact("");
+        toast.success("User created successfully!");
+      } else {
+        toast.error(response.message || "Failed to create user");
+      }
+    },
+    onError: (error: Error) => {
+      console.error("Error creating user:", error);
+      toast.error(error.message || "Failed to create user");
+    },
+  });
+
+  // Handle create user submit
+  const handleCreateUser = () => {
+    if (!newUserName || newUserName.trim().length < 3) {
+      toast.error("Please enter a valid name (minimum 3 characters)");
+      return;
+    }
+    if (!newUserContact || newUserContact.length !== 10) {
+      toast.error("Please enter a valid 10-digit mobile number");
+      return;
+    }
+
+    setCreatingUser(true);
+    createUser(
+      { name: newUserName, contact1: newUserContact },
+      {
+        onSettled: () => {
+          setCreatingUser(false);
+        },
+      }
+    );
+  };
+
+  // Handle car selection from dropdown
+  // Fetches full car details including driver info for booking sessions using mutation
   const handleCarChange = (carId: string) => {
-    const car = availableCars.find((c) => c.id.toString() === carId);
+    const car = availableCars.find((c) => c.id.toString() === carId.toString());
     if (car) {
       setValue("carId", carId);
       setValue("carName", car.carName);
+
+      // Fetch full car details including driver info via mutation
+      fetchCarDetails(car.id);
     }
   };
 
   // Handle course selection
-  const handleCourseChange = (courseId: string | number) => {
-    const course = courses.find((c) => c.id.toString() === courseId.toString());
+  const handleCourseChange = (courseId: number) => {
+    const course = courses.find((c) => c.id === courseId);
     if (course) {
       setSelectedCourse(course);
       setValue("courseId", course.id);
@@ -517,9 +633,14 @@ const BookingForm = () => {
       : [...selectedServices, serviceId];
 
     setSelectedServices(newSelectedServices);
-    setValue("services", newSelectedServices.map(id => id.toString()));
+    setValue(
+      "services",
+      newSelectedServices.map((id) => id.toString())
+    );
 
-    const servicesData = services.filter((s) => newSelectedServices.includes(s.id));
+    const servicesData = services.filter((s) =>
+      newSelectedServices.includes(s.id)
+    );
     setValue("selectedServices", servicesData);
 
     calculateTotal(selectedCourse?.price || 0, newSelectedServices);
@@ -527,10 +648,9 @@ const BookingForm = () => {
 
   // Calculate total amount
   const calculateTotal = (coursePrice: number, serviceIds: number[]) => {
-    const servicesTotal = services.filter((s) => serviceIds.includes(s.id)).reduce(
-      (sum, service) => sum + service.price,
-      0
-    );
+    const servicesTotal = services
+      .filter((s) => serviceIds.includes(s.id))
+      .reduce((sum, service) => sum + service.price, 0);
 
     const total = coursePrice + servicesTotal;
     setValue("totalAmount", total);
@@ -579,9 +699,13 @@ const BookingForm = () => {
       errors.push("Please select a booking date");
     } else {
       const selectedDate = dayjs(formValues.bookingDate);
-      const minDate = minDateParam ? dayjs(minDateParam) : dayjs().add(1, "day");
+      const minDate = minDateParam
+        ? dayjs(minDateParam)
+        : dayjs().add(1, "day");
       if (selectedDate.isBefore(minDate, "day")) {
-        errors.push(`Booking date must be from ${minDate.format('DD MMM YYYY')} onwards`);
+        errors.push(
+          `Booking date must be from ${minDate.format("DD MMM YYYY")} onwards`
+        );
       }
     }
 
@@ -656,11 +780,15 @@ const BookingForm = () => {
         },
       });
 
-      if (!bookingResponse.status || !(bookingResponse.data as CreateBookingResponse)?.createBooking) {
+      if (
+        !bookingResponse.status ||
+        !(bookingResponse.data as CreateBookingResponse)?.createBooking
+      ) {
         throw new Error(bookingResponse.message || "Failed to create booking");
       }
 
-      const createdBooking = (bookingResponse.data as CreateBookingResponse).createBooking;
+      const createdBooking = (bookingResponse.data as CreateBookingResponse)
+        .createBooking;
 
       // Create booking services if services are selected
       if (data.selectedServices && data.selectedServices.length > 0) {
@@ -683,7 +811,6 @@ const BookingForm = () => {
             },
           })
         );
-
         // Wait for all booking services to be created
         await Promise.all(servicePromises);
       }
@@ -697,26 +824,36 @@ const BookingForm = () => {
           // Calculate session date (skip weekends if configured)
           let sessionDate = bookingStartDate.clone();
           let daysAdded = 0;
-          
+
           while (daysAdded < day - 1) {
-            sessionDate = sessionDate.add(1, 'day');
-            
+            sessionDate = sessionDate.add(1, "day");
+
             // Skip weekly holiday if configured
             if (schoolData?.weeklyHoliday) {
               const dayOfWeek = sessionDate.day();
               const weeklyHoliday = schoolData.weeklyHoliday.toUpperCase();
               const dayMap: { [key: string]: number } = {
-                'SUNDAY': 0, 'MONDAY': 1, 'TUESDAY': 2, 'WEDNESDAY': 3,
-                'THURSDAY': 4, 'FRIDAY': 5, 'SATURDAY': 6
+                SUNDAY: 0,
+                MONDAY: 1,
+                TUESDAY: 2,
+                WEDNESDAY: 3,
+                THURSDAY: 4,
+                FRIDAY: 5,
+                SATURDAY: 6,
               };
-              
+
               if (dayOfWeek === dayMap[weeklyHoliday]) {
                 continue; // Skip this day
               }
             }
-            
+
             daysAdded++;
           }
+
+          // Get driver ID from appropriate car data source
+          // Use selectedCarData if car came from URL, otherwise use dropdownSelectedCar
+          const carData = numericCarId ? selectedCarData : dropdownSelectedCar;
+          const driverId = carData?.assignedDriver?.id;
 
           const sessionPromise = ApiCall({
             query: `mutation CreateBookingSession($inputType: CreateBookingSessionInput!) {
@@ -728,10 +865,10 @@ const BookingForm = () => {
               inputType: {
                 bookingId: createdBooking.id,
                 dayNumber: day,
-                sessionDate: sessionDate.format('YYYY-MM-DD'),
+                sessionDate: sessionDate.format("YYYY-MM-DD"),
                 slot: data.slot,
                 carId: parseInt(data.carId),
-                carName: data.carName,
+                driverId: driverId,
               },
             },
           });
@@ -751,7 +888,9 @@ const BookingForm = () => {
       router.push("/mtadmin/scheduler");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to create booking. Please try again.");
+      toast.error(
+        error.message || "Failed to create booking. Please try again."
+      );
     },
   });
 
@@ -797,7 +936,8 @@ const BookingForm = () => {
                   <div>
                     <p className="font-bold text-red-800">Car Not Found</p>
                     <p className="text-sm text-red-700">
-                      The car with ID {carIdFromUrl} does not exist. Please check the ID and try again.
+                      The car with ID {carIdFromUrl} does not exist. Please
+                      check the ID and try again.
                     </p>
                   </div>
                 </div>
@@ -811,7 +951,9 @@ const BookingForm = () => {
                   <div>
                     <p className="font-bold text-red-800">Invalid Car</p>
                     <p className="text-sm text-red-700">
-                      This car (ID: {carIdFromUrl}) does not belong to your school. You can only create bookings for cars in your school.
+                      This car (ID: {carIdFromUrl}) does not belong to your
+                      school. You can only create bookings for cars in your
+                      school.
                     </p>
                   </div>
                 </div>
@@ -823,7 +965,9 @@ const BookingForm = () => {
                 <div className="flex items-center gap-3">
                   <Spin />
                   <div>
-                    <p className="font-bold text-blue-800">Loading Car Details...</p>
+                    <p className="font-bold text-blue-800">
+                      Loading Car Details...
+                    </p>
                     <p className="text-sm text-blue-700">
                       Validating car information for ID: {carIdFromUrl}
                     </p>
@@ -860,9 +1004,15 @@ const BookingForm = () => {
                   <div className="flex items-center gap-3">
                     <div className="text-2xl">⚠️</div>
                     <div>
-                      <p className="font-bold text-orange-800">This slot is currently booked</p>
+                      <p className="font-bold text-orange-800">
+                        This slot is currently booked
+                      </p>
                       <p className="text-sm text-orange-700">
-                        Available for rebooking from <span className="font-bold">{dayjs(minDateParam).format('DD MMM YYYY')}</span> onwards
+                        Available for rebooking from{" "}
+                        <span className="font-bold">
+                          {dayjs(minDateParam).format("DD MMM YYYY")}
+                        </span>{" "}
+                        onwards
                       </p>
                     </div>
                   </div>
@@ -877,7 +1027,11 @@ const BookingForm = () => {
                     <div>
                       <p className="font-bold text-blue-800">Weekly Holiday</p>
                       <p className="text-sm text-blue-700">
-                        School is closed on <span className="font-bold">{schoolData.weeklyHoliday}s</span>. These dates are disabled in the calendar.
+                        School is closed on{" "}
+                        <span className="font-bold">
+                          {schoolData.weeklyHoliday}s
+                        </span>
+                        . These dates are disabled in the calendar.
                       </p>
                     </div>
                   </div>
@@ -907,31 +1061,53 @@ const BookingForm = () => {
                             <p className="text-lg font-bold text-gray-900">
                               {selectedCarData.carName}
                             </p>
-                            <Tag color={selectedCarData.status === 'AVAILABLE' ? 'green' : selectedCarData.status === 'MAINTENANCE' ? 'orange' : 'red'} className="text-xs">
+                            <Tag
+                              color={
+                                selectedCarData.status === "AVAILABLE"
+                                  ? "green"
+                                  : selectedCarData.status === "MAINTENANCE"
+                                  ? "orange"
+                                  : "red"
+                              }
+                              className="text-xs"
+                            >
                               {selectedCarData.status}
                             </Tag>
                           </div>
                           <div className="space-y-1 text-sm text-gray-700">
                             <div className="flex items-center gap-2">
                               <span className="text-gray-500">📋</span>
-                              <span className="font-medium">{selectedCarData.registrationNumber}</span>
+                              <span className="font-medium">
+                                {selectedCarData.registrationNumber}
+                              </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-gray-500">🚗</span>
-                              <span>{selectedCarData.model} • {selectedCarData.year}</span>
+                              <span>
+                                {selectedCarData.model} • {selectedCarData.year}
+                              </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-gray-500">⚙️</span>
-                              <span>{selectedCarData.transmission} • {selectedCarData.fuelType}</span>
+                              <span>
+                                {selectedCarData.transmission} •{" "}
+                                {selectedCarData.fuelType}
+                              </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-gray-500">💺</span>
-                              <span>{selectedCarData.seatingCapacity} Seats • {selectedCarData.color}</span>
+                              <span>
+                                {selectedCarData.seatingCapacity} Seats •{" "}
+                                {selectedCarData.color}
+                              </span>
                             </div>
                             {selectedCarData.currentMileage > 0 && (
                               <div className="flex items-center gap-2">
                                 <span className="text-gray-500">📍</span>
-                                <span>{selectedCarData.currentMileage.toLocaleString()} km</span>
+                                <span>
+                                  {selectedCarData.currentMileage.toLocaleString()}{" "}
+                                  km
+                                </span>
                               </div>
                             )}
                           </div>
@@ -942,17 +1118,26 @@ const BookingForm = () => {
                         </p>
                       )
                     ) : (
-                      <MultiSelect<BookingFormData>
-                        name="carId"
-                        title=""
-                        placeholder={loadingCars ? "Loading cars..." : "Select a car"}
-                        required={true}
-                        options={availableCars.map((car) => ({
-                          value: car.id.toString(),
-                          label: `${car.carName} (${car.registrationNumber})`,
-                        }))}
-                        disable={loadingCars}
-                      />
+                      <div className="relative">
+                        <MultiSelect<BookingFormData>
+                          name="carId"
+                          title=""
+                          placeholder={
+                            loadingCars ? "Loading cars..." : "Select a car"
+                          }
+                          required={true}
+                          options={availableCars.map((car) => ({
+                            value: car.id.toString(),
+                            label: `${car.carName} (${car.registrationNumber})`,
+                          }))}
+                          disable={loadingCars || loadingCarDetails}
+                        />
+                        {loadingCarDetails && (
+                          <div className="absolute right-3 top-3">
+                            <Spin size="small" />
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -976,6 +1161,7 @@ const BookingForm = () => {
                       format="DD MMM YYYY"
                       size="large"
                       className="w-full"
+                      key={typeof window !== "undefined" ? "client" : "server"}
                       disabledDate={(current) => {
                         if (!current) return false;
 
@@ -995,27 +1181,37 @@ const BookingForm = () => {
                         // Check weekend restriction if school has a weekly holiday
                         if (schoolData?.weeklyHoliday) {
                           const dayOfWeek = current.day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-                          const weeklyHoliday = schoolData.weeklyHoliday.toUpperCase();
-                          
+                          const weeklyHoliday =
+                            schoolData.weeklyHoliday.toUpperCase();
+
                           const dayMap: { [key: string]: number } = {
-                            'SUNDAY': 0,
-                            'MONDAY': 1,
-                            'TUESDAY': 2,
-                            'WEDNESDAY': 3,
-                            'THURSDAY': 4,
-                            'FRIDAY': 5,
-                            'SATURDAY': 6
+                            SUNDAY: 0,
+                            MONDAY: 1,
+                            TUESDAY: 2,
+                            WEDNESDAY: 3,
+                            THURSDAY: 4,
+                            FRIDAY: 5,
+                            SATURDAY: 6,
                           };
 
                           const holidayDay = dayMap[weeklyHoliday];
-                          if (holidayDay !== undefined && dayOfWeek === holidayDay) {
+                          if (
+                            holidayDay !== undefined &&
+                            dayOfWeek === holidayDay
+                          ) {
                             return true;
                           }
                         }
 
                         return false;
                       }}
-                      placeholder={minDateParam ? `Available from ${dayjs(minDateParam).format('DD MMM YYYY')}` : "Select date"}
+                      placeholder={
+                        minDateParam
+                          ? `Available from ${dayjs(minDateParam).format(
+                              "DD MMM YYYY"
+                            )}`
+                          : "Select date"
+                      }
                     />
                   </div>
 
@@ -1029,9 +1225,14 @@ const BookingForm = () => {
                         </span>
                       </div>
                       {bookingDate && (formValues.carId || carIdFromUrl) && (
-                        <Tag color={availableTimeSlots.length > 0 ? "green" : "red"} className="text-xs">
-                          {availableTimeSlots.length > 0 
-                            ? `${availableTimeSlots.length} available` 
+                        <Tag
+                          color={
+                            availableTimeSlots.length > 0 ? "green" : "red"
+                          }
+                          className="text-xs"
+                        >
+                          {availableTimeSlots.length > 0
+                            ? `${availableTimeSlots.length} available`
                             : "No slots"}
                         </Tag>
                       )}
@@ -1045,13 +1246,21 @@ const BookingForm = () => {
                         <MultiSelect<BookingFormData>
                           name="slot"
                           title=""
-                          placeholder={!bookingDate ? "Select date first" : availableTimeSlots.length === 0 ? "No slots available" : "Select time slot"}
+                          placeholder={
+                            !bookingDate
+                              ? "Select date first"
+                              : availableTimeSlots.length === 0
+                              ? "No slots available"
+                              : "Select time slot"
+                          }
                           required={true}
                           options={availableTimeSlots.map((slot) => ({
                             value: slot,
                             label: slot,
                           }))}
-                          disable={!bookingDate || availableTimeSlots.length === 0}
+                          disable={
+                            !bookingDate || availableTimeSlots.length === 0
+                          }
                         />
                         {bookingDate && availableTimeSlots.length === 0 && (
                           <p className="text-xs text-red-600 mt-1">
@@ -1110,14 +1319,18 @@ const BookingForm = () => {
                           </p>
                         </div>
                         <div>
-                          <span className="text-gray-600">Primary Contact:</span>
+                          <span className="text-gray-600">
+                            Primary Contact:
+                          </span>
                           <p className="font-semibold text-gray-900">
                             {customerData.contact1}
                           </p>
                         </div>
                         {customerData.contact2 && (
                           <div>
-                            <span className="text-gray-600">Secondary Contact:</span>
+                            <span className="text-gray-600">
+                              Secondary Contact:
+                            </span>
                             <p className="font-semibold text-gray-900">
                               {customerData.contact2}
                             </p>
@@ -1154,7 +1367,11 @@ const BookingForm = () => {
                   <MultiSelect<BookingFormData>
                     name="courseId"
                     title=""
-                    placeholder={loadingCourses ? "Loading courses..." : "Choose a driving course"}
+                    placeholder={
+                      loadingCourses
+                        ? "Loading courses..."
+                        : "Choose a driving course"
+                    }
                     required={true}
                     options={courses.map((course) => ({
                       value: course.id.toString(),
@@ -1172,18 +1389,25 @@ const BookingForm = () => {
                             <p className="text-xl font-bold text-gray-900">
                               {selectedCourse.name}
                             </p>
-                            <Tag color={
-                              selectedCourse.courseType === 'BEGINNER' ? 'green' :
-                              selectedCourse.courseType === 'INTERMEDIATE' ? 'blue' :
-                              selectedCourse.courseType === 'ADVANCED' ? 'purple' : 'orange'
-                            } className="mt-2">
+                            <Tag
+                              color={
+                                selectedCourse.courseType === "BEGINNER"
+                                  ? "green"
+                                  : selectedCourse.courseType === "INTERMEDIATE"
+                                  ? "blue"
+                                  : selectedCourse.courseType === "ADVANCED"
+                                  ? "purple"
+                                  : "orange"
+                              }
+                              className="mt-2"
+                            >
                               {selectedCourse.courseType}
                             </Tag>
                           </div>
                           <div className="text-right">
                             <p className="text-xs text-gray-500">Course Fee</p>
                             <p className="text-2xl font-bold text-blue-600">
-                              ₹{selectedCourse.price.toLocaleString('en-IN')}
+                              ₹{selectedCourse.price.toLocaleString("en-IN")}
                             </p>
                           </div>
                         </div>
@@ -1192,7 +1416,9 @@ const BookingForm = () => {
                           <div className="bg-white rounded-lg p-3 border border-blue-200">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-lg">📅</span>
-                              <p className="text-xs text-gray-500 font-semibold">Total Days</p>
+                              <p className="text-xs text-gray-500 font-semibold">
+                                Total Days
+                              </p>
                             </div>
                             <p className="text-lg font-bold text-gray-900">
                               {selectedCourse.courseDays} Days
@@ -1202,10 +1428,13 @@ const BookingForm = () => {
                           <div className="bg-white rounded-lg p-3 border border-blue-200">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-lg">⏱️</span>
-                              <p className="text-xs text-gray-500 font-semibold">Mins/Day</p>
+                              <p className="text-xs text-gray-500 font-semibold">
+                                Mins/Day
+                              </p>
                             </div>
                             <p className="text-lg font-bold text-gray-900">
-                              {selectedCourse.minsPerDay} {selectedCourse.minsPerDay === 1 ? 'Min' : 'Mins'}
+                              {selectedCourse.minsPerDay}{" "}
+                              {selectedCourse.minsPerDay === 1 ? "Min" : "Mins"}
                             </p>
                           </div>
                         </div>
@@ -1214,10 +1443,14 @@ const BookingForm = () => {
                           <div className="flex items-center justify-between text-sm">
                             <div className="flex items-center gap-2">
                               <span>⏰</span>
-                              <span className="text-gray-600">Total Duration</span>
+                              <span className="text-gray-600">
+                                Total Duration
+                              </span>
                             </div>
                             <span className="font-bold text-gray-900">
-                              {selectedCourse.courseDays * selectedCourse.minsPerDay} Mins
+                              {selectedCourse.courseDays *
+                                selectedCourse.minsPerDay}{" "}
+                              Mins
                             </span>
                           </div>
                         </div>
@@ -1225,8 +1458,12 @@ const BookingForm = () => {
                         {selectedCourse.enrolledStudents > 0 && (
                           <div className="bg-green-50 rounded-lg p-2 border border-green-200">
                             <div className="flex items-center justify-between text-sm">
-                              <span className="text-green-700">👥 Enrolled Students</span>
-                              <span className="font-bold text-green-900">{selectedCourse.enrolledStudents}</span>
+                              <span className="text-green-700">
+                                👥 Enrolled Students
+                              </span>
+                              <span className="font-bold text-green-900">
+                                {selectedCourse.enrolledStudents}
+                              </span>
                             </div>
                           </div>
                         )}
@@ -1275,14 +1512,18 @@ const BookingForm = () => {
                                   {service.name}
                                 </p>
                                 <Tag
-                                  color={service.serviceType === 'LICENSE' ? 'purple' : 'cyan'}
+                                  color={
+                                    service.serviceType === "LICENSE"
+                                      ? "purple"
+                                      : "cyan"
+                                  }
                                   className="mt-1"
                                 >
                                   {service.serviceType}
                                 </Tag>
                               </div>
                               <p className="text-lg font-bold text-blue-600">
-                                ₹{service.price.toLocaleString('en-IN')}
+                                ₹{service.price.toLocaleString("en-IN")}
                               </p>
                             </div>
                             <p className="text-sm text-gray-600 mt-2">
@@ -1384,9 +1625,12 @@ const BookingForm = () => {
                   {/* Services */}
                   {selectedServices.length > 0 && (
                     <div className="pb-4 border-b border-gray-200">
-                      <div className="text-sm text-gray-600 mb-2">Services:</div>
-                      {services.filter((s) => selectedServices.includes(s.id)).map(
-                        (service) => (
+                      <div className="text-sm text-gray-600 mb-2">
+                        Services:
+                      </div>
+                      {services
+                        .filter((s) => selectedServices.includes(s.id))
+                        .map((service) => (
                           <div
                             key={service.id}
                             className="flex items-center justify-between mb-2"
@@ -1395,11 +1639,10 @@ const BookingForm = () => {
                               {service.name}
                             </span>
                             <span className="text-sm font-semibold text-blue-600">
-                              ₹{service.price.toLocaleString('en-IN')}
+                              ₹{service.price.toLocaleString("en-IN")}
                             </span>
                           </div>
-                        )
-                      )}
+                        ))}
                     </div>
                   )}
 
@@ -1410,7 +1653,7 @@ const BookingForm = () => {
                         Total Amount
                       </span>
                       <span className="text-3xl font-bold text-blue-600">
-                        ₹{(formValues.totalAmount || 0).toLocaleString('en-IN')}
+                        ₹{(formValues.totalAmount || 0).toLocaleString("en-IN")}
                       </span>
                     </div>
                     <p className="text-xs text-gray-600">
@@ -1482,7 +1725,11 @@ const BookingForm = () => {
                 <div>
                   <span className="text-gray-600">Car:</span>
                   <p className="font-semibold text-gray-900">
-                    {pendingData.carName}
+                    {pendingData.carName ||
+                      (numericCarId
+                        ? selectedCarData?.carName
+                        : dropdownSelectedCar?.carName) ||
+                      "Not selected"}
                   </p>
                 </div>
                 <div>
@@ -1529,14 +1776,16 @@ const BookingForm = () => {
             </div>
 
             <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-              <h3 className="font-bold text-gray-900 mb-3">Course & Services</h3>
+              <h3 className="font-bold text-gray-900 mb-3">
+                Course & Services
+              </h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-gray-900">
                     {pendingData.courseName}
                   </span>
                   <span className="text-blue-600 font-bold">
-                    ₹{pendingData.coursePrice.toLocaleString('en-IN')}
+                    ₹{pendingData.coursePrice.toLocaleString("en-IN")}
                   </span>
                 </div>
                 {pendingData.selectedServices &&
@@ -1550,9 +1799,11 @@ const BookingForm = () => {
                           key={service.id}
                           className="flex items-center justify-between text-sm"
                         >
-                          <span className="text-gray-700">• {service.name}</span>
+                          <span className="text-gray-700">
+                            • {service.name}
+                          </span>
                           <span className="text-blue-600 font-semibold">
-                            ₹{service.price.toLocaleString('en-IN')}
+                            ₹{service.price.toLocaleString("en-IN")}
                           </span>
                         </div>
                       ))}
@@ -1567,7 +1818,7 @@ const BookingForm = () => {
                   Total Amount
                 </span>
                 <span className="text-3xl font-bold text-blue-600">
-                  ₹{pendingData.totalAmount.toLocaleString('en-IN')}
+                  ₹{pendingData.totalAmount.toLocaleString("en-IN")}
                 </span>
               </div>
             </div>
@@ -1581,6 +1832,97 @@ const BookingForm = () => {
           </div>
         )}
       </Modal>
+
+      {/* Create User Drawer */}
+      <Drawer
+        title="Create New User"
+        placement="right"
+        width={400}
+        onClose={() => {
+          setShowCreateUserDrawer(false);
+          setNewUserName("");
+          setNewUserContact("");
+        }}
+        open={showCreateUserDrawer}
+        footer={
+          <div className="flex gap-2">
+            <Button
+              block
+              size="large"
+              onClick={() => {
+                setShowCreateUserDrawer(false);
+                setNewUserName("");
+                setNewUserContact("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              block
+              size="large"
+              loading={creatingUser}
+              onClick={handleCreateUser}
+            >
+              Create User
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+            <p className="text-sm text-yellow-800">
+              <strong>User not found!</strong> Create a new user account with
+              the contact number provided.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Full Name <span className="text-red-500">*</span>
+            </label>
+            <Input
+              size="large"
+              placeholder="Enter full name"
+              value={newUserName}
+              onChange={(e) => setNewUserName(e.target.value)}
+              maxLength={100}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Contact Number <span className="text-red-500">*</span>
+            </label>
+            <Input
+              size="large"
+              placeholder="Enter 10-digit mobile number"
+              value={newUserContact}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, "");
+                setNewUserContact(value);
+              }}
+              maxLength={10}
+              disabled
+            />
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-semibold text-blue-900 mb-2">User Details</h4>
+            <ul className="text-sm text-blue-800 space-y-1">
+              <li>
+                • <strong>Role:</strong> USER
+              </li>
+              <li>
+                • <strong>Status:</strong> ACTIVE
+              </li>
+              <li>
+                • <strong>School:</strong> Your School
+              </li>
+            </ul>
+          </div>
+        </div>
+      </Drawer>
 
       <style jsx global>{`
         @keyframes fadeIn {

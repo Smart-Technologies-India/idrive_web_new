@@ -39,28 +39,31 @@ export function PasswordInput<T extends FieldValues>(
               )}
             </div>
           )}
+          <div>
+            <Input.Password
+              showCount={props.maxlength ? true : undefined}
+              maxLength={props.maxlength ?? undefined}
+              status={error ? "error" : undefined}
+              className="w-full"
+              value={field.value}
+              disabled={props.disable ?? false}
+              iconRender={(visible) =>
+                visible ? <Fa6RegularEye /> : <Fa6RegularEyeSlash />
+              }
+              onChange={(e) => {
+                if (!e) return;
+                const { value } = e.target;
 
-          <Input.Password
-            showCount={props.maxlength ? true : undefined}
-            maxLength={props.maxlength ?? undefined}
-            status={error ? "error" : undefined}
-            className="w-full"
-            value={field.value}
-            disabled={props.disable ?? false}
-            iconRender={(visible) =>
-              visible ? <Fa6RegularEye /> : <Fa6RegularEyeSlash />
-            }
-            onChange={(e) => {
-              if (!e) return;
-              const { value } = e.target;
-
-              field.onChange(value);
-            }}
-            placeholder={props.placeholder ?? undefined}
-          />
-          {error && (
-            <p className="text-xs text-red-500">{error.message?.toString()}</p>
-          )}
+                field.onChange(value);
+              }}
+              placeholder={props.placeholder ?? undefined}
+            />
+            {error && (
+              <p className="text-xs text-red-500">
+                {error.message?.toString()}
+              </p>
+            )}
+          </div>
         </>
       )}
     />

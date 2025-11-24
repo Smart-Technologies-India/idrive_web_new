@@ -19,6 +19,7 @@ import {
 import { createDriver } from "@/services/driver.api";
 import { ApiCall } from "@/services/api";
 import { getCookie } from "cookies-next";
+import dayjs from "dayjs";
 
 const AddDriverPage = () => {
   const router = useRouter();
@@ -67,7 +68,9 @@ const AddDriverPage = () => {
         throw new Error(userResponse.message || "Failed to create user");
       }
 
-      const user = (userResponse.data as Record<string, unknown>)["createUser"] as { id: string };
+      const user = (userResponse.data as Record<string, unknown>)[
+        "createUser"
+      ] as { id: string };
 
       // Generate driverId: DRV-{schoolId}-{timestamp}
       const driverId = `DRV-${schoolId}-${Date.now()}`;
@@ -75,7 +78,7 @@ const AddDriverPage = () => {
       // Create driver with userId
       const driverResponse = await createDriver({
         name: data.name,
-        email: data.email,
+        email: data.email || undefined,
         mobile: data.mobile,
         alternatePhone: data.alternatePhone,
         address: data.address,
@@ -101,18 +104,29 @@ const AddDriverPage = () => {
         throw new Error(driverResponse.message || "Failed to create driver");
       }
 
-      return { driver: driverResponse.data, generatedPassword, mobile: data.mobile };
+      return {
+        driver: driverResponse.data,
+        generatedPassword,
+        mobile: data.mobile,
+      };
     },
     onSuccess: (data) => {
       Modal.success({
         title: "Driver Created Successfully!",
         content: (
           <div className="space-y-2">
-            <p><strong>Driver Name:</strong> {data.driver?.createDriver?.name}</p>
-            <p><strong>Mobile:</strong> {data.mobile}</p>
-            <p><strong>Login Password:</strong> {data.generatedPassword}</p>
+            <p>
+              <strong>Driver Name:</strong> {data.driver?.createDriver?.name}
+            </p>
+            <p>
+              <strong>Mobile:</strong> {data.mobile}
+            </p>
+            <p>
+              <strong>Login Password:</strong> {data.generatedPassword}
+            </p>
             <p className="text-xs text-gray-600 mt-2">
-              Please note down the password. The driver can use mobile number and this password to login.
+              Please note down the password. The driver can use mobile number
+              and this password to login.
             </p>
           </div>
         ),
@@ -120,13 +134,17 @@ const AddDriverPage = () => {
       });
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to create driver. Please try again.");
+      toast.error(
+        error.message || "Failed to create driver. Please try again."
+      );
     },
   });
 
   const onSubmit = (data: AddDriverForm) => {
     const driverNamePart = data.name.substring(0, 4);
-    const formattedName = driverNamePart.charAt(0).toUpperCase() + driverNamePart.slice(1).toLowerCase();
+    const formattedName =
+      driverNamePart.charAt(0).toUpperCase() +
+      driverNamePart.slice(1).toLowerCase();
     const last4Digits = data.mobile.slice(-4);
     const generatedPassword = `${formattedName}@${last4Digits}`;
 
@@ -134,16 +152,26 @@ const AddDriverPage = () => {
       title: "Confirm Driver Creation",
       content: (
         <div>
-          <p><strong>Driver Name:</strong> {data.name}</p>
-          <p><strong>Email:</strong> {data.email}</p>
-          <p><strong>Mobile:</strong> {data.mobile}</p>
-          <p><strong>License Number:</strong> {data.licenseNumber}</p>
+          <p>
+            <strong>Driver Name:</strong> {data.name}
+          </p>
+          <p>
+            <strong>Email:</strong> {data.email}
+          </p>
+          <p>
+            <strong>Mobile:</strong> {data.mobile}
+          </p>
+          <p>
+            <strong>License Number:</strong> {data.licenseNumber}
+          </p>
           <br />
           <p className="text-gray-600">
-            A user account will be created automatically with the following credentials:
+            A user account will be created automatically with the following
+            credentials:
           </p>
           <p className="text-sm text-blue-600">
-            <strong>Username:</strong> {data.mobile}<br />
+            <strong>Username:</strong> {data.mobile}
+            <br />
             <strong>Password:</strong> {generatedPassword}
           </p>
           <br />
@@ -179,7 +207,9 @@ const AddDriverPage = () => {
               onClick={() => router.push("/mtadmin/driver")}
             />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Add New Driver</h1>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Add New Driver
+              </h1>
               <p className="text-gray-600 mt-1 text-sm">
                 Fill in the details to register a new driver
               </p>
@@ -209,9 +239,9 @@ const AddDriverPage = () => {
                   <div>
                     <TextInput<AddDriverForm>
                       name="email"
-                      title="Email"
+                      title="Email (Optional)"
                       placeholder="Enter email address"
-                      required
+                      required={false}
                     />
                   </div>
                   <div>
@@ -240,6 +270,7 @@ const AddDriverPage = () => {
                       title="Date of Birth"
                       placeholder="Select date of birth"
                       required
+                      maxDate={dayjs().subtract(18, "years")}
                     />
                   </div>
                   <div>
@@ -307,7 +338,10 @@ const AddDriverPage = () => {
                       options={[
                         { label: "LMV (Light Motor Vehicle)", value: "LMV" },
                         { label: "MCWG (Motorcycle with Gear)", value: "MCWG" },
-                        { label: "MCWOG (Motorcycle without Gear)", value: "MCWOG" },
+                        {
+                          label: "MCWOG (Motorcycle without Gear)",
+                          value: "MCWOG",
+                        },
                         { label: "HMV (Heavy Motor Vehicle)", value: "HMV" },
                       ]}
                     />
@@ -318,6 +352,7 @@ const AddDriverPage = () => {
                       title="License Issue Date"
                       placeholder="Select issue date"
                       required
+                      maxDate={dayjs()}
                     />
                   </div>
                   <div>
@@ -326,6 +361,7 @@ const AddDriverPage = () => {
                       title="License Expiry Date"
                       placeholder="Select expiry date"
                       required
+                      minDate={dayjs()}
                     />
                   </div>
                 </div>
@@ -418,13 +454,16 @@ const AddDriverPage = () => {
                 </h4>
                 <ul className="text-sm text-blue-800 space-y-1 ml-6 list-disc">
                   <li>
-                    After creating the driver, a user account will be created automatically
+                    After creating the driver, a user account will be created
+                    automatically
                   </li>
                   <li>
-                    Login credentials will be: Phone Number & Password (first 4 letters of driver name + @ + last 4 digits of phone)
+                    Login credentials will be: Phone Number & Password (first 4
+                    letters of driver name + @ + last 4 digits of phone)
                   </li>
                   <li>
-                    Example: Name &quot;Ramesh Kumar&quot; & Phone &quot;9876543210&quot; → Password: &quot;Rame@3210&quot;
+                    Example: Name &quot;Ramesh Kumar&quot; & Phone
+                    &quot;9876543210&quot; → Password: &quot;Rame@3210&quot;
                   </li>
                 </ul>
               </div>

@@ -20,7 +20,7 @@ export function Select<T extends FieldValues>(props: SelectProps<T>) {
 
   // Get the error for this specific field
   const error = errors[props.name as keyof typeof errors];
-  
+
   return (
     <Controller
       control={control}
@@ -36,25 +36,29 @@ export function Select<T extends FieldValues>(props: SelectProps<T>) {
               {props.extratax && props.extratax}
             </div>
           )}
-          <select
-            {...field}
-            disabled={props.disable ?? false}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-          >
-            {props.placeholder && (
-              <option value="" disabled>
-                {props.placeholder}
-              </option>
+          <div>
+            <select
+              {...field}
+              disabled={props.disable ?? false}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              {props.placeholder && (
+                <option value="" disabled>
+                  {props.placeholder}
+                </option>
+              )}
+              {props.options.map((option: OptionValue, index: number) => (
+                <option key={index} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {error && (
+              <p className="text-xs text-red-500">
+                {error.message?.toString()}
+              </p>
             )}
-            {props.options.map((option: OptionValue, index: number) => (
-              <option key={index} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          {error && (
-            <p className="text-xs text-red-500">{error.message?.toString()}</p>
-          )}
+          </div>
         </>
       )}
     />

@@ -24,7 +24,7 @@ interface DriverData {
   id: number;
   driverId: string;
   name: string;
-  email: string;
+  email: string | undefined;
   mobile: string;
   licenseNumber: string;
   experience: number;

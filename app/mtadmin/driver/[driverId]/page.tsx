@@ -381,7 +381,7 @@ const DriverDetailPage = ({ params }: { params: Promise<{ driverId: string }> })
                 <h1 className="text-2xl font-bold text-gray-900">
                   {driverData.name}
                 </h1>
-                <p className="text-gray-600 mt-1">{driverData.email}</p>
+                <p className="text-gray-600 mt-1">{driverData.email || "N/A"}</p>
                 <div className="flex items-center gap-3 mt-2">
                   <Tag
                     color={

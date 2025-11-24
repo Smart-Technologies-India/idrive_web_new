@@ -7,7 +7,7 @@ export interface Driver {
   schoolId: number;
   driverId: string;
   name: string;
-  email: string;
+  email?: string;
   mobile: string;
   alternatePhone?: string;
   address: string;
@@ -357,7 +357,7 @@ export const createDriver = async (inputType: {
   schoolId: number;
   driverId: string;
   name: string;
-  email: string;
+  email?: string;
   mobile: string;
   alternatePhone?: string;
   address: string;

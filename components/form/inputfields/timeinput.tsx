@@ -1,5 +1,5 @@
 import React from "react";
-import { TimePicker } from "antd";
+import { TimePicker, TimePickerProps } from "antd";
 import { Controller, FieldValues, Path, useFormContext } from "react-hook-form";
 import dayjs, { Dayjs } from "dayjs";
 
@@ -9,6 +9,8 @@ type TimeInputProps<T extends FieldValues> = {
   placeholder?: string;
   required?: boolean;
   format?: string;
+  use12Hours?: boolean;
+  minuteStep?: TimePickerProps["minuteStep"];
 };
 
 export function TimeInput<T extends FieldValues>(props: TimeInputProps<T>) {
@@ -37,19 +39,25 @@ export function TimeInput<T extends FieldValues>(props: TimeInputProps<T>) {
             </div>
           )}
 
-          <TimePicker
-            status={error ? "error" : undefined}
-            className="w-full"
-            format={format}
-            value={field.value ? dayjs(field.value, format) : null}
-            onChange={(time: Dayjs | null) => {
-              field.onChange(time ? time.format(format) : "");
-            }}
-            placeholder={props.placeholder ?? undefined}
-          />
-          {error && (
-            <p className="text-xs text-red-500">{error.message?.toString()}</p>
-          )}
+          <div>
+            <TimePicker
+              status={error ? "error" : undefined}
+              className="w-full"
+              format={format}
+              use12Hours={props.use12Hours}
+              {...(props.minuteStep && { minuteStep: props.minuteStep })}
+              value={field.value ? dayjs(field.value, format) : null}
+              onChange={(time: Dayjs | null) => {
+                field.onChange(time ? time.format(format) : "");
+              }}
+              placeholder={props.placeholder ?? undefined}
+            />
+            {error && (
+              <p className="text-xs text-red-500">
+                {error.message?.toString()}
+              </p>
+            )}
+          </div>
         </>
       )}
     />

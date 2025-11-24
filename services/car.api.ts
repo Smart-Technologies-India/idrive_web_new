@@ -1,6 +1,18 @@
 import { ApiCall } from "./api";
 
 // Types
+export interface Driver {
+  id: number;
+  driverId: string;
+  name: string;
+  email: string;
+  mobile: string;
+  licenseNumber?: string;
+  licenseType?: string;
+  experience?: number;
+  status: string;
+}
+
 export interface Car {
   id: number;
   schoolId: number;
@@ -25,6 +37,7 @@ export interface Car {
   lastServiceDate?: string;
   nextServiceDate?: string;
   assignedDriverId?: number;
+  assignedDriver?: Driver;
   totalBookings: number;
   status: "AVAILABLE" | "IN_USE" | "MAINTENANCE" | "INACTIVE";
   createdAt: string;
@@ -70,6 +83,14 @@ const GET_PAGINATED_CARS = `
         seatingCapacity
         currentMileage
         assignedDriverId
+        assignedDriver {
+          id
+          driverId
+          name
+          email
+          mobile
+          status
+        }
         totalBookings
         status
         lastServiceDate
@@ -110,6 +131,17 @@ const GET_CAR_BY_ID = `
       lastServiceDate
       nextServiceDate
       assignedDriverId
+      assignedDriver {
+        id
+        driverId
+        name
+        email
+        mobile
+        licenseNumber
+        licenseType
+        experience
+        status
+      }
       totalBookings
       status
       createdAt

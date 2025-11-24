@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useState, useMemo } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
@@ -38,7 +38,7 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
   const methods = useForm<EditServiceForm>();
 
   // Mock data - Replace with actual API call
-  const serviceData = {
+  const serviceData = useMemo(() => ({
     id: serviceId,
     serviceId: "SRV-001",
     serviceName: "Two Wheeler License",
@@ -54,7 +54,7 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
     requirements: "Minimum age 16 years, Valid Aadhar card, Medical fitness certificate",
     termsAndConditions: "Valid for 365 days from purchase date. Non-transferable. Refund policy as per terms.",
     includedServices: "Theory Classes, Practical Training, Mock Test, RTO Assistance",
-  };
+  }), [serviceId]);
 
   useEffect(() => {
     // Simulate API call
@@ -254,12 +254,16 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Category <span className="text-red-500">*</span>
                     </label>
-                    <input
+                    <select
                       {...methods.register("category", { required: true })}
-                      type="text"
-                      placeholder="e.g., Two Wheeler, Four Wheeler"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    />
+                    >
+                      <option value="">Select category</option>
+                      <option value="Two Wheeler">Two Wheeler</option>
+                      <option value="Four Wheeler">Four Wheeler</option>
+                      <option value="Heavy Vehicle">Heavy Vehicle</option>
+                      <option value="Commercial Vehicle">Commercial Vehicle</option>
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">

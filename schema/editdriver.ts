@@ -3,7 +3,7 @@ import * as v from "valibot";
 export const EditDriverSchema = v.object({
   // Personal Information
   name: v.pipe(v.string(), v.minLength(3, "Name must be at least 3 characters")),
-  email: v.pipe(v.string(), v.email("Invalid email address")),
+  email: v.optional(v.pipe(v.string(), v.email("Invalid email address"))),
   mobile: v.pipe(
     v.string(),
     v.length(10, "Mobile number must be 10 digits"),

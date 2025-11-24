@@ -1,5 +1,5 @@
 // export const baseurl = "http://192.168.0.210:9997";
-export const baseurl = "http://192.168.1.113:9997";
+export const baseurl = "http://192.168.1.7:9997";
 // export const baseurl = "http://194.238.22.198:7772";
 
 // const url = "http://localhost:5566/";

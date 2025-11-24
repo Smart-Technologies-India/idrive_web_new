@@ -8,6 +8,8 @@ type DateInputProps<T extends FieldValues> = {
   placeholder?: string;
   required?: boolean;
   format?: string;
+  maxDate?: Dayjs;
+  minDate?: Dayjs;
 };
 
 export function DateInput<T extends FieldValues>(props: DateInputProps<T>) {
@@ -35,20 +37,25 @@ export function DateInput<T extends FieldValues>(props: DateInputProps<T>) {
               </label>
             </div>
           )}
-
-          <DatePicker
-            status={error ? "error" : undefined}
-            className="w-full"
-            format={format}
-            value={field.value ? dayjs(field.value, format) : null}
-            onChange={(date: Dayjs | null) => {
-              field.onChange(date ? date.format(format) : "");
-            }}
-            placeholder={props.placeholder ?? undefined}
-          />
-          {error && (
-            <p className="text-xs text-red-500">{error.message?.toString()}</p>
-          )}
+          <div>
+            <DatePicker
+              status={error ? "error" : undefined}
+              className="w-full"
+              format={format}
+              value={field.value ? dayjs(field.value, format) : null}
+              onChange={(date: Dayjs | null) => {
+                field.onChange(date ? date.format(format) : "");
+              }}
+              placeholder={props.placeholder ?? undefined}
+              maxDate={props.maxDate}
+              minDate={props.minDate}
+            />
+            {error && (
+              <p className="text-xs text-red-500">
+                {error.message?.toString()}
+              </p>
+            )}
+          </div>
         </>
       )}
     />

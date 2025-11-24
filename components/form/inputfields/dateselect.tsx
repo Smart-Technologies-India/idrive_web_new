@@ -31,22 +31,26 @@ export function DateSelect<T extends FieldValues>(props: DateSelectProps<T>) {
             {props.title}
             {props.required && <span className="text-rose-500">*</span>}
           </label>
-          <DatePicker
-            disabled={props.disable ?? false}
-            className="w-full"
-            value={field.value ? dayjs(field.value) : null}
-            status={error ? "error" : undefined}
-            onChange={(value: dayjs.Dayjs) => {
-              field.onChange(value ? value.toDate().toISOString() : null);
-            }}
-            minDate={props.mindate ? props.mindate : undefined}
-            maxDate={props.maxdate ? props.maxdate : undefined}
-            placeholder={props.placeholder}
-            format={props.format ? props.format : undefined}
-          />
-          {error && (
-            <p className="text-xs text-red-500">{error.message?.toString()}</p>
-          )}
+          <div>
+            <DatePicker
+              disabled={props.disable ?? false}
+              className="w-full"
+              value={field.value ? dayjs(field.value) : null}
+              status={error ? "error" : undefined}
+              onChange={(value: dayjs.Dayjs) => {
+                field.onChange(value ? value.toDate().toISOString() : null);
+              }}
+              minDate={props.mindate ? props.mindate : undefined}
+              maxDate={props.maxdate ? props.maxdate : undefined}
+              placeholder={props.placeholder}
+              format={props.format ? props.format : undefined}
+            />
+            {error && (
+              <p className="text-xs text-red-500">
+                {error.message?.toString()}
+              </p>
+            )}
+          </div>
         </>
       )}
     />

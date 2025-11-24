@@ -40,35 +40,39 @@ export function TextInput<T extends FieldValues>(props: TextInputProps<T>) {
             </div>
           )}
 
-          <Input
-            showCount={props.maxlength ? true : undefined}
-            maxLength={props.maxlength ?? undefined}
-            status={error ? "error" : undefined}
-            className="w-full"
-            value={props.onlynumber ? (field.value || "") : field.value}
-            disabled={props.disable ?? false}
-            onChange={(e) => {
-              if (!e) return;
-              let { value } = e.target;
+          <div>
+            <Input
+              showCount={props.maxlength ? true : undefined}
+              maxLength={props.maxlength ?? undefined}
+              status={error ? "error" : undefined}
+              className="w-full"
+              value={props.onlynumber ? field.value || "" : field.value}
+              disabled={props.disable ?? false}
+              onChange={(e) => {
+                if (!e) return;
+                let { value } = e.target;
 
-              if (props.numdes) {
-                value = value.replace(/[^0-9.]/g, "");
-              }
+                if (props.numdes) {
+                  value = value.replace(/[^0-9.]/g, "");
+                }
 
-              if (props.onlynumber) {
-                value = value.replace(/[^0-9]/g, "");
-                // Keep as string for onlynumber fields to maintain string validation
+                if (props.onlynumber) {
+                  value = value.replace(/[^0-9]/g, "");
+                  // Keep as string for onlynumber fields to maintain string validation
+                  field.onChange(value);
+                  return;
+                }
+
                 field.onChange(value);
-                return;
-              }
-              
-              field.onChange(value);
-            }}
-            placeholder={props.placeholder ?? undefined}
-          />
-          {error && (
-            <p className="text-xs text-red-500">{error.message?.toString()}</p>
-          )}
+              }}
+              placeholder={props.placeholder ?? undefined}
+            />
+            {error && (
+              <p className="text-xs text-red-500">
+                {error.message?.toString()}
+              </p>
+            )}
+          </div>
         </>
       )}
     />

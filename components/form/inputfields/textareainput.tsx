@@ -26,34 +26,41 @@ export function TaxtAreaInput<T extends FieldValues>(
       name={props.name}
       render={({ field }) => (
         <>
-          <label htmlFor={props.name} className="text-sm font-semibold mb-2 block text-gray-900">
+          <label
+            htmlFor={props.name}
+            className="text-sm font-semibold mb-2 block text-gray-900"
+          >
             {props.title}
             {props.required && <span className="text-rose-500 ml-1">*</span>}
           </label>
-          <Input.TextArea
-            showCount={props.maxlength ? true : undefined}
-            maxLength={props.maxlength ?? undefined}
-            status={error ? "error" : undefined}
-            className="w-full resize-none"
-            value={field.value}
-            disabled={props.disable ?? false}
-            onChange={(e) => {
-              if (!e) return;
-              let { value } = e.target;
-              if (props.onlynumber) {
-                value = value.replace(/[^0-9]/g, ""); // Filter out non-numeric characters
-              }
-              field.onChange(value);
-            }}
-            placeholder={props.placeholder}
-            rows={4}
-            size="large"
-            style={{ resize: "none" }}
-            allowClear
-          />
-          {error && (
-            <p className="text-xs text-red-500 mt-1">{error.message?.toString()}</p>
-          )}
+          <div>
+            <Input.TextArea
+              showCount={props.maxlength ? true : undefined}
+              maxLength={props.maxlength ?? undefined}
+              status={error ? "error" : undefined}
+              className="w-full resize-none"
+              value={field.value}
+              disabled={props.disable ?? false}
+              onChange={(e) => {
+                if (!e) return;
+                let { value } = e.target;
+                if (props.onlynumber) {
+                  value = value.replace(/[^0-9]/g, ""); // Filter out non-numeric characters
+                }
+                field.onChange(value);
+              }}
+              placeholder={props.placeholder}
+              rows={4}
+              size="large"
+              style={{ resize: "none" }}
+              allowClear
+            />
+            {error && (
+              <p className="text-xs text-red-500 mt-1">
+                {error.message?.toString()}
+              </p>
+            )}
+          </div>
         </>
       )}
     />

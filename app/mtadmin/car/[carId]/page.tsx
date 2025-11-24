@@ -416,15 +416,33 @@ const CarDetailPage = ({ params }: { params: Promise<{ carId: string }> }) => {
 
         {/* Driver Details */}
         <Card title="Assigned Driver" className="shadow-sm">
-          {carData.assignedDriverId ? (
+          {carData.assignedDriver ? (
             <Descriptions bordered column={{ xs: 1, sm: 2}}>
               <Descriptions.Item label="Driver ID">
-                {carData.assignedDriverId}
+                {carData.assignedDriver.driverId}
               </Descriptions.Item>
-              <Descriptions.Item label="Total Bookings">
-                <span className="text-lg font-semibold text-blue-600">
-                  {carData.totalBookings}
-                </span>
+              <Descriptions.Item label="Driver Name">
+                {carData.assignedDriver.name}
+              </Descriptions.Item>
+              <Descriptions.Item label="Email">
+                {carData.assignedDriver.email}
+              </Descriptions.Item>
+              <Descriptions.Item label="Mobile">
+                {carData.assignedDriver.mobile}
+              </Descriptions.Item>
+              <Descriptions.Item label="License Number">
+                {carData.assignedDriver.licenseNumber || "N/A"}
+              </Descriptions.Item>
+              <Descriptions.Item label="License Type">
+                {carData.assignedDriver.licenseType || "N/A"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Experience">
+                {carData.assignedDriver.experience ? `${carData.assignedDriver.experience} years` : "N/A"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Status">
+                <Tag color={carData.assignedDriver.status === "ACTIVE" ? "green" : "red"}>
+                  {carData.assignedDriver.status}
+                </Tag>
               </Descriptions.Item>
             </Descriptions>
           ) : (

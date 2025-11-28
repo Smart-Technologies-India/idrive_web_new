@@ -229,11 +229,15 @@ const CourseDetailPage = ({
               <Descriptions.Item label="Requirements" span={3}>
                 {courseData.requirements}
               </Descriptions.Item>
-            )}   
+            )}
           </Descriptions>
         </Card>
+        <div></div>
         {/* Course Syllabus Management */}
-        <SyllabusManagement courseId={courseId} courseDays={courseData.courseDays} />
+        <SyllabusManagement
+          courseId={courseId}
+          courseDays={courseData.courseDays}
+        />
       </div>
     </div>
   );
@@ -262,13 +266,14 @@ const SyllabusManagement = ({
   });
 
   const syllabusList = syllabusResponse?.data?.getPaginatedSyllabus?.data || [];
-  
+
   // Get available days (days that don't have syllabus yet)
   const usedDays = syllabusList.map((s) => s.dayNumber);
-  const availableDays = Array.from({ length: courseDays }, (_, i) => i + 1).filter(
-    (day) => !usedDays.includes(day)
-  );
-  
+  const availableDays = Array.from(
+    { length: courseDays },
+    (_, i) => i + 1
+  ).filter((day) => !usedDays.includes(day));
+
   // Get day options for edit (current day + available days)
   const getEditDayOptions = (currentDay: number) => {
     return Array.from({ length: courseDays }, (_, i) => i + 1).filter(
@@ -472,7 +477,7 @@ const SyllabusManagement = ({
         </h4>
         <p className="text-gray-700 leading-relaxed">{record.topics}</p>
       </div>
-      
+
       {record.objectives && (
         <div className="bg-white p-4 rounded-lg shadow-sm">
           <h4 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
@@ -481,25 +486,29 @@ const SyllabusManagement = ({
           <p className="text-gray-700 leading-relaxed">{record.objectives}</p>
         </div>
       )}
-      
+
       {record.practicalActivities && (
         <div className="bg-white p-4 rounded-lg shadow-sm">
           <h4 className="font-semibold text-purple-900 mb-2 flex items-center gap-2">
             <span className="text-purple-600">🛠️</span> Practical Activities:
           </h4>
-          <p className="text-gray-700 leading-relaxed">{record.practicalActivities}</p>
+          <p className="text-gray-700 leading-relaxed">
+            {record.practicalActivities}
+          </p>
         </div>
       )}
-      
+
       {record.assessmentCriteria && (
         <div className="bg-white p-4 rounded-lg shadow-sm">
           <h4 className="font-semibold text-orange-900 mb-2 flex items-center gap-2">
             <span className="text-orange-600">✅</span> Assessment Criteria:
           </h4>
-          <p className="text-gray-700 leading-relaxed">{record.assessmentCriteria}</p>
+          <p className="text-gray-700 leading-relaxed">
+            {record.assessmentCriteria}
+          </p>
         </div>
       )}
-      
+
       {record.notes && (
         <div className="bg-white p-4 rounded-lg shadow-sm">
           <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
@@ -517,7 +526,12 @@ const SyllabusManagement = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <span className="text-xl font-semibold">Course Syllabus</span>
-            <Tag color={syllabusList.length === courseDays ? "success" : "processing"} className="text-sm px-3 py-1">
+            <Tag
+              color={
+                syllabusList.length === courseDays ? "success" : "processing"
+              }
+              className="text-sm px-3 py-1"
+            >
               {syllabusList.length}/{courseDays} Days Completed
             </Tag>
           </div>
@@ -528,7 +542,8 @@ const SyllabusManagement = ({
               setIsAddModalOpen(true);
               // Reset form with first available day
               addMethods.reset({
-                dayNumber: availableDays.length > 0 ? availableDays[0].toString() : "1",
+                dayNumber:
+                  availableDays.length > 0 ? availableDays[0].toString() : "1",
                 title: "",
                 topics: "",
                 objectives: "",
@@ -549,16 +564,18 @@ const SyllabusManagement = ({
       {/* Progress Section */}
       <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">Syllabus Progress</span>
+          <span className="text-sm font-medium text-gray-700">
+            Syllabus Progress
+          </span>
           <span className="text-sm font-semibold text-blue-600">
             {((syllabusList.length / courseDays) * 100).toFixed(0)}% Complete
           </span>
         </div>
-        <Progress 
-          percent={(syllabusList.length / courseDays) * 100} 
+        <Progress
+          percent={(syllabusList.length / courseDays) * 100}
           strokeColor={{
-            '0%': '#3b82f6',
-            '100%': '#8b5cf6',
+            "0%": "#3b82f6",
+            "100%": "#8b5cf6",
           }}
           showInfo={false}
         />
@@ -614,7 +631,9 @@ const SyllabusManagement = ({
         width={800}
       >
         <FormProvider {...addMethods}>
-          <form onSubmit={addMethods.handleSubmit(handleAddSubmit, onFormError)}>
+          <form
+            onSubmit={addMethods.handleSubmit(handleAddSubmit, onFormError)}
+          >
             <div className="space-y-4 mt-4">
               <MultiSelect<AddSyllabusForm>
                 name="dayNumber"
@@ -628,7 +647,8 @@ const SyllabusManagement = ({
               />
               {availableDays.length === 0 && (
                 <div className="text-red-500 text-sm -mt-2">
-                  All days have syllabus created. Edit or delete existing syllabus to add new ones.
+                  All days have syllabus created. Edit or delete existing
+                  syllabus to add new ones.
                 </div>
               )}
               <TextInput<AddSyllabusForm>
@@ -710,17 +730,21 @@ const SyllabusManagement = ({
         width={800}
       >
         <FormProvider {...editMethods}>
-          <form onSubmit={editMethods.handleSubmit(handleEditSubmit, onFormError)}>
+          <form
+            onSubmit={editMethods.handleSubmit(handleEditSubmit, onFormError)}
+          >
             <div className="space-y-4 mt-4">
               <MultiSelect<EditSyllabusForm>
                 name="dayNumber"
                 title="Select Day"
                 placeholder="Select a day"
                 required={true}
-                options={getEditDayOptions(editingSyllabus?.dayNumber || 1).map((day) => ({
-                  label: `Day ${day}`,
-                  value: day.toString(),
-                }))}
+                options={getEditDayOptions(editingSyllabus?.dayNumber || 1).map(
+                  (day) => ({
+                    label: `Day ${day}`,
+                    value: day.toString(),
+                  })
+                )}
               />
               <TextInput<EditSyllabusForm>
                 name="title"

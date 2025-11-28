@@ -41,9 +41,8 @@ export function MultiSelect<T extends FieldValues>(props: MultiSelectProps<T>) {
               className="w-full"
               size="large"
               onChange={(value) => {
-                // Convert to number if the field value is numeric
-                const numValue = Number(value);
-                field.onChange(isNaN(numValue) ? value : numValue);
+                // Always keep value as string to match schema expectations
+                field.onChange(value.toString());
               }}
               value={field.value && field.value !== 0 ? field.value.toString() : undefined}
               placeholder={props.placeholder}

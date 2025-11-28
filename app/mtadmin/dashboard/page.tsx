@@ -17,10 +17,7 @@ import {
   Fa6RegularPenToSquare,
 } from "@/components/icons";
 import { useRouter } from "next/navigation";
-import {
-  getSchoolById,
-  getSchoolDashboardStats,
-} from "@/services/school.api";
+import { getSchoolById, getSchoolDashboardStats } from "@/services/school.api";
 import { getAllBookings } from "@/services/booking.api";
 import { getCookie } from "cookies-next";
 import { useQuery } from "@tanstack/react-query";
@@ -437,37 +434,6 @@ const Dashboard = () => {
           </Col>
         </Row>
 
-        {/* Alerts Section */}
-        <Card
-          title={
-            <div className="flex items-center gap-2">
-              <CarbonWarningSquare className="text-orange-600 text-xl" />
-              <span className="font-semibold">Alerts & Notifications</span>
-            </div>
-          }
-          className="shadow-sm"
-        >
-          <div className="space-y-3">
-            {alerts.map((alert) => (
-              <div key={alert.key}>
-                <Alert
-                  message={
-                    <div className="flex items-center justify-between">
-                      <span>{alert.message}</span>
-                      <span className="text-xs text-gray-400">
-                        {alert.timestamp}
-                      </span>
-                    </div>
-                  }
-                  type={alert.type}
-                  showIcon
-                  closable
-                />
-                <div></div>
-              </div>
-            ))}
-          </div>
-        </Card>
         <div></div>
 
         {/* Recent Bookings Table */}

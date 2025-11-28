@@ -1,14 +1,18 @@
 "use client";
 
-import { use, useEffect, useState, useMemo } from "react";
+import { use, useEffect, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 import { Button, Card, Modal, Spin } from "antd";
+import { ChipInput } from "@/components/form/inputfields/chipinput";
 import {
   Fa6SolidArrowLeftLong,
   AntDesignCheckOutlined,
 } from "@/components/icons";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getServiceById, updateService } from "@/services/service.api";
+import { getCookie } from "cookies-next";
 
 // Temporary form interface - will be replaced with schema
 interface EditServiceForm {
@@ -19,10 +23,10 @@ interface EditServiceForm {
   price: string;
   duration: string;
   description: string;
-  features: string;
+  features: string[];
   requirements: string;
   termsAndConditions: string;
-  includedServices: string;
+  includedServices: string[];
   activeUsers: string;
   totalRevenue: string;
   status: string;
@@ -33,52 +37,70 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
   const { serviceId: serviceIdStr } = use(params);
   const serviceId = parseInt(serviceIdStr);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
+  const queryClient = useQueryClient();
 
   const methods = useForm<EditServiceForm>();
 
-  // Mock data - Replace with actual API call
-  const serviceData = useMemo(() => ({
-    id: serviceId,
-    serviceId: "SRV-001",
-    serviceName: "Two Wheeler License",
-    serviceType: "LICENSE",
-    category: "Two Wheeler",
-    price: 5000,
-    duration: 365,
-    status: "ACTIVE",
-    activeUsers: 150,
-    totalRevenue: 750000,
-    description: "Complete two wheeler driving license training program",
-    features: "20 hours of practical training\n10 sessions of theory classes\nRoad safety training\nRTO test preparation\nLicense application assistance",
-    requirements: "Minimum age 16 years, Valid Aadhar card, Medical fitness certificate",
-    termsAndConditions: "Valid for 365 days from purchase date. Non-transferable. Refund policy as per terms.",
-    includedServices: "Theory Classes, Practical Training, Mock Test, RTO Assistance",
-  }), [serviceId]);
+  // Fetch service data from API
+  const { data: serviceResponse, isLoading, error } = useQuery({
+    queryKey: ["service", serviceId],
+    queryFn: () => getServiceById(serviceId),
+    enabled: serviceId > 0 && schoolId > 0,
+  });
 
+  const serviceData = serviceResponse?.data?.getServiceById;
+
+  // Update service mutation
+  const updateServiceMutation = useMutation({
+    mutationFn: updateService,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["service", serviceId] });
+      queryClient.invalidateQueries({ queryKey: ["services"] });
+      Modal.success({
+        title: "Service Updated Successfully!",
+        content: (
+          <div className="space-y-2">
+            <p><strong>Service Name:</strong> {serviceData?.serviceName}</p>
+            <p><strong>Status:</strong> {serviceData?.status}</p>
+          </div>
+        ),
+        onOk: () => router.push(`/mtadmin/service/${serviceId}`),
+      });
+      setIsSubmitting(false);
+    },
+    onError: (error: Error) => {
+      toast.error(error?.message || "Failed to update service. Please try again.");
+      setIsSubmitting(false);
+    },
+  });
+
+  // Initialize form with fetched data
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      if (serviceData) {
-        methods.reset({
-          serviceId: serviceData.serviceId,
-          serviceName: serviceData.serviceName,
-          serviceType: serviceData.serviceType,
-          category: serviceData.category,
-          price: serviceData.price.toString(),
-          duration: serviceData.duration.toString(),
-          description: serviceData.description,
-          features: serviceData.features,
-          requirements: serviceData.requirements,
-          termsAndConditions: serviceData.termsAndConditions,
-          includedServices: serviceData.includedServices,
-          activeUsers: serviceData.activeUsers.toString(),
-          totalRevenue: serviceData.totalRevenue.toString(),
-          status: serviceData.status,
-        });
-      }
-      setIsLoading(false);
-    }, 500);
+    if (serviceData) {
+      // Parse features and includedServices from JSON strings
+      const parsedFeatures = serviceData.features ? 
+        (typeof serviceData.features === 'string' ? JSON.parse(serviceData.features) : serviceData.features) : [];
+      const parsedIncludedServices = serviceData.includedServices ? 
+        (typeof serviceData.includedServices === 'string' ? JSON.parse(serviceData.includedServices) : serviceData.includedServices) : [];
+
+      methods.reset({
+        serviceId: serviceData.serviceId,
+        serviceName: serviceData.serviceName,
+        serviceType: serviceData.serviceType,
+        category: serviceData.category,
+        price: serviceData.price.toString(),
+        duration: serviceData.duration.toString(),
+        description: serviceData.description,
+        features: parsedFeatures,
+        includedServices: parsedIncludedServices,
+        requirements: serviceData.requirements || "",
+        termsAndConditions: serviceData.termsAndConditions || "",
+        activeUsers: serviceData.activeUsers.toString(),
+        totalRevenue: serviceData.totalRevenue.toString(),
+        status: serviceData.status,
+      });
+    }
   }, [methods, serviceData]);
 
   const onSubmit = (data: EditServiceForm) => {
@@ -95,27 +117,25 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
       ),
       okText: "Yes, Update Service",
       cancelText: "Cancel",
-      onOk: async () => {
+      onOk: () => {
         setIsSubmitting(true);
-        try {
-          // TODO: Replace with actual API call
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          Modal.success({
-            title: "Service Updated Successfully!",
-            content: (
-              <div className="space-y-2">
-                <p><strong>Service Name:</strong> {data.serviceName}</p>
-                <p><strong>Status:</strong> {data.status}</p>
-              </div>
-            ),
-            onOk: () => router.push(`/mtadmin/service/${serviceId}`),
-          });
-        } catch {
-          toast.error("Failed to update service. Please try again.");
-        } finally {
-          setIsSubmitting(false);
-        }
+        updateServiceMutation.mutate({
+          id: serviceId,
+          serviceName: data.serviceName,
+          serviceType: data.serviceType as 'LICENSE' | 'ADDON',
+          category: data.category,
+          price: parseFloat(data.price),
+          duration: parseInt(data.duration),
+          description: data.description,
+          features: data.features ? JSON.stringify(data.features) : undefined,
+          includedServices: data.includedServices ? JSON.stringify(data.includedServices) : undefined,
+          requirements: data.requirements,
+          termsAndConditions: data.termsAndConditions,
+          activeUsers: parseInt(data.activeUsers),
+          totalRevenue: parseFloat(data.totalRevenue),
+          status: data.status as 'ACTIVE' | 'INACTIVE' | 'UPCOMING' | 'DISCONTINUED',
+        });
+        setIsSubmitting(false);
       },
       okButtonProps: {
         className: "!bg-blue-600",
@@ -125,6 +145,12 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
 
   const handleReset = () => {
     if (serviceData) {
+      // Parse features and includedServices from JSON strings
+      const parsedFeatures = serviceData.features ? 
+        (typeof serviceData.features === 'string' ? JSON.parse(serviceData.features) : serviceData.features) : [];
+      const parsedIncludedServices = serviceData.includedServices ? 
+        (typeof serviceData.includedServices === 'string' ? JSON.parse(serviceData.includedServices) : serviceData.includedServices) : [];
+
       methods.reset({
         serviceId: serviceData.serviceId,
         serviceName: serviceData.serviceName,
@@ -133,10 +159,10 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
         price: serviceData.price.toString(),
         duration: serviceData.duration.toString(),
         description: serviceData.description,
-        features: serviceData.features,
-        requirements: serviceData.requirements,
-        termsAndConditions: serviceData.termsAndConditions,
-        includedServices: serviceData.includedServices,
+        features: parsedFeatures,
+        includedServices: parsedIncludedServices,
+        requirements: serviceData.requirements || "",
+        termsAndConditions: serviceData.termsAndConditions || "",
         activeUsers: serviceData.activeUsers.toString(),
         totalRevenue: serviceData.totalRevenue.toString(),
         status: serviceData.status,
@@ -149,6 +175,23 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Spin size="large" />
+      </div>
+    );
+  }
+
+  if (error || !serviceData) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-8">
+        <Card>
+          <div className="text-center">
+            <p className="text-gray-500 mb-4">
+              {error ? "Failed to load service data" : "Service not found"}
+            </p>
+            <Button onClick={() => router.push("/mtadmin/service")}>
+              Back to Services
+            </Button>
+          </div>
+        </Card>
       </div>
     );
   }
@@ -339,25 +382,19 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Features <span className="text-gray-500">(Optional - One per line)</span>
-                    </label>
-                    <textarea
-                      {...methods.register("features")}
-                      placeholder="Enter features, one per line"
-                      rows={4}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    <ChipInput<EditServiceForm>
+                      name="features"
+                      title="Key Features"
+                      placeholder="e.g., 20 hours practical training, Theory sessions"
+                      required={false}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Included Services <span className="text-gray-500">(Optional - Comma separated)</span>
-                    </label>
-                    <input
-                      {...methods.register("includedServices")}
-                      type="text"
+                    <ChipInput<EditServiceForm>
+                      name="includedServices"
+                      title="Included Services"
                       placeholder="e.g., Theory Classes, Practical Training, Mock Test"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      required={false}
                     />
                   </div>
                   <div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useParams } from "next/navigation";
-import { Card, Descriptions, Tag, Table, Button, Divider } from "antd";
+import { Card, Descriptions, Tag, Table, Button } from "antd";
 import { useQuery } from "@tanstack/react-query";
 import { getBookingById } from "@/services/booking.api";
 
@@ -29,10 +29,23 @@ const BookingDetailsPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      <Card className="shadow-sm mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">
           Booking Details
         </h1>
+        <div className="flex gap-4">
+          <Button type="default" onClick={() => router.back()}>
+            Back
+          </Button>
+          <Button 
+            type="primary" 
+            onClick={() => router.push(`/mtadmin/amendment?bookingId=${booking.bookingId}`)}
+          >
+            Go to Amendment
+          </Button>
+        </div>
+      </div>
+      <Card className="shadow-sm mb-6">
         <Descriptions bordered column={2} size="middle">
           <Descriptions.Item label="Booking ID">
             {booking.bookingId}
@@ -182,10 +195,6 @@ const BookingDetailsPage = () => {
           </Descriptions.Item>
         </Descriptions>
       </Card>
-      <Divider />
-      <Button type="default" onClick={() => router.back()}>
-        Back to List
-      </Button>
     </div>
   );
 };

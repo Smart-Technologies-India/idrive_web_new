@@ -205,6 +205,7 @@ function UserManagementPage() {
             </Space>
           </div>
         </Card>
+        <div></div>
         {/* Users Table */}
         <Card className="shadow-sm">
           <Table

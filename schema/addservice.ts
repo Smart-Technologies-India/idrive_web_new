@@ -28,8 +28,8 @@ export const AddServiceSchema = v.object({
     v.string(),
     v.minLength(10, "Description must be at least 10 characters")
   ),
-  features: v.optional(v.string()),
-  includedServices: v.optional(v.string()),
+  features: v.optional(v.array(v.string())),
+  includedServices: v.optional(v.array(v.string())),
   requirements: v.optional(v.string()),
   termsAndConditions: v.optional(v.string()),
 });

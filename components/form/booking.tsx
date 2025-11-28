@@ -298,6 +298,7 @@ const BookingForm = () => {
       getAllServices({
         schoolId: schoolId,
         status: "ACTIVE",
+        serviceType: "ADDON",
       }),
     enabled: schoolId > 0,
   });
@@ -616,13 +617,14 @@ const BookingForm = () => {
 
   // Handle course selection
   const handleCourseChange = (courseId: number) => {
-    const course = courses.find((c) => c.id === courseId);
+    const course = courses.find((c) => c.id == courseId);
     if (course) {
       setSelectedCourse(course);
       setValue("courseId", course.id);
       setValue("courseName", course.name);
       setValue("coursePrice", course.price);
       calculateTotal(course.price, selectedServices);
+    } else {
     }
   };
 
@@ -803,6 +805,8 @@ const BookingForm = () => {
               inputType: {
                 bookingId: createdBooking.id,
                 serviceId: service.id,
+                schoolId: schoolId,
+                userId: customerData?.id,
                 serviceName: service.name,
                 serviceType: service.serviceType,
                 price: service.price,

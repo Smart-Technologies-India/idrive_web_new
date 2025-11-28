@@ -10,6 +10,7 @@ import { AddServiceForm, AddServiceSchema } from "@/schema/addservice";
 import { TextInput } from "@/components/form/inputfields/textinput";
 import { MultiSelect } from "@/components/form/inputfields/multiselect";
 import { TaxtAreaInput } from "@/components/form/inputfields/textareainput";
+import { ChipInput } from "@/components/form/inputfields/chipinput";
 import { Button, Card, Modal } from "antd";
 import {
   Fa6SolidArrowLeftLong,
@@ -49,8 +50,8 @@ const AddServicePage = () => {
         price: parseFloat(data.price),
         duration: parseInt(data.duration),
         description: data.description,
-        features: data.features,
-        includedServices: data.includedServices,
+        features: data.features ? JSON.stringify(data.features) : undefined,
+        includedServices: data.includedServices ? JSON.stringify(data.includedServices) : undefined,
         requirements: data.requirements,
         termsAndConditions: data.termsAndConditions,
       });
@@ -217,18 +218,18 @@ const AddServicePage = () => {
                     />
                   </div>
                   <div>
-                    <TaxtAreaInput<AddServiceForm>
+                    <ChipInput<AddServiceForm>
                       name="features"
-                      title="Key Features (Optional)"
-                      placeholder="Enter key features (one per line or comma-separated)"
+                      title="Key Features"
+                      placeholder="e.g., 20 hours practical training, Theory sessions"
                       required={false}
                     />
                   </div>
                   <div>
-                    <TaxtAreaInput<AddServiceForm>
+                    <ChipInput<AddServiceForm>
                       name="includedServices"
-                      title="Included Services (Optional)"
-                      placeholder="Enter what's included in this service"
+                      title="Included Services"
+                      placeholder="e.g., Theory Classes, Practical Training, Mock Test"
                       required={false}
                     />
                   </div>

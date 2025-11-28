@@ -17,6 +17,9 @@ import {
   Fa6SolidArrowLeftLong,
 } from "@/components/icons";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { getServiceById } from "@/services/service.api";
+import { getCookie } from "cookies-next";
 
 const ServiceDetailPage = ({
   params,
@@ -26,35 +29,25 @@ const ServiceDetailPage = ({
   const router = useRouter();
   const { serviceId: serviceIdStr } = use(params);
   const serviceId = parseInt(serviceIdStr);
+  const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
 
-  // Mock data - Replace with actual API call
-  const serviceData = {
-    id: serviceId,
-    serviceId: "SRV-001",
-    serviceName: "Two Wheeler License",
-    serviceType: "LICENSE",
-    category: "Two Wheeler",
-    price: 5000,
-    duration: 365,
-    status: "ACTIVE",
-    activeUsers: 150,
-    totalRevenue: 750000,
-    description: "Complete two wheeler driving license training program including theoretical and practical sessions",
-    features: [
-      "20 hours of practical training",
-      "10 sessions of theory classes",
-      "Road safety training",
-      "RTO test preparation",
-      "License application assistance",
-    ],
-    requirements: "Minimum age 16 years, Valid Aadhar card, Medical fitness certificate",
-    termsAndConditions: "Valid for 365 days from purchase date. Non-transferable. Refund policy as per terms.",
-    includedServices: ["Theory Classes", "Practical Training", "Mock Test", "RTO Assistance"],
-    createdAt: "2024-01-15T10:30:00Z",
-    updatedAt: "2024-11-10T14:20:00Z",
-  };
+  // Fetch service from API
+  const { data: serviceResponse, isLoading, error } = useQuery({
+    queryKey: ["service", serviceId],
+    queryFn: () => getServiceById(serviceId),
+    enabled: serviceId > 0 && schoolId > 0,
+  });
 
-  const isLoading = false;
+  const serviceData = serviceResponse?.data?.getServiceById;
+
+  // Parse features and includedServices from JSON strings to arrays
+  const parsedFeatures = serviceData?.features ? 
+    (typeof serviceData.features === 'string' ? 
+      JSON.parse(serviceData.features) : serviceData.features) : [];
+  
+  const parsedIncludedServices = serviceData?.includedServices ? 
+    (typeof serviceData.includedServices === 'string' ? 
+      JSON.parse(serviceData.includedServices) : serviceData.includedServices) : [];
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -78,11 +71,18 @@ const ServiceDetailPage = ({
     );
   }
 
-  if (!serviceData) {
+  if (error || !serviceData) {
     return (
       <div className="min-h-screen bg-gray-50 p-8">
         <Card>
-          <p className="text-center text-gray-500">Service not found</p>
+          <div className="text-center">
+            <p className="text-gray-500 mb-4">
+              {error ? "Failed to load service data" : "Service not found"}
+            </p>
+            <Button onClick={() => router.push("/mtadmin/service")}>
+              Back to Services
+            </Button>
+          </div>
         </Card>
       </div>
     );
@@ -250,7 +250,7 @@ const ServiceDetailPage = ({
               className="shadow-sm h-full"
             >
               <ul className="space-y-3">
-                {serviceData.features.map((feature, index) => (
+                {parsedFeatures.length > 0 ? parsedFeatures.map((feature: string, index: number) => (
                   <li
                     key={index}
                     className="flex items-start gap-3 text-gray-700"
@@ -258,7 +258,9 @@ const ServiceDetailPage = ({
                     <span className="text-green-600 text-lg mt-0.5">✓</span>
                     <span>{feature}</span>
                   </li>
-                ))}
+                )) : (
+                  <li className="text-gray-500 italic">No features available</li>
+                )}
               </ul>
             </Card>
           </Col>
@@ -274,7 +276,7 @@ const ServiceDetailPage = ({
               className="shadow-sm h-full"
             >
               <div className="flex flex-wrap gap-2">
-                {serviceData.includedServices.map((service, index) => (
+                {parsedIncludedServices.length > 0 ? parsedIncludedServices.map((service: string, index: number) => (
                   <Tag
                     key={index}
                     color="blue"
@@ -282,7 +284,9 @@ const ServiceDetailPage = ({
                   >
                     {service}
                   </Tag>
-                ))}
+                )) : (
+                  <div className="text-gray-500 italic">No included services available</div>
+                )}
               </div>
             </Card>
           </Col>

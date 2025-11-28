@@ -47,6 +47,12 @@ const baseMenuItems = [
     requiresProfile: true,
   },
   {
+    key: "/mtadmin/servicebookinglist",
+    icon: <span className="text-lg">🎫</span>,
+    label: "Service Booking List",
+    requiresProfile: true,
+  },
+  {
     key: "/mtadmin/amendment",
     icon: <AntDesignEditOutlined className="text-lg" />,
     label: "Amendments",

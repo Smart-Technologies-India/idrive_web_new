@@ -52,6 +52,15 @@ export function MultiSelect<T extends FieldValues>(props: MultiSelectProps<T>) {
                   .toLowerCase()
                   .includes(input.toLowerCase())
               }
+              dropdownStyle={{
+                maxHeight: 400,
+                overflow: 'auto',
+              }}
+              optionLabelProp="label"
+              style={{
+                width: '100%',
+              }}
+              popupClassName="select-dropdown-popup"
             />
             {error && (
               <p className="text-xs text-red-500 mt-1">

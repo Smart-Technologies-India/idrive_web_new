@@ -11,11 +11,12 @@ import { TaxtAreaInput } from "./inputfields/textareainput";
 import { MultiSelect } from "./inputfields/multiselect";
 import { Modal, Button, Tag, Checkbox, Spin, Drawer, Input } from "antd";
 import { getCookie } from "cookies-next";
-import { getAllCourses, type Course as APICourse } from "@/services/course.api";
 import {
   getAllServices,
   type Service as APIService,
 } from "@/services/service.api";
+import { getAllCarCourses, type CarCourse } from "@/services/carcourse.api";
+import { getCourseById, type Course } from "@/services/course.api";
 import { searchUserByContact, type User } from "@/services/user.api";
 import { getPaginatedCars, getCarById } from "@/services/car.api";
 import { getSchoolById } from "@/services/school.api";
@@ -150,12 +151,21 @@ const generateTimeSlots = (
 const BookingForm = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Get car and slot from URL params
+  const carIdFromUrl = searchParams.get("carId") || "";
+  const slotFromUrl = searchParams.get("slot") || "";
+  const dateFromUrl = searchParams.get("date") || ""; // Selected date from scheduler
+
+  // State declarations
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingData, setPendingData] = useState<BookingFormData | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<FormCourse | null>(null);
   const [selectedServices, setSelectedServices] = useState<number[]>([]);
   const [customerData, setCustomerData] = useState<Customer | null>(null);
-  const [bookingDate, setBookingDate] = useState<Dayjs | null>(null);
+  const [bookingDate, setBookingDate] = useState<Dayjs | null>(
+    dateFromUrl ? dayjs(dateFromUrl) : dayjs()
+  );
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [showCreateUserDrawer, setShowCreateUserDrawer] = useState(false);
   const [newUserName, setNewUserName] = useState("");
@@ -167,11 +177,6 @@ const BookingForm = () => {
 
   // Get school ID from cookie
   const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
-
-  // Get car and slot from URL params
-  const carIdFromUrl = searchParams.get("carId") || "";
-  const slotFromUrl = searchParams.get("slot") || "";
-  const minDateParam = searchParams.get("minDate") || ""; // For booked slots - free from date
 
   // Parse carId as number if provided
   const numericCarId = carIdFromUrl ? parseInt(carIdFromUrl) : null;
@@ -280,17 +285,6 @@ const BookingForm = () => {
 
   const availableCars = carsResponse?.data?.getPaginatedCar?.data || [];
 
-  // Fetch courses for the school
-  const { data: coursesResponse, isLoading: loadingCourses } = useQuery({
-    queryKey: ["courses", schoolId],
-    queryFn: () =>
-      getAllCourses({
-        schoolId: schoolId,
-        status: "ACTIVE",
-      }),
-    enabled: schoolId > 0,
-  });
-
   // Fetch services for the school
   const { data: servicesResponse, isLoading: loadingServices } = useQuery({
     queryKey: ["services", schoolId],
@@ -302,17 +296,6 @@ const BookingForm = () => {
       }),
     enabled: schoolId > 0,
   });
-
-  const courses: FormCourse[] =
-    coursesResponse?.data?.getAllCourse?.map((course: APICourse) => ({
-      id: course.id,
-      name: course.courseName,
-      price: course.price,
-      courseType: course.courseType,
-      courseDays: course.courseDays,
-      minsPerDay: course.minsPerDay,
-      enrolledStudents: course.enrolledStudents,
-    })) || [];
 
   const services: FormService[] =
     servicesResponse?.data?.getAllService?.map((service: APIService) => ({
@@ -345,6 +328,50 @@ const BookingForm = () => {
 
   const { watch, setValue } = methods;
   const formValues = watch();
+
+  // Get the current selected car ID (either from URL or dropdown selection)
+  const currentCarId = formValues?.carId || carIdFromUrl;
+  const selectedCarIdForCourses = currentCarId ? parseInt(currentCarId) : numericCarId;
+
+  // Fetch courses assigned to the selected car using carCourse table
+  const { data: carCoursesResponse, isLoading: loadingCourses } = useQuery({
+    queryKey: ["carCourses", selectedCarIdForCourses],
+    queryFn: () => getAllCarCourses({ carId: selectedCarIdForCourses! }),
+    enabled: !!selectedCarIdForCourses && schoolId > 0,
+  });
+
+  // Extract courses from carCourse data and filter out soft-deleted and inactive courses
+  const carCourses: CarCourse[] = 
+    (carCoursesResponse as { data?: { getAllCarCourse?: CarCourse[] } })?.data?.getAllCarCourse || [];
+  
+  // Get course IDs to fetch full details
+  const courseIds = carCourses
+    .filter((cc: CarCourse) => !cc.deletedAt && cc.course)
+    .map((cc: CarCourse) => cc.courseId);
+
+  // Fetch full course details for each course
+  const courseQueries = useQuery({
+    queryKey: ["coursesDetails", courseIds],
+    queryFn: async () => {
+      if (courseIds.length === 0) return [];
+      const coursePromises = courseIds.map((id) => getCourseById(id));
+      const results = await Promise.all(coursePromises);
+      return results.map(res => res?.data?.getCourseById).filter(Boolean) as Course[];
+    },
+    enabled: courseIds.length > 0,
+  });
+
+  const fullCourses = courseQueries.data || [];
+  
+  const courses: FormCourse[] = fullCourses.map((course: Course) => ({
+    id: course.id,
+    name: course.courseName,
+    price: course.price,
+    courseType: course.courseType,
+    courseDays: course.courseDays,
+    minsPerDay: course.minsPerDay,
+    enrolledStudents: course.enrolledStudents,
+  }));
 
   // Update carName when selectedCarData is loaded
   useEffect(() => {
@@ -701,9 +728,7 @@ const BookingForm = () => {
       errors.push("Please select a booking date");
     } else {
       const selectedDate = dayjs(formValues.bookingDate);
-      const minDate = minDateParam
-        ? dayjs(minDateParam)
-        : dayjs().add(1, "day");
+      const minDate = dayjs().add(1, "day");
       if (selectedDate.isBefore(minDate, "day")) {
         errors.push(
           `Booking date must be from ${minDate.format("DD MMM YYYY")} onwards`
@@ -1002,27 +1027,6 @@ const BookingForm = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Form - Left Side */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Info Banner for Rebooked Slots */}
-              {minDateParam && (
-                <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg p-4 border-2 border-orange-300">
-                  <div className="flex items-center gap-3">
-                    <div className="text-2xl">⚠️</div>
-                    <div>
-                      <p className="font-bold text-orange-800">
-                        This slot is currently booked
-                      </p>
-                      <p className="text-sm text-orange-700">
-                        Available for rebooking from{" "}
-                        <span className="font-bold">
-                          {dayjs(minDateParam).format("DD MMM YYYY")}
-                        </span>{" "}
-                        onwards
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Weekend Info Banner */}
               {schoolData?.weeklyHoliday && (
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border-2 border-blue-300">
@@ -1167,56 +1171,42 @@ const BookingForm = () => {
                       className="w-full"
                       key={typeof window !== "undefined" ? "client" : "server"}
                       disabledDate={(current) => {
-                        if (!current) return false;
+                          if (!current) return false;
 
-                        // Check minimum date restriction
-                        if (minDateParam) {
-                          const minDate = dayjs(minDateParam);
-                          if (current.isBefore(minDate, "day")) {
-                            return true;
-                          }
-                        } else {
-                          // Otherwise, allow dates from tomorrow onwards
+                          // Allow dates from tomorrow onwards
                           if (current.isBefore(dayjs().add(1, "day"), "day")) {
                             return true;
                           }
-                        }
 
-                        // Check weekend restriction if school has a weekly holiday
-                        if (schoolData?.weeklyHoliday) {
-                          const dayOfWeek = current.day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-                          const weeklyHoliday =
-                            schoolData.weeklyHoliday.toUpperCase();
+                          // Check weekend restriction if school has a weekly holiday
+                          if (schoolData?.weeklyHoliday) {
+                            const dayOfWeek = current.day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+                            const weeklyHoliday =
+                              schoolData.weeklyHoliday.toUpperCase();
 
-                          const dayMap: { [key: string]: number } = {
-                            SUNDAY: 0,
-                            MONDAY: 1,
-                            TUESDAY: 2,
-                            WEDNESDAY: 3,
-                            THURSDAY: 4,
-                            FRIDAY: 5,
-                            SATURDAY: 6,
-                          };
+                            const dayMap: { [key: string]: number } = {
+                              SUNDAY: 0,
+                              MONDAY: 1,
+                              TUESDAY: 2,
+                              WEDNESDAY: 3,
+                              THURSDAY: 4,
+                              FRIDAY: 5,
+                              SATURDAY: 6,
+                            };
 
-                          const holidayDay = dayMap[weeklyHoliday];
-                          if (
-                            holidayDay !== undefined &&
-                            dayOfWeek === holidayDay
-                          ) {
-                            return true;
+                            const holidayDay = dayMap[weeklyHoliday];
+                            if (
+                              holidayDay !== undefined &&
+                              dayOfWeek === holidayDay
+                            ) {
+                              return true;
+                            }
                           }
-                        }
 
-                        return false;
-                      }}
-                      placeholder={
-                        minDateParam
-                          ? `Available from ${dayjs(minDateParam).format(
-                              "DD MMM YYYY"
-                            )}`
-                          : "Select date"
-                      }
-                    />
+                          return false;
+                        }}
+                        placeholder="Select date"
+                      />
                   </div>
 
                   {/* Time Slot Selection - Moved after Date */}

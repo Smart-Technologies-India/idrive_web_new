@@ -1,1 +1,28 @@
 @import "tailwindcss";
+
+/* Fix for Ant Design Select dropdown text clipping */
+.ant-select-selector {
+  height: auto !important;
+  min-height: 40px !important;
+}
+
+.ant-select-selection-item {
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  line-height: 1.4 !important;
+  height: auto !important;
+}
+
+/* Dropdown popup styles */
+.select-dropdown-popup .ant-select-item {
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  height: auto !important;
+  min-height: 32px !important;
+  line-height: 1.4 !important;
+}
+
+.select-dropdown-popup .ant-select-item-option-content {
+  white-space: normal !important;
+  word-wrap: break-word !important;
+}

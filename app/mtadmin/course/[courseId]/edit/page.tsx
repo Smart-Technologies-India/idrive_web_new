@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect } from "react";
+import { use, useEffect, useState, useMemo } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { valibotResolver } from "@hookform/resolvers/valibot";
 import { onFormError } from "@/utils/methods";
@@ -11,17 +11,30 @@ import { EditCourseForm, EditCourseSchema } from "@/schema/editcourse";
 import { TextInput } from "@/components/form/inputfields/textinput";
 import { MultiSelect } from "@/components/form/inputfields/multiselect";
 import { TaxtAreaInput } from "@/components/form/inputfields/textareainput";
-import { Button, Card, Modal, Spin } from "antd";
+import { Button, Card, Modal, Spin, Select, Tag } from "antd";
 import {
   Fa6SolidArrowLeftLong,
   AntDesignCheckOutlined,
+  AntDesignCloseCircleOutlined,
 } from "@/components/icons";
 import { updateCourse, getCourseById } from "@/services/course.api";
+import { getPaginatedCars } from "@/services/car.api";
+import {
+  getCarsByCourse,
+  createCarCourse,
+  deleteCarCourse,
+} from "@/services/carcourse.api";
+import { getCookie } from "cookies-next";
+import { CarCourse } from "@/services/carcourse.api";
 
 const EditCoursePage = ({ params }: { params: Promise<{ courseId: string }> }) => {
   const router = useRouter();
   const { courseId: courseIdStr } = use(params);
   const courseId = parseInt(courseIdStr);
+  const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
+  const userId: number = parseInt(getCookie("id")?.toString() || "0");
+  const [selectedCarIds, setSelectedCarIds] = useState<number[]>([]);
+  const [initialCarIds, setInitialCarIds] = useState<number[]>([]);
 
   const methods = useForm<EditCourseForm>({
     resolver: valibotResolver(EditCourseSchema),
@@ -34,6 +47,36 @@ const EditCoursePage = ({ params }: { params: Promise<{ courseId: string }> }) =
   });
 
   const courseData = courseResponse?.data?.getCourseById;
+
+  // Fetch available cars for the school
+  const { data: carsResponse, isLoading: loadingCars } = useQuery({
+    queryKey: ["cars", schoolId],
+    queryFn: () =>
+      getPaginatedCars({
+        searchPaginationInput: {
+          skip: 0,
+          take: 100,
+        },
+        whereSearchInput: {
+          schoolId: schoolId,
+        },
+      }),
+    enabled: schoolId > 0,
+  });
+
+  const availableCars = carsResponse?.data?.getPaginatedCar?.data || [];
+
+  // Fetch current car assignments for this course
+  const { data: carCoursesResponse, refetch: refetchCarCourses } = useQuery({
+    queryKey: ["carCourses", courseId],
+    queryFn: () => getCarsByCourse(courseId),
+    enabled: !!courseId,
+  });
+
+  const currentCarCourses = useMemo<CarCourse[]>(() => {
+    const response = carCoursesResponse as { data?: { getAllCarCourse?: CarCourse[] } };
+    return response?.data?.getAllCarCourse || [];
+  }, [carCoursesResponse]);
 
   useEffect(() => {
     if (courseData) {
@@ -54,6 +97,17 @@ const EditCoursePage = ({ params }: { params: Promise<{ courseId: string }> }) =
       });
     }
   }, [courseData, methods]);
+
+  // Set initial car assignments (filter out soft-deleted)
+  useEffect(() => {
+    if (currentCarCourses.length > 0 && initialCarIds.length === 0) {
+      const activeCarCourses = currentCarCourses.filter((cc: CarCourse) => !cc.deletedAt);
+      const carIds = activeCarCourses.map((cc: CarCourse) => cc.carId);
+      setSelectedCarIds(carIds);
+      setInitialCarIds(carIds);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentCarCourses]);
 
   const updateCourseMutation = useMutation({
     mutationKey: ["updateCourse"],
@@ -78,17 +132,51 @@ const EditCoursePage = ({ params }: { params: Promise<{ courseId: string }> }) =
         throw new Error(courseResponse.message || "Failed to update course");
       }
 
+      // Handle car assignment changes
+      const carsToAdd = selectedCarIds.filter((id) => !initialCarIds.includes(id));
+      const carsToRemove = initialCarIds.filter((id) => !selectedCarIds.includes(id));
+
+      // Add new car assignments
+      if (carsToAdd.length > 0) {
+        const addPromises = carsToAdd.map((carId) =>
+          createCarCourse({ carId, courseId })
+        );
+        await Promise.all(addPromises);
+      }
+
+      // Remove car assignments
+      if (carsToRemove.length > 0) {
+        const carCoursesToDelete = currentCarCourses.filter((cc: CarCourse) =>
+          carsToRemove.includes(cc.carId)
+        );
+        const deletePromises = carCoursesToDelete.map((cc: CarCourse) =>
+          deleteCarCourse(cc.id, userId)
+        );
+        await Promise.all(deletePromises);
+      }
+
       return { course: courseResponse.data };
     },
     onSuccess: (response) => {
       if (response.course?.updateCourse) {
         const course = response.course.updateCourse;
+        const carsAdded = selectedCarIds.filter((id) => !initialCarIds.includes(id)).length;
+        const carsRemoved = initialCarIds.filter((id) => !selectedCarIds.includes(id)).length;
+        
+        refetchCarCourses(); // Refetch to update the list
+        
         Modal.success({
           title: "Course Updated Successfully!",
           content: (
             <div className="space-y-2">
               <p><strong>Course Name:</strong> {course.courseName}</p>
               <p><strong>Status:</strong> {course.status}</p>
+              {(carsAdded > 0 || carsRemoved > 0) && (
+                <>
+                  {carsAdded > 0 && <p><strong>Cars Added:</strong> {carsAdded}</p>}
+                  {carsRemoved > 0 && <p><strong>Cars Removed:</strong> {carsRemoved}</p>}
+                </>
+              )}
             </div>
           ),
           onOk: () => router.push(`/mtadmin/course/${courseId}`),
@@ -314,6 +402,123 @@ const EditCoursePage = ({ params }: { params: Promise<{ courseId: string }> }) =
                       numdes
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Car Assignment */}
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
+                  Assigned Cars
+                </h3>
+                <div className="space-y-3">
+                  {/* Currently Assigned Cars */}
+                  {selectedCarIds.length > 0 && (
+                    <div className="mb-4">
+                      <label className="text-sm font-semibold text-gray-900 block mb-2">
+                        Currently Assigned Cars ({selectedCarIds.length})
+                      </label>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div className="flex flex-wrap gap-2">
+                          {selectedCarIds.map((carId) => {
+                            const car = availableCars.find((c) => c.id === carId);
+                            const isNew = !initialCarIds.includes(carId);
+                            return (
+                              <Tag
+                                key={carId}
+                                color={isNew ? "green" : "blue"}
+                                closable
+                                closeIcon={<AntDesignCloseCircleOutlined />}
+                                onClose={() => {
+                                  Modal.confirm({
+                                    title: "Remove Car Assignment",
+                                    content: `Are you sure you want to remove ${car?.carName} - ${car?.registrationNumber} from this course?`,
+                                    okText: "Yes, Remove",
+                                    cancelText: "Cancel",
+                                    okButtonProps: {
+                                      danger: true,
+                                    },
+                                    onOk: () => {
+                                      setSelectedCarIds(selectedCarIds.filter((id) => id !== carId));
+                                      toast.success(`${car?.carName} removed from selection`);
+                                    },
+                                  });
+                                }}
+                                className="cursor-pointer"
+                              >
+                                {isNew && "🆕 "}
+                                {car?.carName} - {car?.registrationNumber}
+                              </Tag>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Add More Cars */}
+                  <label className="text-sm font-semibold text-gray-900 block">
+                    Add More Cars
+                  </label>
+                  <Select
+                    mode="multiple"
+                    size="large"
+                    placeholder="Select additional cars to assign"
+                    className="w-full"
+                    value={selectedCarIds}
+                    onChange={(values) => setSelectedCarIds(values)}
+                    loading={loadingCars}
+                    options={availableCars.map((car) => ({
+                      label: `${car.carName} - ${car.registrationNumber} (${car.model})`,
+                      value: car.id,
+                    }))}
+                    tagRender={(props) => {
+                      const car = availableCars.find((c) => c.id === props.value);
+                      return (
+                        <Tag
+                          color="blue"
+                          closable={props.closable}
+                          onClose={props.onClose}
+                          style={{ marginRight: 3 }}
+                        >
+                          {car?.carName} - {car?.registrationNumber}
+                        </Tag>
+                      );
+                    }}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    You can assign multiple cars to this course. Students will be able to book sessions with any of the assigned cars.
+                  </p>
+
+                  {/* Changes Preview */}
+                  {initialCarIds.filter(id => !selectedCarIds.includes(id)).length > 0 && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 mt-3">
+                      <p className="text-sm font-semibold text-red-900 mb-2">
+                        ⚠️ Cars to be Removed ({initialCarIds.filter(id => !selectedCarIds.includes(id)).length}):
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {initialCarIds.filter(id => !selectedCarIds.includes(id)).map((carId) => {
+                          const car = availableCars.find((c) => c.id === carId);
+                          return (
+                            <Tag 
+                              key={carId} 
+                              color="red"
+                              closable
+                              onClose={() => {
+                                // Re-add the car
+                                setSelectedCarIds([...selectedCarIds, carId]);
+                                toast.info(`${car?.carName} added back to selection`);
+                              }}
+                            >
+                              {car?.carName} - {car?.registrationNumber}
+                            </Tag>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-red-700 mt-2">
+                        Click on a tag above to undo the removal before saving.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 

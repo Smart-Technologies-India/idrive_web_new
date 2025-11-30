@@ -689,7 +689,7 @@ const CarScheduler = () => {
               if (nextFreeDate) {
                 const bookingUrl = `/mtadmin/booking?carId=${
                   car.id
-                }&slot=${encodeURIComponent(slot)}&minDate=${nextFreeDate}`;
+                }&slot=${encodeURIComponent(slot)}&date=${nextFreeDate}`;
                 router.push(bookingUrl);
               }
             }}
@@ -713,7 +713,7 @@ const CarScheduler = () => {
           onClick={() => {
             const bookingUrl = `/mtadmin/booking?carId=${
               car.id
-            }&slot=${encodeURIComponent(slot)}`;
+            }&slot=${encodeURIComponent(slot)}&date=${selectedDate.format('YYYY-MM-DD')}`;
             router.push(bookingUrl);
           }}
         >

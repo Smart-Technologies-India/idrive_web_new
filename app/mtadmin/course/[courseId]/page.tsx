@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useMemo } from "react";
 import {
   Card,
   Button,
@@ -14,6 +14,7 @@ import {
   Modal,
   Table,
   Space,
+  Empty,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import {
@@ -21,10 +22,12 @@ import {
   Fa6SolidArrowLeftLong,
   AntDesignPlusCircleOutlined,
   AntDesignDeleteOutlined,
+  AntDesignCarOutlined,
 } from "@/components/icons";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getCourseById } from "@/services/course.api";
+import { getCarsByCourse, type CarCourse } from "@/services/carcourse.api";
 import {
   getPaginatedSyllabus,
   createSyllabus,
@@ -232,7 +235,10 @@ const CourseDetailPage = ({
             )}
           </Descriptions>
         </Card>
-        <div></div>
+
+        {/* Connected Cars Section */}
+        <ConnectedCarsSection courseId={courseId} />
+
         {/* Course Syllabus Management */}
         <SyllabusManagement
           courseId={courseId}
@@ -240,6 +246,130 @@ const CourseDetailPage = ({
         />
       </div>
     </div>
+  );
+};
+
+// Connected Cars Section Component
+const ConnectedCarsSection = ({ courseId }: { courseId: number }) => {
+  const router = useRouter();
+
+  const { data: carCoursesResponse, isLoading } = useQuery({
+    queryKey: ["carCourses", courseId],
+    queryFn: () => getCarsByCourse(courseId),
+    enabled: !!courseId,
+  });
+
+  const carCourses = useMemo<CarCourse[]>(() => {
+    const response = carCoursesResponse as { data?: { getAllCarCourse?: CarCourse[] } };
+    return response?.data?.getAllCarCourse || [];
+  }, [carCoursesResponse]);
+
+  // Filter out soft-deleted cars
+  const activeCars = carCourses.filter((cc) => !cc.deletedAt);
+
+  const columns: ColumnsType<CarCourse> = [
+    {
+      title: "Car Name",
+      key: "carName",
+      render: (_, record) => (
+        <span className="font-medium text-gray-900">
+          {record.car?.carName || "N/A"}
+        </span>
+      ),
+    },
+    {
+      title: "Model",
+      key: "model",
+      render: (_, record) => record.car?.model || "N/A",
+    },
+    {
+      title: "Registration Number",
+      key: "registrationNumber",
+      render: (_, record) => (
+        <span className="font-mono font-semibold">
+          {record.car?.registrationNumber || "N/A"}
+        </span>
+      ),
+    },
+    {
+      title: "Status",
+      key: "status",
+      render: (_, record) => {
+        const status = record.car?.status || "";
+        const colors: Record<string, string> = {
+          AVAILABLE: "green",
+          IN_USE: "blue",
+          MAINTENANCE: "orange",
+          INACTIVE: "red",
+        };
+        return (
+          <Tag color={colors[status] || "default"} className="!text-sm !px-3 !py-1">
+            {status.replace("_", " ")}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: "Action",
+      key: "action",
+      width: 120,
+      render: (_, record) => (
+        <Button
+          type="link"
+          onClick={() => router.push(`/mtadmin/car/${record.car?.id}`)}
+          className="!px-0"
+        >
+          View Details →
+        </Button>
+      ),
+    },
+  ];
+
+  return (
+    <Card
+      title={
+        <div className="flex items-center gap-2">
+          <AntDesignCarOutlined className="text-xl text-blue-600" />
+          <span>Connected Cars ({activeCars.length})</span>
+        </div>
+      }
+      className="shadow-sm"
+      extra={
+        <Button
+          type="primary"
+          onClick={() => router.push(`/mtadmin/course/${courseId}/edit`)}
+          size="small"
+        >
+          Manage Cars
+        </Button>
+      }
+    >
+      {isLoading ? (
+        <div className="flex justify-center py-8">
+          <Spin />
+        </div>
+      ) : activeCars.length === 0 ? (
+        <Empty
+          description="No cars connected to this course"
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+        >
+          <Button
+            type="primary"
+            onClick={() => router.push(`/mtadmin/course/${courseId}/edit`)}
+          >
+            Add Cars
+          </Button>
+        </Empty>
+      ) : (
+        <Table
+          columns={columns}
+          dataSource={activeCars}
+          rowKey="id"
+          pagination={false}
+          className="overflow-x-auto"
+        />
+      )}
+    </Card>
   );
 };
 

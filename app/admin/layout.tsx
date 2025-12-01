@@ -29,6 +29,16 @@ const menuItems: MenuItem[] = [
     icon: <span className="text-lg">🏫</span>,
     label: "Schools",
   },
+  {
+    key: "/admin/car-admin",
+    icon: <span className="text-lg">🚗</span>,
+    label: "Car Master Data",
+  },
+  {
+    key: "/admin/service",
+    icon: <span className="text-lg">🎫</span>,
+    label: "Services & Add-ons",
+  },
 ];
 
 export default function AdminLayout({

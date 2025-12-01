@@ -3,20 +3,15 @@ import { ApiCall } from './api';
 // Types
 export interface Service {
   id: number;
-  schoolId: number;
   serviceId: string;
   serviceName: string;
-  serviceType: 'LICENSE' | 'ADDON';
   category: string;
-  price: number;
   duration: number; // in days
   description: string;
   features?: string;
   includedServices?: string;
   requirements?: string;
   termsAndConditions?: string;
-  activeUsers: number;
-  totalRevenue: number;
   status: 'ACTIVE' | 'INACTIVE' | 'UPCOMING' | 'DISCONTINUED';
   createdAt: string;
   updatedAt: string;
@@ -53,20 +48,15 @@ const GET_PAGINATED_SERVICES = `
     getPaginatedService(searchPaginationInput: $searchPaginationInput, whereSearchInput: $whereSearchInput) {
       data {
         id
-        schoolId
         serviceId
         serviceName
-        serviceType
         category
-        price
         duration
         description
         features
         includedServices
         requirements
         termsAndConditions
-        activeUsers
-        totalRevenue
         status
         createdAt
         updatedAt
@@ -84,9 +74,7 @@ const GET_ALL_SERVICES = `
       id
       serviceId
       serviceName
-      serviceType
       category
-      price
       duration
       description
       status
@@ -98,20 +86,15 @@ const GET_SERVICE_BY_ID = `
   query GetServiceById($id: Int!) {
     getServiceById(id: $id) {
       id
-      schoolId
       serviceId
       serviceName
-      serviceType
       category
-      price
       duration
       description
       features
       includedServices
       requirements
       termsAndConditions
-      activeUsers
-      totalRevenue
       status
       createdAt
       updatedAt
@@ -123,12 +106,9 @@ const CREATE_SERVICE = `
   mutation CreateService($inputType: CreateServiceInput!) {
     createService(inputType: $inputType) {
       id
-      schoolId
       serviceId
       serviceName
-      serviceType
       category
-      price
       duration
       description
       status
@@ -141,20 +121,15 @@ const UPDATE_SERVICE = `
   mutation UpdateService($id: Int!, $updateType: UpdateServiceInput!) {
     updateService(id: $id, updateType: $updateType) {
       id
-      schoolId
       serviceId
       serviceName
-      serviceType
       category
-      price
       duration
       description
       features
       includedServices
       requirements
       termsAndConditions
-      activeUsers
-      totalRevenue
       status
       updatedAt
     }
@@ -171,8 +146,6 @@ const DELETE_SERVICE = `
 
 // API Functions
 export const getAllServices = async (whereSearchInput: {
-  schoolId?: number;
-  serviceType?: string;
   status?: string;
 }) => {
   return ApiCall<AllServicesResponse>({
@@ -188,8 +161,6 @@ export const getPaginatedServices = async (variables: {
     search?: string;
   };
   whereSearchInput: {
-    schoolId?: number;
-    serviceType?: string;
     status?: string;
   };
 }) => {
@@ -207,12 +178,9 @@ export const getServiceById = async (id: number) => {
 };
 
 export const createService = async (inputType: {
-  schoolId: number;
   serviceId: string;
   serviceName: string;
-  serviceType: 'LICENSE' | 'ADDON';
   category: string;
-  price: number;
   duration: number;
   description: string;
   features?: string;
@@ -230,23 +198,19 @@ export const createService = async (inputType: {
 export const updateService = async (updateData: {
   id: number;
   serviceName?: string;
-  serviceType?: 'LICENSE' | 'ADDON';
   category?: string;
-  price?: number;
   duration?: number;
   description?: string;
   features?: string;
   includedServices?: string;
   requirements?: string;
   termsAndConditions?: string;
-  activeUsers?: number;
-  totalRevenue?: number;
   status?: 'ACTIVE' | 'INACTIVE' | 'UPCOMING' | 'DISCONTINUED';
 }) => {
   const { id, ...updateType } = updateData;
   return ApiCall<UpdateServiceResponse>({
     query: UPDATE_SERVICE,
-    variables: { id, updateType: { id, ...updateType } },
+    variables: { id, updateType },
   });
 };
 

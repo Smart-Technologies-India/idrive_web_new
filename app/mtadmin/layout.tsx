@@ -89,12 +89,6 @@ const baseMenuItems = [
     requiresProfile: true,
   },
   {
-    key: "/mtadmin/service",
-    icon: <span className="text-lg">🎫</span>,
-    label: "Services & Add-ons",
-    requiresProfile: true,
-  },
-  {
     key: "/mtadmin/profile",
     icon: <span className="text-lg">🏫</span>,
     label: "School Profile",

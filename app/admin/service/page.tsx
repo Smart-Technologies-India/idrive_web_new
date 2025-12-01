@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getPaginatedServices, type Service } from "@/services/service.api";
 import { getCookie } from "cookies-next";
+import { description } from "valibot";
 
 const { Search } = Input;
 
@@ -21,21 +22,16 @@ interface ServiceData {
   id: number;
   serviceId: string;
   serviceName: string;
-  serviceType: "license" | "addon";
   category: string;
-  price: number;
   duration: number; // in days for license validity
   status: "active" | "inactive" | "upcoming" | "discontinued";
-  activeUsers: number;
   description: string;
 }
 
 const ServiceManagementPage = () => {
   const router = useRouter();
-  const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
   const [searchText, setSearchText] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterType, setFilterType] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
@@ -45,14 +41,7 @@ const ServiceManagementPage = () => {
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: [
-      "services",
-      schoolId,
-      currentPage,
-      pageSize,
-      filterStatus,
-      filterType,
-    ],
+    queryKey: ["services", currentPage, pageSize, filterStatus],
     queryFn: () =>
       getPaginatedServices({
         searchPaginationInput: {
@@ -61,12 +50,10 @@ const ServiceManagementPage = () => {
           search: searchText || undefined,
         },
         whereSearchInput: {
-          schoolId: schoolId,
-          status: filterStatus === "all" ? undefined : filterStatus.toUpperCase(),
-          serviceType: filterType === "all" ? undefined : filterType.toUpperCase(),
+          status:
+            filterStatus === "all" ? undefined : filterStatus.toUpperCase(),
         },
       }),
-    enabled: schoolId > 0,
   });
 
   const services: ServiceData[] =
@@ -86,12 +73,9 @@ const ServiceManagementPage = () => {
         id: service.id,
         serviceId: service.serviceId,
         serviceName: service.serviceName,
-        serviceType: service.serviceType.toLowerCase() as "license" | "addon",
         category: service.category,
-        price: service.price,
         duration: service.duration,
         status: service.status.toLowerCase() as "active" | "inactive" | "upcoming" | "discontinued",
-        activeUsers: service.activeUsers,
         description: service.description,
       })) || [];
 
@@ -139,28 +123,11 @@ const ServiceManagementPage = () => {
       width: 220,
       render: (_, record) => (
         <div>
-          <div className="font-semibold text-gray-900">{record.serviceName}</div>
+          <div className="font-semibold text-gray-900">
+            {record.serviceName}
+          </div>
           <div className="text-xs text-gray-500 mt-1">{record.category}</div>
         </div>
-      ),
-    },
-    {
-      title: "Type",
-      dataIndex: "serviceType",
-      key: "serviceType",
-      width: 150,
-      filters: [
-        { text: "License Service", value: "license" },
-        { text: "Add-on", value: "addon" },
-      ],
-      onFilter: (value, record) => record.serviceType === value,
-      render: (type) => (
-        <Tag
-          color={getTypeColor(type)}
-          className="!text-sm !px-3 !py-1 !font-medium"
-        >
-          {getTypeText(type)}
-        </Tag>
       ),
     },
     {
@@ -169,32 +136,6 @@ const ServiceManagementPage = () => {
       key: "duration",
       width: 120,
       render: (days) => `${days} days`,
-    },
-    {
-      title: "Price",
-      dataIndex: "price",
-      key: "price",
-      width: 120,
-      align: "right",
-      sorter: (a, b) => a.price - b.price,
-      render: (price) => (
-        <span className="font-semibold text-gray-900">
-          ₹{price.toLocaleString("en-IN")}
-        </span>
-      ),
-    },
-    {
-      title: "Active Users",
-      key: "activeUsers",
-      width: 120,
-      align: "center",
-      sorter: (a, b) => a.activeUsers - b.activeUsers,
-      render: (_, record) => (
-        <div className="flex items-center justify-center gap-2">
-          <span className="text-2xl">👥</span>
-          <span className="font-medium">{record.activeUsers}</span>
-        </div>
-      ),
     },
     {
       title: "Status",
@@ -227,7 +168,7 @@ const ServiceManagementPage = () => {
         <Button
           type="primary"
           icon={<AntDesignEyeOutlined />}
-          onClick={() => router.push(`/mtadmin/service/${record.id}`)}
+          onClick={() => router.push(`/admin/service/${record.id}`)}
           className="!bg-blue-600"
         >
           View Details
@@ -239,8 +180,6 @@ const ServiceManagementPage = () => {
   const stats = {
     total: totalServices,
     active: services.filter((s) => s.status === "active").length,
-    licenses: services.filter((s) => s.serviceType === "license").length,
-    addons: services.filter((s) => s.serviceType === "addon").length,
   };
 
   return (
@@ -270,7 +209,7 @@ const ServiceManagementPage = () => {
                 type="primary"
                 icon={<AntDesignPlusCircleOutlined className="text-lg" />}
                 size="large"
-                onClick={() => router.push("/mtadmin/service/add")}
+                onClick={() => router.push("/admin/service/add")}
                 className="!bg-gradient-to-r from-purple-600 to-pink-600"
               >
                 Add New Service
@@ -310,34 +249,6 @@ const ServiceManagementPage = () => {
               </div>
             </div>
           </Card>
-
-          <Card className="shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                <span className="text-blue-600 text-2xl">📜</span>
-              </div>
-              <div>
-                <p className="text-gray-600 text-xs mb-1">License Services</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {stats.licenses}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-cyan-50 flex items-center justify-center flex-shrink-0">
-                <span className="text-cyan-600 text-2xl">➕</span>
-              </div>
-              <div>
-                <p className="text-gray-600 text-xs mb-1">Add-ons</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {stats.addons}
-                </p>
-              </div>
-            </div>
-          </Card>
         </div>
 
         {/* Filters and Search */}
@@ -371,20 +282,6 @@ const ServiceManagementPage = () => {
                   { label: "Inactive", value: "inactive" },
                   { label: "Upcoming", value: "upcoming" },
                   { label: "Discontinued", value: "discontinued" },
-                ]}
-              />
-              <Select
-                value={filterType}
-                onChange={(value) => {
-                  setFilterType(value);
-                  setCurrentPage(1);
-                }}
-                style={{ width: 150 }}
-                size="large"
-                options={[
-                  { label: "All Types", value: "all" },
-                  { label: "License Service", value: "license" },
-                  { label: "Add-on", value: "addon" },
                 ]}
               />
             </Space>

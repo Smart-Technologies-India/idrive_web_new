@@ -16,42 +16,34 @@ import {
   Fa6SolidArrowLeftLong,
   AntDesignPlusCircleOutlined,
 } from "@/components/icons";
-import { getCookie } from "cookies-next";
 import { createService } from "@/services/service.api";
 
 const AddServicePage = () => {
   const router = useRouter();
-  const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
 
   const methods = useForm<AddServiceForm>({
     resolver: valibotResolver(AddServiceSchema),
-    defaultValues: {
-      serviceType: "LICENSE",
-    },
   });
 
   const createServiceMutation = useMutation({
     mutationKey: ["createService"],
     mutationFn: async (data: AddServiceForm) => {
-      if (!schoolId) {
-        throw new Error("School ID not found. Please login again.");
-      }
+      // Generate serviceId: SRV-{timestamp}
+      const serviceId = `SRV-${Date.now()}`;
 
-      // Generate serviceId: SRV-{schoolId}-{timestamp}
-      const serviceId = `SRV-${schoolId}-${Date.now()}`;
+      // Filter out empty strings and ensure proper array format
+      const cleanFeatures = data.features?.filter(f => f && f.trim() !== '') || [];
+      const cleanIncludedServices = data.includedServices?.filter(s => s && s.trim() !== '') || [];
 
       // Create service
       const serviceResponse = await createService({
-        schoolId: schoolId,
         serviceId: serviceId,
         serviceName: data.serviceName,
-        serviceType: data.serviceType as "LICENSE" | "ADDON",
         category: data.category,
-        price: parseFloat(data.price),
         duration: parseInt(data.duration),
         description: data.description,
-        features: data.features ? JSON.stringify(data.features) : undefined,
-        includedServices: data.includedServices ? JSON.stringify(data.includedServices) : undefined,
+        features: cleanFeatures.length > 0 ? JSON.stringify(cleanFeatures) : undefined,
+        includedServices: cleanIncludedServices.length > 0 ? JSON.stringify(cleanIncludedServices) : undefined,
         requirements: data.requirements,
         termsAndConditions: data.termsAndConditions,
       });
@@ -70,13 +62,11 @@ const AddServicePage = () => {
           content: (
             <div className="space-y-2">
               <p><strong>Service Name:</strong> {service.serviceName}</p>
-              <p><strong>Service Type:</strong> {service.serviceType}</p>
               <p><strong>Category:</strong> {service.category}</p>
               <p><strong>Duration:</strong> {service.duration} days</p>
-              <p><strong>Price:</strong> ₹{service.price}</p>
             </div>
           ),
-          onOk: () => router.push("/mtadmin/service"),
+          onOk: () => router.push("/admin/service"),
         });
       }
     },
@@ -91,10 +81,8 @@ const AddServicePage = () => {
       content: (
         <div>
           <p><strong>Service Name:</strong> {data.serviceName}</p>
-          <p><strong>Service Type:</strong> {data.serviceType}</p>
           <p><strong>Category:</strong> {data.category}</p>
           <p><strong>Duration:</strong> {data.duration} days</p>
-          <p><strong>Price:</strong> ₹{data.price}</p>
           <br />
           <p>Are you sure you want to create this service?</p>
         </div>
@@ -125,7 +113,7 @@ const AddServicePage = () => {
               type="text"
               icon={<Fa6SolidArrowLeftLong className="text-lg" />}
               size="large"
-              onClick={() => router.push("/mtadmin/service")}
+              onClick={() => router.push("/admin/service")}
             />
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Add New Service</h1>
@@ -157,18 +145,6 @@ const AddServicePage = () => {
                   </div>
                   <div>
                     <MultiSelect<AddServiceForm>
-                      name="serviceType"
-                      title="Service Type"
-                      placeholder="Select service type"
-                      required={true}
-                      options={[
-                        { label: "License", value: "LICENSE" },
-                        { label: "Add-on", value: "ADDON" },
-                      ]}
-                    />
-                  </div>
-                  <div>
-                    <MultiSelect<AddServiceForm>
                       name="category"
                       title="Category"
                       placeholder="Select category"
@@ -179,16 +155,6 @@ const AddServicePage = () => {
                         { label: "Heavy Vehicle", value: "Heavy Vehicle" },
                         { label: "Commercial Vehicle", value: "Commercial Vehicle" },
                       ]}
-                    />
-                  </div>
-                  <div>
-                    <TextInput<AddServiceForm>
-                      name="price"
-                      title="Price (₹)"
-                      placeholder="e.g., 5000"
-                      required
-                      onlynumber
-                      numdes
                     />
                   </div>
                   <div>
@@ -281,7 +247,7 @@ const AddServicePage = () => {
                 </Button>
                 <Button
                   size="large"
-                  onClick={() => router.push("/mtadmin/service")}
+                  onClick={() => router.push("/admin/service")}
                 >
                   Cancel
                 </Button>
@@ -305,3 +271,4 @@ const AddServicePage = () => {
 };
 
 export default AddServicePage;
+

@@ -1,6 +1,14 @@
 import { ApiCall } from "./api";
 
 // Types
+export interface CarAdmin {
+  id: number;
+  name: string;
+  manufacturer: string;
+  category: "SEDAN" | "MUV" | "SUV" | "HATCHBACK";
+  status: string;
+}
+
 export interface Driver {
   id: number;
   driverId: string;
@@ -17,6 +25,8 @@ export interface Car {
   id: number;
   schoolId: number;
   carId: string;
+  carAdminId?: number;
+  carAdmin?: CarAdmin;
   carName: string;
   model: string;
   registrationNumber: string;
@@ -73,6 +83,14 @@ const GET_PAGINATED_CARS = `
         id
         schoolId
         carId
+        carAdminId
+        carAdmin {
+          id
+          name
+          manufacturer
+          category
+          status
+        }
         carName
         model
         registrationNumber
@@ -111,6 +129,14 @@ const GET_CAR_BY_ID = `
       id
       schoolId
       carId
+      carAdminId
+      carAdmin {
+        id
+        name
+        manufacturer
+        category
+        status
+      }
       carName
       model
       registrationNumber
@@ -156,6 +182,7 @@ const CREATE_CAR = `
       id
       schoolId
       carId
+      carAdminId
       carName
       model
       registrationNumber
@@ -176,6 +203,7 @@ const UPDATE_CAR = `
       id
       schoolId
       carId
+      carAdminId
       carName
       model
       registrationNumber
@@ -242,8 +270,9 @@ export const getCarById = async (id: number) => {
 export const createCar = async (inputType: {
   schoolId: number;
   carId: string;
-  carName: string;
-  model: string;
+  carAdminId?: number;
+  carName?: string;
+  model?: string;
   registrationNumber: string;
   year: number;
   color: string;
@@ -272,6 +301,7 @@ export const createCar = async (inputType: {
 
 export const updateCar = async (updateData: {
   id: number;
+  carAdminId?: number;
   carName?: string;
   model?: string;
   registrationNumber?: string;

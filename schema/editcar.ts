@@ -5,13 +5,9 @@ export const EditCarSchema = v.object({
   carId: v.optional(v.string()),
 
   // Basic Information
-  carName: v.pipe(
+  carAdminId: v.pipe(
     v.string(),
-    v.minLength(2, "Car name must be at least 2 characters")
-  ),
-  model: v.pipe(
-    v.string(),
-    v.minLength(2, "Model must be at least 2 characters")
+    v.minLength(1, "Please select a car")
   ),
   registrationNumber: v.pipe(
     v.string(),

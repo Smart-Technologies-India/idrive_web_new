@@ -18,6 +18,7 @@ import {
 import { getCookie } from "cookies-next";
 import { createCar, getPaginatedCars } from "@/services/car.api";
 import { getAllDrivers } from "@/services/driver.api";
+import { getAllCarAdmins } from "@/services/car-admin.api";
 import { useEffect } from "react";
 import dayjs from "dayjs";
 
@@ -76,6 +77,21 @@ const AddCarPage = () => {
     }
   }, [carsResponse, schoolId, methods]);
 
+  // Fetch all car admins
+  const { data: carAdminsResponse } = useQuery({
+    queryKey: ["allCarAdmins"],
+    queryFn: async () => {
+      return await getAllCarAdmins({
+        status: "ACTIVE",
+      });
+    },
+  });
+
+  const carAdminOptions = carAdminsResponse?.data?.getAllCarAdmin?.map((car) => ({
+    label: `${car.name} - ${car.manufacturer} (${car.category})`,
+    value: car.id.toString(),
+  })) || [];
+
   // Fetch active drivers for the school
   const { data: driversResponse } = useQuery({
     queryKey: ["allDrivers", schoolId],
@@ -103,8 +119,7 @@ const AddCarPage = () => {
       const createData = {
         schoolId,
         carId: data.carId,
-        carName: data.carName,
-        model: data.model,
+        carAdminId: parseInt(data.carAdminId),
         registrationNumber: data.registrationNumber,
         year: parseInt(data.year),
         color: data.color,
@@ -124,17 +139,17 @@ const AddCarPage = () => {
         nextServiceDate: data.nextServiceDate ? new Date(data.nextServiceDate) : undefined,
         assignedDriverId: parseInt(data.assignedDriverId),
       };
-      return await createCar(createData);
+      const selectedCarAdmin = carAdminsResponse?.data?.getAllCarAdmin?.find(c => c.id === parseInt(data.carAdminId));
+      return { response: await createCar(createData), selectedCarAdmin };
     },
-    onSuccess: (response) => {
+    onSuccess: ({ response, selectedCarAdmin }) => {
       if (response.status && response.data?.createCar) {
         const car = response.data.createCar;
         Modal.success({
           title: "Car Added Successfully",
           content: (
             <div className="space-y-2">
-              <p><strong>Car Name:</strong> {car.carName}</p>
-              <p><strong>Model:</strong> {car.model}</p>
+              <p><strong>Car:</strong> {selectedCarAdmin?.name} - {selectedCarAdmin?.manufacturer} ({selectedCarAdmin?.category})</p>
               <p><strong>Registration:</strong> {car.registrationNumber}</p>
               <p><strong>Status:</strong> {car.status}</p>
             </div>
@@ -190,7 +205,7 @@ const AddCarPage = () => {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
                   Basic Information
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <TextInput<AddCarForm>
                       name="carId"
@@ -201,21 +216,22 @@ const AddCarPage = () => {
                     />
                   </div>
                   <div>
-                    <TextInput<AddCarForm>
-                      name="carName"
-                      title="Car Name"
-                      placeholder="e.g., Swift Dzire"
-                      required
+                    <MultiSelect<AddCarForm>
+                      name="carAdminId"
+                      title="Select Car Model"
+                      placeholder="Choose a car from master data"
+                      required={true}
+                      options={carAdminOptions}
                     />
                   </div>
-                  <div>
-                    <TextInput<AddCarForm>
-                      name="model"
-                      title="Model"
-                      placeholder="e.g., VXI"
-                      required
-                    />
-                  </div>
+                </div>
+
+                <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-blue-800">
+                    <strong>ℹ️ Note:</strong> Select a car model from the standardized master data. 
+                    This ensures consistency and prevents data entry errors. Car details like manufacturer, 
+                    model, fuel type, and transmission will be automatically linked.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">

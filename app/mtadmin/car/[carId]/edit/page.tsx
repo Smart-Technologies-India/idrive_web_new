@@ -18,6 +18,7 @@ import {
 } from "@/components/icons";
 import { getCarById, updateCar } from "@/services/car.api";
 import { getAllDrivers } from "@/services/driver.api";
+import { getAllCarAdmins } from "@/services/car-admin.api";
 import { getCookie } from "cookies-next";
 import dayjs from "dayjs";
 
@@ -31,6 +32,21 @@ const EditCarPage = ({ params }: { params: Promise<{ carId: string }> }) => {
   const methods = useForm<EditCarForm>({
     resolver: valibotResolver(EditCarSchema),
   });
+
+  // Fetch all car admins
+  const { data: carAdminsResponse } = useQuery({
+    queryKey: ["allCarAdmins"],
+    queryFn: async () => {
+      return await getAllCarAdmins({
+        status: "ACTIVE",
+      });
+    },
+  });
+
+  const carAdminOptions = carAdminsResponse?.data?.getAllCarAdmin?.map((car) => ({
+    label: `${car.name} - ${car.manufacturer} (${car.category})`,
+    value: car.id.toString(),
+  })) || [];
 
   // Fetch active drivers for the school
   const { data: driversResponse } = useQuery({
@@ -69,8 +85,7 @@ const EditCarPage = ({ params }: { params: Promise<{ carId: string }> }) => {
     if (carResponse?.status && carResponse.data.getCarById && !initialDataLoaded.current) {
       const car = carResponse.data.getCarById;
       methods.reset({
-        carName: car.carName || "",
-        model: car.model || "",
+        carAdminId: car.carAdminId?.toString() || "",
         registrationNumber: car.registrationNumber || "",
         year: car.year?.toString() || "",
         color: car.color || "",
@@ -101,8 +116,7 @@ const EditCarPage = ({ params }: { params: Promise<{ carId: string }> }) => {
     mutationFn: async (data: EditCarForm) => {
       const updateData = {
         id: numericCarId,
-        carName: data.carName,
-        model: data.model,
+        carAdminId: parseInt(data.carAdminId),
         registrationNumber: data.registrationNumber,
         year: parseInt(data.year),
         color: data.color,
@@ -128,12 +142,12 @@ const EditCarPage = ({ params }: { params: Promise<{ carId: string }> }) => {
     onSuccess: (response) => {
       if (response.status && response.data?.updateCar) {
         const car = response.data.updateCar;
+        const selectedCarAdmin = carAdminsResponse?.data?.getAllCarAdmin?.find(c => c.id === car.carAdminId);
         Modal.success({
           title: "Car Updated Successfully",
           content: (
             <div className="space-y-2">
-              <p><strong>Car Name:</strong> {car.carName}</p>
-              <p><strong>Model:</strong> {car.model}</p>
+              <p><strong>Car:</strong> {selectedCarAdmin?.name} - {selectedCarAdmin?.manufacturer} ({selectedCarAdmin?.category})</p>
               <p><strong>Registration:</strong> {car.registrationNumber}</p>
               <p><strong>Status:</strong> {car.status}</p>
             </div>
@@ -205,31 +219,23 @@ const EditCarPage = ({ params }: { params: Promise<{ carId: string }> }) => {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
                   Basic Information
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <TextInput<EditCarForm>
-                      name="carId"
-                      title="Car ID"
-                      placeholder="e.g., CAR001"
-                      disable
+                    <MultiSelect<EditCarForm>
+                      name="carAdminId"
+                      title="Select Car Model"
+                      placeholder="Choose a car from master data"
+                      required={true}
+                      options={carAdminOptions}
                     />
                   </div>
-                  <div>
-                    <TextInput<EditCarForm>
-                      name="carName"
-                      title="Car Name"
-                      placeholder="e.g., Swift Dzire"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <TextInput<EditCarForm>
-                      name="model"
-                      title="Model"
-                      placeholder="e.g., VXI"
-                      required
-                    />
-                  </div>
+                </div>
+
+                <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-blue-800">
+                    <strong>ℹ️ Note:</strong> Select a car model from the standardized master data. 
+                    Car details like manufacturer, model, fuel type, and transmission will be automatically linked.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">

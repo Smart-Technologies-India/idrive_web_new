@@ -12,41 +12,43 @@ import {
 } from "@/components/icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getServiceById, updateService } from "@/services/service.api";
-import { getCookie } from "cookies-next";
 
 // Temporary form interface - will be replaced with schema
 interface EditServiceForm {
   serviceId: string;
   serviceName: string;
-  serviceType: string;
   category: string;
-  price: string;
   duration: string;
   description: string;
   features: string[];
   requirements: string;
   termsAndConditions: string;
   includedServices: string[];
-  activeUsers: string;
-  totalRevenue: string;
   status: string;
 }
 
-const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> }) => {
+const EditServicePage = ({
+  params,
+}: {
+  params: Promise<{ serviceId: string }>;
+}) => {
   const router = useRouter();
   const { serviceId: serviceIdStr } = use(params);
   const serviceId = parseInt(serviceIdStr);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
   const queryClient = useQueryClient();
 
   const methods = useForm<EditServiceForm>();
 
   // Fetch service data from API
-  const { data: serviceResponse, isLoading, error } = useQuery({
+  const {
+    data: serviceResponse,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["service", serviceId],
     queryFn: () => getServiceById(serviceId),
-    enabled: serviceId > 0 && schoolId > 0,
+    enabled: serviceId > 0,
   });
 
   const serviceData = serviceResponse?.data?.getServiceById;
@@ -61,16 +63,22 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
         title: "Service Updated Successfully!",
         content: (
           <div className="space-y-2">
-            <p><strong>Service Name:</strong> {serviceData?.serviceName}</p>
-            <p><strong>Status:</strong> {serviceData?.status}</p>
+            <p>
+              <strong>Service Name:</strong> {serviceData?.serviceName}
+            </p>
+            <p>
+              <strong>Status:</strong> {serviceData?.status}
+            </p>
           </div>
         ),
-        onOk: () => router.push(`/mtadmin/service/${serviceId}`),
+        onOk: () => router.push(`/admin/service/${serviceId}`),
       });
       setIsSubmitting(false);
     },
     onError: (error: Error) => {
-      toast.error(error?.message || "Failed to update service. Please try again.");
+      toast.error(
+        error?.message || "Failed to update service. Please try again."
+      );
       setIsSubmitting(false);
     },
   });
@@ -79,25 +87,27 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
   useEffect(() => {
     if (serviceData) {
       // Parse features and includedServices from JSON strings
-      const parsedFeatures = serviceData.features ? 
-        (typeof serviceData.features === 'string' ? JSON.parse(serviceData.features) : serviceData.features) : [];
-      const parsedIncludedServices = serviceData.includedServices ? 
-        (typeof serviceData.includedServices === 'string' ? JSON.parse(serviceData.includedServices) : serviceData.includedServices) : [];
+      const parsedFeatures = serviceData.features
+        ? typeof serviceData.features === "string"
+          ? JSON.parse(serviceData.features)
+          : serviceData.features
+        : [];
+      const parsedIncludedServices = serviceData.includedServices
+        ? typeof serviceData.includedServices === "string"
+          ? JSON.parse(serviceData.includedServices)
+          : serviceData.includedServices
+        : [];
 
       methods.reset({
         serviceId: serviceData.serviceId,
         serviceName: serviceData.serviceName,
-        serviceType: serviceData.serviceType,
         category: serviceData.category,
-        price: serviceData.price.toString(),
         duration: serviceData.duration.toString(),
         description: serviceData.description,
         features: parsedFeatures,
         includedServices: parsedIncludedServices,
         requirements: serviceData.requirements || "",
         termsAndConditions: serviceData.termsAndConditions || "",
-        activeUsers: serviceData.activeUsers.toString(),
-        totalRevenue: serviceData.totalRevenue.toString(),
         status: serviceData.status,
       });
     }
@@ -108,9 +118,12 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
       title: "Confirm Service Update",
       content: (
         <div>
-          <p><strong>Service Name:</strong> {data.serviceName}</p>
-          <p><strong>Service Type:</strong> {data.serviceType}</p>
-          <p><strong>Status:</strong> {data.status}</p>
+          <p>
+            <strong>Service Name:</strong> {data.serviceName}
+          </p>
+          <p>
+            <strong>Status:</strong> {data.status}
+          </p>
           <br />
           <p>Are you sure you want to update this service?</p>
         </div>
@@ -119,21 +132,56 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
       cancelText: "Cancel",
       onOk: () => {
         setIsSubmitting(true);
+
+        // Filter out empty strings and ensure proper array format
+        const cleanFeatures =
+          data.features?.filter((f) => f && f.trim() !== "") || [];
+        const cleanIncludedServices =
+          data.includedServices?.filter((s) => s && s.trim() !== "") || [];
+
+        console.log({
+          id: serviceId,
+          serviceName: data.serviceName,
+          category: data.category,
+          duration: parseInt(data.duration),
+          description: data.description,
+          features:
+            cleanFeatures.length > 0
+              ? JSON.stringify(cleanFeatures)
+              : undefined,
+          includedServices:
+            cleanIncludedServices.length > 0
+              ? JSON.stringify(cleanIncludedServices)
+              : undefined,
+          requirements: data.requirements,
+          termsAndConditions: data.termsAndConditions,
+          status: data.status as
+            | "ACTIVE"
+            | "INACTIVE"
+            | "UPCOMING"
+            | "DISCONTINUED",
+        });
         updateServiceMutation.mutate({
           id: serviceId,
           serviceName: data.serviceName,
-          serviceType: data.serviceType as 'LICENSE' | 'ADDON',
           category: data.category,
-          price: parseFloat(data.price),
           duration: parseInt(data.duration),
           description: data.description,
-          features: data.features ? JSON.stringify(data.features) : undefined,
-          includedServices: data.includedServices ? JSON.stringify(data.includedServices) : undefined,
+          features:
+            cleanFeatures.length > 0
+              ? JSON.stringify(cleanFeatures)
+              : undefined,
+          includedServices:
+            cleanIncludedServices.length > 0
+              ? JSON.stringify(cleanIncludedServices)
+              : undefined,
           requirements: data.requirements,
           termsAndConditions: data.termsAndConditions,
-          activeUsers: parseInt(data.activeUsers),
-          totalRevenue: parseFloat(data.totalRevenue),
-          status: data.status as 'ACTIVE' | 'INACTIVE' | 'UPCOMING' | 'DISCONTINUED',
+          status: data.status as
+            | "ACTIVE"
+            | "INACTIVE"
+            | "UPCOMING"
+            | "DISCONTINUED",
         });
         setIsSubmitting(false);
       },
@@ -146,25 +194,27 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
   const handleReset = () => {
     if (serviceData) {
       // Parse features and includedServices from JSON strings
-      const parsedFeatures = serviceData.features ? 
-        (typeof serviceData.features === 'string' ? JSON.parse(serviceData.features) : serviceData.features) : [];
-      const parsedIncludedServices = serviceData.includedServices ? 
-        (typeof serviceData.includedServices === 'string' ? JSON.parse(serviceData.includedServices) : serviceData.includedServices) : [];
+      const parsedFeatures = serviceData.features
+        ? typeof serviceData.features === "string"
+          ? JSON.parse(serviceData.features)
+          : serviceData.features
+        : [];
+      const parsedIncludedServices = serviceData.includedServices
+        ? typeof serviceData.includedServices === "string"
+          ? JSON.parse(serviceData.includedServices)
+          : serviceData.includedServices
+        : [];
 
       methods.reset({
         serviceId: serviceData.serviceId,
         serviceName: serviceData.serviceName,
-        serviceType: serviceData.serviceType,
         category: serviceData.category,
-        price: serviceData.price.toString(),
         duration: serviceData.duration.toString(),
         description: serviceData.description,
         features: parsedFeatures,
         includedServices: parsedIncludedServices,
         requirements: serviceData.requirements || "",
         termsAndConditions: serviceData.termsAndConditions || "",
-        activeUsers: serviceData.activeUsers.toString(),
-        totalRevenue: serviceData.totalRevenue.toString(),
         status: serviceData.status,
       });
     }
@@ -187,7 +237,7 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
             <p className="text-gray-500 mb-4">
               {error ? "Failed to load service data" : "Service not found"}
             </p>
-            <Button onClick={() => router.push("/mtadmin/service")}>
+            <Button onClick={() => router.push("/admin/service")}>
               Back to Services
             </Button>
           </div>
@@ -201,10 +251,10 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="text-center">
           <h2 className="text-xl text-gray-600">Service not found</h2>
-          <Button 
-            type="primary" 
+          <Button
+            type="primary"
             className="mt-4"
-            onClick={() => router.push("/mtadmin/service")}
+            onClick={() => router.push("/admin/service")}
           >
             Back to Services
           </Button>
@@ -223,7 +273,7 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
               type="text"
               icon={<Fa6SolidArrowLeftLong className="text-lg" />}
               size="large"
-              onClick={() => router.push(`/mtadmin/service/${serviceId}`)}
+              onClick={() => router.push(`/admin/service/${serviceId}`)}
             />
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Edit Service</h1>
@@ -247,7 +297,8 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Service ID <span className="text-gray-500">(Auto-generated)</span>
+                      Service ID{" "}
+                      <span className="text-gray-500">(Auto-generated)</span>
                     </label>
                     <input
                       {...methods.register("serviceId")}
@@ -266,18 +317,6 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
                       placeholder="Enter service name"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Service Type <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      {...methods.register("serviceType", { required: true })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    >
-                      <option value="LICENSE">License Service</option>
-                      <option value="ADDON">Add-on</option>
-                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -305,19 +344,10 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
                       <option value="Two Wheeler">Two Wheeler</option>
                       <option value="Four Wheeler">Four Wheeler</option>
                       <option value="Heavy Vehicle">Heavy Vehicle</option>
-                      <option value="Commercial Vehicle">Commercial Vehicle</option>
+                      <option value="Commercial Vehicle">
+                        Commercial Vehicle
+                      </option>
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Price (₹) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      {...methods.register("price", { required: true })}
-                      type="number"
-                      placeholder="e.g., 5000"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -327,37 +357,6 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
                       {...methods.register("duration", { required: true })}
                       type="number"
                       placeholder="e.g., 365"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Statistics */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
-                  Statistics
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Active Users <span className="text-gray-500">(Optional)</span>
-                    </label>
-                    <input
-                      {...methods.register("activeUsers")}
-                      type="number"
-                      placeholder="e.g., 150"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Total Revenue (₹) <span className="text-gray-500">(Optional)</span>
-                    </label>
-                    <input
-                      {...methods.register("totalRevenue")}
-                      type="number"
-                      placeholder="e.g., 750000"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
                   </div>
@@ -399,7 +398,8 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Requirements <span className="text-gray-500">(Optional)</span>
+                      Requirements{" "}
+                      <span className="text-gray-500">(Optional)</span>
                     </label>
                     <textarea
                       {...methods.register("requirements")}
@@ -410,7 +410,8 @@ const EditServicePage = ({ params }: { params: Promise<{ serviceId: string }> })
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Terms & Conditions <span className="text-gray-500">(Optional)</span>
+                      Terms & Conditions{" "}
+                      <span className="text-gray-500">(Optional)</span>
                     </label>
                     <textarea
                       {...methods.register("termsAndConditions")}

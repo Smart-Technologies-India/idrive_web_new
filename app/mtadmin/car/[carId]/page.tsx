@@ -350,10 +350,11 @@ const CarDetailPage = ({ params }: { params: Promise<{ carId: string }> }) => {
               />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {carData.carName} - {carData.model}
+                  {carData.carAdmin ? `${carData.carAdmin.name} - ${carData.carAdmin.manufacturer}` : `${carData.carName} - ${carData.model}`}
                 </h1>
                 <p className="text-gray-600 mt-1 text-sm">
                   {carData.registrationNumber} • {carData.carId}
+                  {carData.carAdmin && ` • ${carData.carAdmin.category}`}
                 </p>
               </div>
             </div>
@@ -375,11 +376,37 @@ const CarDetailPage = ({ params }: { params: Promise<{ carId: string }> }) => {
       <div className="px-8 py-6 space-y-6">
         {/* Basic Details */}
         <Card title="Car Details" className="shadow-sm">
+          {carData.carAdminId && (
+            <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800">
+                <strong>ℹ️ Master Data:</strong> This car is linked to standardized master data. 
+                Car details are managed centrally to ensure consistency.
+              </p>
+            </div>
+          )}
           <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
-            <Descriptions.Item label="Car Name">
-              {carData.carName}
-            </Descriptions.Item>
-            <Descriptions.Item label="Model">{carData.model}</Descriptions.Item>
+            {carData.carAdmin ? (
+              <>
+                <Descriptions.Item label="Car Name">
+                  {carData.carAdmin.name}
+                </Descriptions.Item>
+                <Descriptions.Item label="Manufacturer">
+                  {carData.carAdmin.manufacturer}
+                </Descriptions.Item>
+                <Descriptions.Item label="Category">
+                  <Tag color="blue" className="!text-sm !px-3 !py-1">
+                    {carData.carAdmin.category}
+                  </Tag>
+                </Descriptions.Item>
+              </>
+            ) : (
+              <>
+                <Descriptions.Item label="Car Name">
+                  {carData.carName}
+                </Descriptions.Item>
+                <Descriptions.Item label="Model">{carData.model}</Descriptions.Item>
+              </>
+            )}
             <Descriptions.Item label="Registration">
               <span className="font-mono font-semibold">
                 {carData.registrationNumber}

@@ -7,10 +7,8 @@ import {
   Tag,
   Descriptions,
   Spin,
-  Statistic,
   Row,
   Col,
-  Progress,
 } from "antd";
 import {
   AntDesignEditOutlined,
@@ -19,7 +17,6 @@ import {
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getServiceById } from "@/services/service.api";
-import { getCookie } from "cookies-next";
 
 const ServiceDetailPage = ({
   params,
@@ -29,13 +26,12 @@ const ServiceDetailPage = ({
   const router = useRouter();
   const { serviceId: serviceIdStr } = use(params);
   const serviceId = parseInt(serviceIdStr);
-  const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
 
   // Fetch service from API
   const { data: serviceResponse, isLoading, error } = useQuery({
     queryKey: ["service", serviceId],
     queryFn: () => getServiceById(serviceId),
-    enabled: serviceId > 0 && schoolId > 0,
+    enabled: serviceId > 0,
   });
 
   const serviceData = serviceResponse?.data?.getServiceById;
@@ -79,7 +75,7 @@ const ServiceDetailPage = ({
             <p className="text-gray-500 mb-4">
               {error ? "Failed to load service data" : "Service not found"}
             </p>
-            <Button onClick={() => router.push("/mtadmin/service")}>
+            <Button onClick={() => router.push("/admin/service")}>
               Back to Services
             </Button>
           </div>
@@ -88,7 +84,7 @@ const ServiceDetailPage = ({
     );
   }
 
-  const utilizationPercentage = (serviceData.activeUsers / 300) * 100;
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -101,7 +97,7 @@ const ServiceDetailPage = ({
                 type="text"
                 icon={<Fa6SolidArrowLeftLong className="text-lg" />}
                 size="large"
-                onClick={() => router.push("/mtadmin/service")}
+                onClick={() => router.push("/admin/service")}
               />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
@@ -114,13 +110,7 @@ const ServiceDetailPage = ({
                   </Tag>
                 </h1>
                 <p className="text-gray-600 mt-1 text-sm">
-                  {serviceData.serviceId} •{" "}
-                  <Tag
-                    color={getTypeColor(serviceData.serviceType)}
-                    className="!text-xs !px-2 !py-0"
-                  >
-                    {serviceData.serviceType}
-                  </Tag>
+                  {serviceData.serviceId}
                 </p>
               </div>
             </div>
@@ -128,7 +118,7 @@ const ServiceDetailPage = ({
               type="primary"
               icon={<AntDesignEditOutlined className="text-lg" />}
               size="large"
-              onClick={() => router.push(`/mtadmin/service/${serviceIdStr}/edit`)}
+              onClick={() => router.push(`/admin/service/${serviceIdStr}/edit`)}
               className="!bg-gradient-to-r from-purple-600 to-pink-600"
             >
               Edit Service
@@ -138,54 +128,6 @@ const ServiceDetailPage = ({
       </div>
 
       <div className="px-8 py-6 space-y-6">
-        {/* Statistics Cards */}
-        <Row gutter={16}>
-          <Col xs={24} sm={12} lg={6}>
-            <Card className="shadow-sm">
-              <Statistic
-                title="Total Revenue"
-                value={serviceData.totalRevenue}
-                prefix="₹"
-                valueStyle={{ color: "#3f8600", fontSize: "24px" }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} lg={6}>
-            <Card className="shadow-sm">
-              <Statistic
-                title="Active Users"
-                value={serviceData.activeUsers}
-                valueStyle={{ fontSize: "24px" }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} lg={6}>
-            <Card className="shadow-sm">
-              <Statistic
-                title="Service Price"
-                value={serviceData.price}
-                prefix="₹"
-                valueStyle={{ fontSize: "24px" }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} lg={6}>
-            <Card className="shadow-sm">
-              <Statistic
-                title="Utilization"
-                value={Math.round(utilizationPercentage)}
-                suffix="%"
-                valueStyle={{ fontSize: "24px" }}
-              />
-              <Progress
-                percent={Math.round(utilizationPercentage)}
-                size="small"
-                className="mt-2"
-              />
-            </Card>
-          </Col>
-        </Row>
-
         {/* Service Information */}
         <Card title="Service Information" className="shadow-sm">
           <Descriptions column={{ xs: 1, sm: 2, lg: 3 }} bordered>
@@ -195,30 +137,16 @@ const ServiceDetailPage = ({
             <Descriptions.Item label="Service Name">
               {serviceData.serviceName}
             </Descriptions.Item>
-            <Descriptions.Item label="Service Type">
-              <Tag color={getTypeColor(serviceData.serviceType)}>
-                {serviceData.serviceType}
-              </Tag>
-            </Descriptions.Item>
             <Descriptions.Item label="Category">
               {serviceData.category}
             </Descriptions.Item>
             <Descriptions.Item label="Duration">
               {serviceData.duration} days
             </Descriptions.Item>
-            <Descriptions.Item label="Price">
-              ₹{serviceData.price.toLocaleString("en-IN")}
-            </Descriptions.Item>
             <Descriptions.Item label="Status">
               <Tag color={getStatusColor(serviceData.status)}>
                 {serviceData.status}
               </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="Active Users">
-              {serviceData.activeUsers}
-            </Descriptions.Item>
-            <Descriptions.Item label="Total Revenue">
-              ₹{serviceData.totalRevenue.toLocaleString("en-IN")}
             </Descriptions.Item>
             <Descriptions.Item label="Description" span={3}>
               {serviceData.description}

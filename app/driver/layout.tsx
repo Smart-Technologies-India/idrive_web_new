@@ -63,12 +63,12 @@ export default function DriverLayout({
   ];
 
   const handleUserMenuClick: MenuProps["onClick"] = (e) => {
-    if (e.key === "logout") {
+    if (e.key == "logout") {
       deleteCookie("id");
       deleteCookie("role");
       deleteCookie("name");
       router.push("/login");
-    } else if (e.key === "profile") {
+    } else if (e.key == "profile") {
       router.push("/driver/profile");
     }
   };

@@ -65,9 +65,9 @@ const CourseManagementPage = () => {
         whereSearchInput: {
           schoolId: schoolId,
           status:
-            filterStatus === "all" ? undefined : filterStatus.toUpperCase(),
+            filterStatus == "all" ? undefined : filterStatus.toUpperCase(),
           courseType:
-            filterType === "all" ? undefined : filterType.toUpperCase(),
+            filterType == "all" ? undefined : filterType.toUpperCase(),
         },
       }),
     enabled: schoolId > 0,
@@ -170,7 +170,7 @@ const CourseManagementPage = () => {
         { text: "Advanced", value: "advanced" },
         { text: "Refresher", value: "refresher" },
       ],
-      onFilter: (value, record) => record.courseType === value,
+      onFilter: (value, record) => record.courseType == value,
       render: (type) => (
         <Tag
           color={getTypeColor(type)}
@@ -234,7 +234,7 @@ const CourseManagementPage = () => {
         { text: "Upcoming", value: "upcoming" },
         { text: "Archived", value: "archived" },
       ],
-      onFilter: (value, record) => record.status === value,
+      onFilter: (value, record) => record.status == value,
       render: (status: string) => (
         <Tag
           color={getStatusColor(status)}
@@ -264,8 +264,8 @@ const CourseManagementPage = () => {
 
   const stats = {
     total: courses.length,
-    active: courses.filter((c) => c.status === "active").length,
-    upcoming: courses.filter((c) => c.status === "upcoming").length,
+    active: courses.filter((c) => c.status == "active").length,
+    upcoming: courses.filter((c) => c.status == "upcoming").length,
     totalStudents: courses.reduce((sum, c) => sum + c.enrolledStudents, 0),
   };
 

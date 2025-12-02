@@ -86,8 +86,8 @@ const ServiceBookingForm = () => {
       ?.filter(
         (ss: SchoolService) =>
           ss.service &&
-          (ss.service.category === "NEW_LICENSE" ||
-            ss.service.category === "I_HOLD_LICENSE")
+          (ss.service.category == "NEW_LICENSE" ||
+            ss.service.category == "I_HOLD_LICENSE")
       ) // Only license-related services
       ?.map((schoolService: SchoolService) => ({
         id: schoolService.service!.id,
@@ -123,12 +123,12 @@ const ServiceBookingForm = () => {
   useEffect(() => {
     if (watchedServiceId && watchedServiceId !== 0 && services.length > 0) {
       const numericServiceId =
-        typeof watchedServiceId === "string"
+        typeof watchedServiceId == "string"
           ? parseInt(watchedServiceId)
           : watchedServiceId;
 
       if (!selectedService || selectedService.id !== numericServiceId) {
-        const service = services.find((s) => s.id === numericServiceId);
+        const service = services.find((s) => s.id == numericServiceId);
         if (service) {
           setSelectedService(service);
           setValue("schoolServiceId", service.schoolServiceId, {
@@ -143,7 +143,7 @@ const ServiceBookingForm = () => {
           });
         }
       }
-    } else if (watchedServiceId === 0 && selectedService) {
+    } else if (watchedServiceId == 0 && selectedService) {
       setSelectedService(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -317,7 +317,7 @@ const ServiceBookingForm = () => {
       errors.push("Customer details could not be loaded");
     }
 
-    if (!formValues.serviceId || formValues.serviceId === 0) {
+    if (!formValues.serviceId || formValues.serviceId == 0) {
       errors.push("Please select a service");
     }
 
@@ -326,7 +326,7 @@ const ServiceBookingForm = () => {
     }
 
     return {
-      isValid: errors.length === 0,
+      isValid: errors.length == 0,
       errors,
     };
   };
@@ -572,9 +572,9 @@ const ServiceBookingForm = () => {
                             </p>
                             <Tag
                               color={
-                                selectedService.serviceType === "NEW_LICENSE"
+                                selectedService.serviceType == "NEW_LICENSE"
                                   ? "purple"
-                                  : selectedService.serviceType ===
+                                  : selectedService.serviceType ==
                                     "I_HOLD_LICENSE"
                                   ? "blue"
                                   : "cyan"
@@ -622,7 +622,7 @@ const ServiceBookingForm = () => {
                     </div>
                   )}
 
-                  {services.length === 0 && !loadingServices && (
+                  {services.length == 0 && !loadingServices && (
                     <div className="text-center py-8 text-gray-500">
                       <p>No services available for this school</p>
                     </div>
@@ -800,10 +800,10 @@ const ServiceBookingForm = () => {
                       <div className="mt-1">
                         <Tag
                           color={
-                            pendingData.selectedService.serviceType ===
+                            pendingData.selectedService.serviceType ==
                             "NEW_LICENSE"
                               ? "purple"
-                              : pendingData.selectedService.serviceType ===
+                              : pendingData.selectedService.serviceType ==
                                 "I_HOLD_LICENSE"
                               ? "blue"
                               : "cyan"

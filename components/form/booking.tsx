@@ -38,6 +38,11 @@ import type { BookingFormData, Customer } from "@/schema/booking";
 // Extend dayjs with UTC plugin
 dayjs.extend(utc);
 
+// Extended booking form data with calculated dates
+type ExtendedBookingFormData = BookingFormData & {
+  calculatedDates?: string[];
+};
+
 // Types for form data
 type FormCourse = {
   id: number;
@@ -161,7 +166,7 @@ const BookingForm = () => {
 
   // State declarations
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [pendingData, setPendingData] = useState<BookingFormData | null>(null);
+  const [pendingData, setPendingData] = useState<ExtendedBookingFormData | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<FormCourse | null>(null);
   const [selectedServices, setSelectedServices] = useState<number[]>([]);
   const [customerData, setCustomerData] = useState<Customer | null>(null);
@@ -203,7 +208,7 @@ const BookingForm = () => {
   const selectedCarData = selectedCarResponse?.data?.getCarById;
 
   // Validate that the car belongs to the school
-  const carBelongsToSchool = selectedCarData?.schoolId === schoolId;
+  const carBelongsToSchool = selectedCarData?.schoolId == schoolId;
 
   // Fetch school profile for timing information
   const { data: schoolResponse } = useQuery({
@@ -362,7 +367,7 @@ const BookingForm = () => {
   const courseQueries = useQuery({
     queryKey: ["coursesDetails", courseIds],
     queryFn: async () => {
-      if (courseIds.length === 0) return [];
+      if (courseIds.length == 0) return [];
       const coursePromises = courseIds.map((id) => getCourseById(id));
       const results = await Promise.all(coursePromises);
       return results.map(res => res?.data?.getCourseById).filter(Boolean) as Course[];
@@ -399,7 +404,7 @@ const BookingForm = () => {
   // Watch for car selection changes
   useEffect(() => {
     if (watchedCarId && availableCars.length > 0 && !carIdFromUrl) {
-      const car = availableCars.find((c) => c.id.toString() === watchedCarId.toString());
+      const car = availableCars.find((c) => c.id.toString() == watchedCarId.toString());
       if (car) {
         setValue("carName", car.carName, { shouldValidate: false });
         // Fetch full car details including driver info via mutation
@@ -411,17 +416,22 @@ const BookingForm = () => {
 
   // Watch for course selection changes
   useEffect(() => {
-    if (watchedCourseId && watchedCourseId !== 0 && courses.length > 0) {
-      const course = courses.find((c) => c.id === watchedCourseId);
+    // Convert courseId to number if it's a string
+    const numericCourseId = typeof watchedCourseId == 'string' ? parseInt(watchedCourseId) : watchedCourseId;
+    
+    if (numericCourseId && numericCourseId !== 0 && courses.length > 0) {
+      const course = courses.find((c) => c.id == numericCourseId);
       if (course) {
-        if (!selectedCourse || selectedCourse.id !== watchedCourseId) {
+        if (!selectedCourse || selectedCourse.id !== numericCourseId) {
           setSelectedCourse(course);
+          // Update form with numeric value
+          setValue("courseId", numericCourseId, { shouldValidate: false });
           setValue("courseName", course.name, { shouldValidate: false });
           setValue("coursePrice", course.price, { shouldValidate: false });
           calculateTotal(course.price, selectedServices);
         }
       }
-    } else if (watchedCourseId === 0 && selectedCourse) {
+    } else if (numericCourseId == 0 && selectedCourse) {
       setSelectedCourse(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -470,14 +480,14 @@ const BookingForm = () => {
             (sessionsResponse?.data as GetAllBookingSessionResponse)
               ?.getAllBookingSession || [];
           const bookingSessions = allSessions.filter(
-            (session: BookingSession) => session.booking?.schoolId === schoolId
+            (session: BookingSession) => session.booking?.schoolId == schoolId
           );
 
           // Filter out booked slots for the selected car
           const bookedSlots = bookingSessions
             .filter(
               (session: BookingSession) =>
-                session.booking?.carId === selectedCarId &&
+                session.booking?.carId == selectedCarId &&
                 session.status !== "CANCELLED"
             )
             .map((session: BookingSession) => session.slot);
@@ -779,7 +789,7 @@ const BookingForm = () => {
       errors.push("Customer details could not be loaded");
     }
 
-    if (!formValues.courseId || formValues.courseId === 0) {
+    if (!formValues.courseId || formValues.courseId == 0) {
       errors.push("Please select a course");
     }
 
@@ -788,13 +798,100 @@ const BookingForm = () => {
     }
 
     return {
-      isValid: errors.length === 0,
+      isValid: errors.length == 0,
       errors,
     };
   };
 
+  // Helper function to check if a date/slot is available
+  const isDateSlotAvailable = async (date: string, slot: string, carId: number) => {
+    try {
+      const response = await ApiCall<GetAllBookingSessionResponse>({
+        query: `query GetAllBookingSession($whereSearchInput: WhereBookingSessionSearchInput!) {
+          getAllBookingSession(whereSearchInput: $whereSearchInput) {
+            id
+            slot
+            sessionDate
+            status
+            booking {
+              id
+              carId
+              schoolId
+            }
+          }
+        }`,
+        variables: {
+          whereSearchInput: {
+            sessionDate: date,
+            slot: slot,
+            carId: carId,
+          },
+        },
+      });
+
+      const sessions = response?.data?.getAllBookingSession || [];
+      // Check if there's any booking for this date/slot/car
+      return sessions.length == 0;
+    } catch (error) {
+      console.error("Error checking availability:", error);
+      return false;
+    }
+  };
+
+  // Calculate available booking dates (skip booked slots)
+  const calculateAvailableDates = async () => {
+    if (!selectedCourse || !formValues.bookingDate || !formValues.slot || !formValues.carId) {
+      return [];
+    }
+
+    const bookingStartDate = dayjs(formValues.bookingDate);
+    const availableDates = [];
+    const carId = parseInt(formValues.carId);
+    let currentDate = bookingStartDate.clone();
+    let sessionCount = 0;
+
+    // Keep iterating until we have enough available dates
+    while (sessionCount < selectedCourse.courseDays) {
+      // Skip weekly holiday if configured
+      if (schoolData?.weeklyHoliday) {
+        const dayOfWeek = currentDate.day();
+        const weeklyHoliday = schoolData.weeklyHoliday.toUpperCase();
+        const dayMap: { [key: string]: number } = {
+          SUNDAY: 0,
+          MONDAY: 1,
+          TUESDAY: 2,
+          WEDNESDAY: 3,
+          THURSDAY: 4,
+          FRIDAY: 5,
+          SATURDAY: 6,
+        };
+
+        if (dayOfWeek == dayMap[weeklyHoliday]) {
+          currentDate = currentDate.add(1, "day");
+          continue;
+        }
+      }
+
+      // Check if date is available (not booked)
+      const isAvailable = await isDateSlotAvailable(
+        currentDate.format("YYYY-MM-DD"),
+        formValues.slot,
+        carId
+      );
+
+      if (isAvailable) {
+        availableDates.push(currentDate.format("YYYY-MM-DD"));
+        sessionCount++;
+      }
+
+      currentDate = currentDate.add(1, "day");
+    }
+
+    return availableDates;
+  };
+
   // Handle form submission
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const validation = validateForm();
 
     if (!validation.isValid) {
@@ -802,13 +899,32 @@ const BookingForm = () => {
       return;
     }
 
-    setPendingData(formValues);
+    // Calculate available dates before showing confirmation
+    toast.info("Checking date availability...");
+    const availableDates = await calculateAvailableDates();
+
+    console.log("Available dates calculated:", availableDates);
+
+    if (availableDates.length == 0) {
+      toast.error("No available dates found. Please try a different slot or start date.");
+      return;
+    }
+
+    // Store available dates in pending data
+    const dataWithDates = {
+      ...formValues,
+      calculatedDates: availableDates,
+    };
+
+    console.log("Pending data with dates:", dataWithDates);
+
+    setPendingData(dataWithDates);
     setShowConfirmModal(true);
   };
 
   // Mutation for API call
   const { mutate, isPending } = useMutation({
-    mutationFn: async (data: BookingFormData) => {
+    mutationFn: async (data: ExtendedBookingFormData) => {
       // Generate booking ID
       const bookingId = `BK${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
@@ -833,7 +949,7 @@ const BookingForm = () => {
             customerName: data.customerName,
             customerEmail: data.customerEmail,
             customerId: customerData?.id,
-            courseId: data.courseId,
+            courseId: typeof data.courseId == 'string' ? parseInt(data.courseId) : data.courseId,
             courseName: data.courseName,
             coursePrice: data.coursePrice,
             totalAmount: data.totalAmount,
@@ -879,46 +995,16 @@ const BookingForm = () => {
         await Promise.all(servicePromises);
       }
 
-      // Create booking sessions based on course days
-      if (selectedCourse && selectedCourse.courseDays > 0) {
-        const bookingStartDate = dayjs(data.bookingDate);
-        const sessionPromises = [];
+      // Create booking sessions based on calculated available dates
+      if (selectedCourse && selectedCourse.courseDays > 0 && data.calculatedDates) {
+        const sessionPromises: Promise<unknown>[] = [];
 
-        for (let day = 1; day <= selectedCourse.courseDays; day++) {
-          // Calculate session date (skip weekends if configured)
-          let sessionDate = bookingStartDate.clone();
-          let daysAdded = 0;
+        // Get driver ID from appropriate car data source
+        const carData = numericCarId ? selectedCarData : dropdownSelectedCar;
+        const driverId = carData?.assignedDriver?.id;
 
-          while (daysAdded < day - 1) {
-            sessionDate = sessionDate.add(1, "day");
-
-            // Skip weekly holiday if configured
-            if (schoolData?.weeklyHoliday) {
-              const dayOfWeek = sessionDate.day();
-              const weeklyHoliday = schoolData.weeklyHoliday.toUpperCase();
-              const dayMap: { [key: string]: number } = {
-                SUNDAY: 0,
-                MONDAY: 1,
-                TUESDAY: 2,
-                WEDNESDAY: 3,
-                THURSDAY: 4,
-                FRIDAY: 5,
-                SATURDAY: 6,
-              };
-
-              if (dayOfWeek === dayMap[weeklyHoliday]) {
-                continue; // Skip this day
-              }
-            }
-
-            daysAdded++;
-          }
-
-          // Get driver ID from appropriate car data source
-          // Use selectedCarData if car came from URL, otherwise use dropdownSelectedCar
-          const carData = numericCarId ? selectedCarData : dropdownSelectedCar;
-          const driverId = carData?.assignedDriver?.id;
-
+        // Use the pre-calculated available dates
+        data.calculatedDates.forEach((sessionDate: string, index: number) => {
           const sessionPromise = ApiCall({
             query: `mutation CreateBookingSession($inputType: CreateBookingSessionInput!) {
               createBookingSession(inputType: $inputType) {
@@ -928,8 +1014,8 @@ const BookingForm = () => {
             variables: {
               inputType: {
                 bookingId: createdBooking.id,
-                dayNumber: day,
-                sessionDate: sessionDate.format("YYYY-MM-DD"),
+                dayNumber: index + 1,
+                sessionDate: sessionDate,
                 slot: data.slot,
                 carId: parseInt(data.carId),
                 driverId: driverId,
@@ -938,7 +1024,7 @@ const BookingForm = () => {
           });
 
           sessionPromises.push(sessionPromise);
-        }
+        });
 
         // Wait for all sessions to be created
         await Promise.all(sessionPromises);
@@ -1106,9 +1192,9 @@ const BookingForm = () => {
                             </p>
                             <Tag
                               color={
-                                selectedCarData.status === "AVAILABLE"
+                                selectedCarData.status == "AVAILABLE"
                                   ? "green"
-                                  : selectedCarData.status === "MAINTENANCE"
+                                  : selectedCarData.status == "MAINTENANCE"
                                   ? "orange"
                                   : "red"
                               }
@@ -1232,7 +1318,7 @@ const BookingForm = () => {
                             const holidayDay = dayMap[weeklyHoliday];
                             if (
                               holidayDay !== undefined &&
-                              dayOfWeek === holidayDay
+                              dayOfWeek == holidayDay
                             ) {
                               return true;
                             }
@@ -1278,7 +1364,7 @@ const BookingForm = () => {
                           placeholder={
                             !bookingDate
                               ? "Select date first"
-                              : availableTimeSlots.length === 0
+                              : availableTimeSlots.length == 0
                               ? "No slots available"
                               : "Select time slot"
                           }
@@ -1288,10 +1374,10 @@ const BookingForm = () => {
                             label: slot,
                           }))}
                           disable={
-                            !bookingDate || availableTimeSlots.length === 0
+                            !bookingDate || availableTimeSlots.length == 0
                           }
                         />
-                        {bookingDate && availableTimeSlots.length === 0 && (
+                        {bookingDate && availableTimeSlots.length == 0 && (
                           <p className="text-xs text-red-600 mt-1">
                             All slots are booked or this is a holiday
                           </p>
@@ -1420,11 +1506,11 @@ const BookingForm = () => {
                             </p>
                             <Tag
                               color={
-                                selectedCourse.courseType === "BEGINNER"
+                                selectedCourse.courseType == "BEGINNER"
                                   ? "green"
-                                  : selectedCourse.courseType === "INTERMEDIATE"
+                                  : selectedCourse.courseType == "INTERMEDIATE"
                                   ? "blue"
-                                  : selectedCourse.courseType === "ADVANCED"
+                                  : selectedCourse.courseType == "ADVANCED"
                                   ? "purple"
                                   : "orange"
                               }
@@ -1463,7 +1549,7 @@ const BookingForm = () => {
                             </div>
                             <p className="text-lg font-bold text-gray-900">
                               {selectedCourse.minsPerDay}{" "}
-                              {selectedCourse.minsPerDay === 1 ? "Min" : "Mins"}
+                              {selectedCourse.minsPerDay == 1 ? "Min" : "Mins"}
                             </p>
                           </div>
                         </div>
@@ -1542,8 +1628,8 @@ const BookingForm = () => {
                                 </p>
                                 <Tag
                                   color={
-                                    service.serviceType === "NEW_LICENSE" ||
-                                    service.serviceType === "I_HOLD_LICENSE"
+                                    service.serviceType == "NEW_LICENSE" ||
+                                    service.serviceType == "I_HOLD_LICENSE"
                                       ? "purple"
                                       : "cyan"
                                   }
@@ -1563,7 +1649,7 @@ const BookingForm = () => {
                         </div>
                       </div>
                     ))}
-                    {services.length === 0 && (
+                    {services.length == 0 && (
                       <div className="text-center py-8 text-gray-500">
                         <p>No services available for this school</p>
                       </div>
@@ -1841,6 +1927,41 @@ const BookingForm = () => {
                   )}
               </div>
             </div>
+
+            {/* Show Calculated Booking Dates */}
+            {pendingData.calculatedDates && pendingData.calculatedDates.length > 0 ? (
+              <div className="bg-amber-50 rounded-lg p-4 border-2 border-amber-300">
+                <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <CalendarOutlined className="text-amber-600" />
+                  Scheduled Session Dates ({pendingData.calculatedDates.length} days)
+                </h3>
+                <div className="max-h-48 overflow-y-auto">
+                  <div className="grid grid-cols-2 gap-2">
+                    {pendingData.calculatedDates.map((date: string, index: number) => (
+                      <div
+                        key={date}
+                        className="bg-white rounded px-3 py-2 border border-amber-200 text-sm"
+                      >
+                        <span className="font-semibold text-gray-700">Day {index + 1}:</span>{" "}
+                        <span className="text-gray-900">{dayjs(date).format("DD MMM YYYY")}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-amber-200">
+                  <p className="text-xs text-amber-800 flex items-center gap-1">
+                    <span className="font-semibold">⚠️ Note:</span>
+                    Already booked dates have been automatically skipped. Please review the dates before confirming.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                <p className="text-sm text-yellow-800">
+                  <span className="font-semibold">⚠️ Warning:</span> No session dates calculated. This might be an error.
+                </p>
+              </div>
+            )}
 
             <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border-2 border-blue-300">
               <div className="flex items-center justify-between">

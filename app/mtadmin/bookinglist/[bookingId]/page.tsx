@@ -168,9 +168,9 @@ const BookingDetailsPage = () => {
           <Descriptions.Item label="Status">
             <Tag
               color={
-                booking.status === "COMPLETED"
+                booking.status == "COMPLETED"
                   ? "green"
-                  : booking.status === "CANCELLED"
+                  : booking.status == "CANCELLED"
                   ? "red"
                   : "blue"
               }
@@ -238,9 +238,9 @@ const BookingDetailsPage = () => {
               render: (status) => (
                 <Tag
                   color={
-                    status === "COMPLETED"
+                    status == "COMPLETED"
                       ? "green"
-                      : status === "CANCELLED"
+                      : status == "CANCELLED"
                       ? "red"
                       : "blue"
                   }
@@ -333,7 +333,7 @@ const BookingDetailsPage = () => {
                   key: "serviceType",
                   width: 120,
                   render: (type) => (
-                    <Tag color={type === "LICENSE" ? "purple" : "cyan"}>
+                    <Tag color={type == "LICENSE" ? "purple" : "cyan"}>
                       {type}
                     </Tag>
                   ),
@@ -345,10 +345,10 @@ const BookingDetailsPage = () => {
                   render: (_, record) => (
                     <Tag
                       color={
-                        record.schoolService?.service?.category ===
+                        record.schoolService?.service?.category ==
                         "NEW_LICENSE"
                           ? "purple"
-                          : record.schoolService?.service?.category ===
+                          : record.schoolService?.service?.category ==
                             "I_HOLD_LICENSE"
                           ? "blue"
                           : "cyan"
@@ -494,13 +494,13 @@ const BookingDetailsPage = () => {
               render: (status) => (
                 <Tag
                   color={
-                    status === "COMPLETED"
+                    status == "COMPLETED"
                       ? "green"
-                      : status === "PENDING"
+                      : status == "PENDING"
                       ? "orange"
-                      : status === "FAILED"
+                      : status == "FAILED"
                       ? "red"
-                      : status === "REFUNDED"
+                      : status == "REFUNDED"
                       ? "purple"
                       : "default"
                   }

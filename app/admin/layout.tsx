@@ -72,7 +72,7 @@ export default function AdminLayout({
   ];
 
   const handleUserMenuClick: MenuProps["onClick"] = (e) => {
-    if (e.key === "logout") {
+    if (e.key == "logout") {
       deleteCookie("id");
       deleteCookie("role");
       router.push("/adminlogin");

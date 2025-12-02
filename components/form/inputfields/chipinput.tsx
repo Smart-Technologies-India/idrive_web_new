@@ -46,7 +46,7 @@ export function ChipInput<T extends FieldValues>({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+    if (e.key == "Enter") {
       e.preventDefault();
       handleAddItem();
     }
@@ -82,7 +82,7 @@ export function ChipInput<T extends FieldValues>({
 
       {/* Items List Display */}
       <div className="space-y-2">
-        {items.length === 0 ? (
+        {items.length == 0 ? (
           <div className="min-h-[40px] p-3 border border-gray-300 rounded-lg bg-gray-50 flex items-center">
             <span className="text-gray-400 text-sm">No items added yet</span>
           </div>

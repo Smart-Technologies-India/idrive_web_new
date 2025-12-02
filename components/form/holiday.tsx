@@ -168,15 +168,15 @@ const HolidayDeclarationPage = () => {
   const formValues = methods.watch();
   const getFieldStatus = (fieldName: keyof FormData): boolean => {
     const value = formValues[fieldName];
-    if (fieldName === "dateRange") {
+    if (fieldName == "dateRange") {
       return Array.isArray(value) && value.length > 0;
     }
-    if (fieldName === "slots") {
+    if (fieldName == "slots") {
       return Array.isArray(value) && value.length > 0;
     }
-    if (fieldName === "carId") {
-      const needsCar = declarationType === "ONE_CAR_MULTIPLE_DATES" || 
-                       declarationType === "ONE_CAR_PARTICULAR_SLOTS";
+    if (fieldName == "carId") {
+      const needsCar = declarationType == "ONE_CAR_MULTIPLE_DATES" || 
+                       declarationType == "ONE_CAR_PARTICULAR_SLOTS";
       return needsCar ? !!value : true;
     }
     return !!value && value !== "";
@@ -186,13 +186,13 @@ const HolidayDeclarationPage = () => {
   const calculateProgress = () => {
     const fields: (keyof FormData)[] = ["dateRange", "reason"];
     
-    if (declarationType === "ONE_CAR_MULTIPLE_DATES" || 
-        declarationType === "ONE_CAR_PARTICULAR_SLOTS") {
+    if (declarationType == "ONE_CAR_MULTIPLE_DATES" || 
+        declarationType == "ONE_CAR_PARTICULAR_SLOTS") {
       fields.push("carId");
     }
     
-    if (declarationType === "ALL_CARS_PARTICULAR_SLOTS" || 
-        declarationType === "ONE_CAR_PARTICULAR_SLOTS") {
+    if (declarationType == "ALL_CARS_PARTICULAR_SLOTS" || 
+        declarationType == "ONE_CAR_PARTICULAR_SLOTS") {
       fields.push("slots");
     }
 
@@ -205,7 +205,7 @@ const HolidayDeclarationPage = () => {
   // Custom validation
   const validateForm = (data: FormData): boolean => {
     // Validate date range
-    if (!data.dateRange || data.dateRange.length === 0) {
+    if (!data.dateRange || data.dateRange.length == 0) {
       toast.error("Please select a date range");
       return false;
     }
@@ -223,8 +223,8 @@ const HolidayDeclarationPage = () => {
 
     // Validate car selection for ONE_CAR types
     if (
-      (declarationType === "ONE_CAR_MULTIPLE_DATES" ||
-        declarationType === "ONE_CAR_PARTICULAR_SLOTS") &&
+      (declarationType == "ONE_CAR_MULTIPLE_DATES" ||
+        declarationType == "ONE_CAR_PARTICULAR_SLOTS") &&
       !data.carId
     ) {
       toast.error("Please select a car");
@@ -233,16 +233,16 @@ const HolidayDeclarationPage = () => {
 
     // Validate slots for PARTICULAR_SLOTS types
     if (
-      (declarationType === "ALL_CARS_PARTICULAR_SLOTS" ||
-        declarationType === "ONE_CAR_PARTICULAR_SLOTS") &&
-      (!data.slots || data.slots.length === 0)
+      (declarationType == "ALL_CARS_PARTICULAR_SLOTS" ||
+        declarationType == "ONE_CAR_PARTICULAR_SLOTS") &&
+      (!data.slots || data.slots.length == 0)
     ) {
       toast.error("Please select at least one time slot");
       return false;
     }
 
     // Validate reason
-    if (!data.reason || data.reason.trim() === "") {
+    if (!data.reason || data.reason.trim() == "") {
       toast.error("Please enter a reason for the holiday");
       return false;
     }
@@ -314,7 +314,7 @@ const HolidayDeclarationPage = () => {
 
   // Calculate date range summary
   const getDateRangeSummary = () => {
-    if (!pendingData?.dateRange || pendingData.dateRange.length === 0) return null;
+    if (!pendingData?.dateRange || pendingData.dateRange.length == 0) return null;
     
     const startDate = new Date(pendingData.dateRange[0]);
     const endDate = new Date(pendingData.dateRange[1]);
@@ -334,7 +334,7 @@ const HolidayDeclarationPage = () => {
     const dateRange = getDateRangeSummary();
     const days = dateRange?.totalDays || 0;
     
-    if (declarationType === "ALL_CARS_MULTIPLE_DATES" || declarationType === "ONE_CAR_MULTIPLE_DATES") {
+    if (declarationType == "ALL_CARS_MULTIPLE_DATES" || declarationType == "ONE_CAR_MULTIPLE_DATES") {
       return days * 15; // 15 slots per day
     } else {
       const slots = pendingData.slots?.length || 0;
@@ -402,7 +402,7 @@ const HolidayDeclarationPage = () => {
                       <div
                         key={option.value}
                         className={`border-2 rounded-lg transition-all ${
-                          declarationType === option.value
+                          declarationType == option.value
                             ? "border-blue-500 bg-blue-50 shadow-sm"
                             : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
                         }`}
@@ -438,8 +438,8 @@ const HolidayDeclarationPage = () => {
               </div>
 
               {/* Car Selection - Only for ONE_CAR types */}
-              {(declarationType === "ONE_CAR_MULTIPLE_DATES" ||
-                declarationType === "ONE_CAR_PARTICULAR_SLOTS") && (
+              {(declarationType == "ONE_CAR_MULTIPLE_DATES" ||
+                declarationType == "ONE_CAR_PARTICULAR_SLOTS") && (
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-sm font-semibold text-gray-900">
@@ -485,8 +485,8 @@ const HolidayDeclarationPage = () => {
               </div>
 
               {/* Slot Selection - Only for PARTICULAR_SLOTS types */}
-              {(declarationType === "ALL_CARS_PARTICULAR_SLOTS" ||
-                declarationType === "ONE_CAR_PARTICULAR_SLOTS") && (
+              {(declarationType == "ALL_CARS_PARTICULAR_SLOTS" ||
+                declarationType == "ONE_CAR_PARTICULAR_SLOTS") && (
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-sm font-semibold text-gray-900">
@@ -575,7 +575,7 @@ const HolidayDeclarationPage = () => {
                       <Button
                         key={template.label}
                         size="small"
-                        type={formValues.reason === template.value ? "primary" : "default"}
+                        type={formValues.reason == template.value ? "primary" : "default"}
                         onClick={() => handleReasonTemplate(template.value)}
                         className="transition-all duration-200 hover:scale-105 transform"
                       >
@@ -652,7 +652,7 @@ const HolidayDeclarationPage = () => {
                   <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                     <p className="text-xs text-gray-600 mb-1">Declaration Type</p>
                     <p className="font-semibold text-gray-900">
-                      {declarationTypeOptions.find(opt => opt.value === declarationType)?.label}
+                      {declarationTypeOptions.find(opt => opt.value == declarationType)?.label}
                     </p>
                   </div>
 
@@ -660,7 +660,7 @@ const HolidayDeclarationPage = () => {
                     <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                       <p className="text-xs text-gray-600 mb-1">Selected Car</p>
                       <p className="font-semibold text-gray-900">
-                        {carOptions.find(car => car.value === pendingData.carId)?.label}
+                        {carOptions.find(car => car.value == pendingData.carId)?.label}
                       </p>
                     </div>
                   )}
@@ -719,20 +719,20 @@ const HolidayDeclarationPage = () => {
                   <p className="text-blue-50 text-sm lg:text-base">
                     {
                       declarationTypeOptions.find(
-                        (opt) => opt.value === declarationType
+                        (opt) => opt.value == declarationType
                       )?.label
                     }
                   </p>
                 </div>
-                {(declarationType === "ALL_CARS_MULTIPLE_DATES" ||
-                  declarationType === "ALL_CARS_PARTICULAR_SLOTS") && (
+                {(declarationType == "ALL_CARS_MULTIPLE_DATES" ||
+                  declarationType == "ALL_CARS_PARTICULAR_SLOTS") && (
                   <div className="bg-white/20 rounded-lg p-2 lg:p-3 backdrop-blur-sm transition-all duration-200 hover:bg-white/30">
                     <p className="font-semibold mb-1 text-xs lg:text-sm">Scope:</p>
                     <p className="text-blue-50 text-sm lg:text-base">🚗 Applies to All Cars</p>
                   </div>
                 )}
-                {(declarationType === "ALL_CARS_MULTIPLE_DATES" ||
-                  declarationType === "ONE_CAR_MULTIPLE_DATES") && (
+                {(declarationType == "ALL_CARS_MULTIPLE_DATES" ||
+                  declarationType == "ONE_CAR_MULTIPLE_DATES") && (
                   <div className="bg-white/20 rounded-lg p-2 lg:p-3 backdrop-blur-sm transition-all duration-200 hover:bg-white/30">
                     <p className="font-semibold mb-1 text-xs lg:text-sm">Duration:</p>
                     <p className="text-blue-50 text-sm lg:text-base">

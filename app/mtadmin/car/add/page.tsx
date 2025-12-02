@@ -34,7 +34,7 @@ const AddCarPage = () => {
   const { data: carsResponse } = useQuery({
     queryKey: ["carsForId", schoolId],
     queryFn: async () => {
-      if (!schoolId || schoolId === 0) {
+      if (!schoolId || schoolId == 0) {
         throw new Error("School ID not found");
       }
       return await getPaginatedCars({
@@ -96,7 +96,7 @@ const AddCarPage = () => {
   const { data: driversResponse } = useQuery({
     queryKey: ["allDrivers", schoolId],
     queryFn: async () => {
-      if (!schoolId || schoolId === 0) {
+      if (!schoolId || schoolId == 0) {
         throw new Error("School ID not found");
       }
       return await getAllDrivers({
@@ -117,7 +117,7 @@ const AddCarPage = () => {
     mutationKey: ["createCar"],
     mutationFn: async (data: AddCarForm) => {
       const selectedCarAdmin = carAdminsResponse?.data?.getAllCarAdmin?.find(
-        (c) => c.id === parseInt(data.carAdminId)
+        (c) => c.id == parseInt(data.carAdminId)
       );
       
       const createData = {

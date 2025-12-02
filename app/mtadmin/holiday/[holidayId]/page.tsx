@@ -247,7 +247,7 @@ const HolidayViewPage = () => {
                     <span className="font-medium text-base">
                       {formatDate(holiday.startDate)}
                     </span>
-                    {status === "upcoming" && (
+                    {status == "upcoming" && (
                       <Tag color="blue">Starts Soon</Tag>
                     )}
                   </div>
@@ -257,7 +257,7 @@ const HolidayViewPage = () => {
                     <span className="font-medium text-base">
                       {formatDate(holiday.endDate)}
                     </span>
-                    {status === "active" && (
+                    {status == "active" && (
                       <Tag color="green">In Progress</Tag>
                     )}
                   </div>
@@ -396,9 +396,9 @@ const HolidayViewPage = () => {
                   },
                   {
                     color:
-                      status === "upcoming"
+                      status == "upcoming"
                         ? "blue"
-                        : status === "active"
+                        : status == "active"
                         ? "green"
                         : "gray",
                     children: (
@@ -413,7 +413,7 @@ const HolidayViewPage = () => {
                     ),
                   },
                   {
-                    color: status === "expired" ? "gray" : "orange",
+                    color: status == "expired" ? "gray" : "orange",
                     children: (
                       <div>
                         <p className="font-semibold text-gray-900">

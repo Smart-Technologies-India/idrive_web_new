@@ -45,7 +45,7 @@ const EditProfilePage = () => {
   const { data: userResponse, isLoading: userLoading } = useQuery({
     queryKey: ["user", userId],
     queryFn: async () => {
-      if (!userId || userId === 0) throw new Error("User ID not found");
+      if (!userId || userId == 0) throw new Error("User ID not found");
       return await getUserById(userId);
     },
     enabled: userId > 0,

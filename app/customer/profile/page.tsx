@@ -51,7 +51,7 @@ const CustomerProfilePage = () => {
   const { data: userResponse, isLoading: userLoading } = useQuery({
     queryKey: ["user", userId],
     queryFn: async () => {
-      if (!userId || userId === 0) throw new Error("User ID not found");
+      if (!userId || userId == 0) throw new Error("User ID not found");
       return await getUserById(userId);
     },
     enabled: userId > 0,
@@ -63,7 +63,7 @@ const CustomerProfilePage = () => {
   const { data: bookingsResponse, isLoading: bookingsLoading } = useQuery({
     queryKey: ["customerBookings", userId],
     queryFn: async () => {
-      if (!userId || userId === 0) throw new Error("User ID not found");
+      if (!userId || userId == 0) throw new Error("User ID not found");
       return await getAllBookings({ customerId: userId });
     },
     enabled: userId > 0,
@@ -75,7 +75,7 @@ const CustomerProfilePage = () => {
   const bookingsData: BookingData[] = bookings.map((booking) => {
     const totalSessions = booking.sessions?.length || 0;
     const completedSessions =
-      booking.sessions?.filter((s) => s.status === "COMPLETED").length || 0;
+      booking.sessions?.filter((s) => s.status == "COMPLETED").length || 0;
 
     return {
       key: booking.id.toString(),
@@ -94,10 +94,10 @@ const CustomerProfilePage = () => {
   // Calculate statistics
   const totalBookings = bookingsData.length;
   const completedBookings = bookingsData.filter(
-    (b) => b.status === "COMPLETED"
+    (b) => b.status == "COMPLETED"
   ).length;
   const activeBookings = bookingsData.filter(
-    (b) => b.status === "PENDING" || b.status === "CONFIRMED"
+    (b) => b.status == "PENDING" || b.status == "CONFIRMED"
   ).length;
   const totalSpent = bookingsData.reduce((sum, b) => sum + b.amount, 0);
 
@@ -229,7 +229,7 @@ const CustomerProfilePage = () => {
                 <p className="text-gray-600 mt-1">{user.email || "No email"}</p>
                 <div className="flex items-center gap-3 mt-2">
                   <Tag
-                    color={user.status === "ACTIVE" ? "green" : "red"}
+                    color={user.status == "ACTIVE" ? "green" : "red"}
                     className="!text-sm !px-3 !py-1"
                   >
                     {user.status}
@@ -377,7 +377,7 @@ const CustomerProfilePage = () => {
               <Tag color="blue">{user.role}</Tag>
             </Descriptions.Item>
             <Descriptions.Item label="Status">
-              <Tag color={user.status === "ACTIVE" ? "green" : "red"}>
+              <Tag color={user.status == "ACTIVE" ? "green" : "red"}>
                 {user.status}
               </Tag>
             </Descriptions.Item>

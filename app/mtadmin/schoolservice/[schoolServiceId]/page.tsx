@@ -49,7 +49,7 @@ const SchoolServiceDetailPage = ({
   };
 
   const getStatusColor = (status: string) => {
-    return status === "ACTIVE" ? "green" : "red";
+    return status == "ACTIVE" ? "green" : "red";
   };
 
   if (isLoading) {

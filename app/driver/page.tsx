@@ -74,7 +74,7 @@ const DriverPage = () => {
   } = useQuery({
     queryKey: ["driverBookings", userId],
     queryFn: async () => {
-      if (!userId || userId === 0) {
+      if (!userId || userId == 0) {
         throw new Error("User ID not found");
       }
       // Fetch all bookings - we'll filter by driver's userId on the sessions
@@ -89,7 +89,7 @@ const DriverPage = () => {
   const allBookings: BookingSlot[] =
     bookingsResponse?.data?.getAllBooking?.flatMap((booking: Booking) =>
       (booking.sessions || [])
-        .filter((session: BookingSession) => session.driver?.userId === userId)
+        .filter((session: BookingSession) => session.driver?.userId == userId)
         .map((session: BookingSession) => ({
           key: `${booking.id}-${session.id}`,
           sessionId: session.id,
@@ -110,8 +110,8 @@ const DriverPage = () => {
             | "cancelled",
           attendanceMarked:
             session.attended ||
-            session.status === "COMPLETED" ||
-            session.status === "NO_SHOW",
+            session.status == "COMPLETED" ||
+            session.status == "NO_SHOW",
           attendanceNotes: session.instructorNotes || "",
         }))
     ) || [];
@@ -127,7 +127,7 @@ const DriverPage = () => {
       return await updateBookingSession({
         id: data.sessionId,
         status: data.status,
-        attended: data.status === "COMPLETED",
+        attended: data.status == "COMPLETED",
         completedAt: new Date(),
         instructorNotes: data.notes,
       });
@@ -154,12 +154,12 @@ const DriverPage = () => {
     const bookingDate = dayjs(booking.date);
     const isDateMatch = bookingDate.isSame(selectedDate, "day");
     if (!isDateMatch) return false;
-    if (filterStatus === "all") return true;
-    return booking.status === filterStatus;
+    if (filterStatus == "all") return true;
+    return booking.status == filterStatus;
   });
 
   const sortedBookings = [...filteredBookings].sort((a, b) => {
-    if (sortBy === "time") {
+    if (sortBy == "time") {
       return a.slot.localeCompare(b.slot);
     }
     return 0;
@@ -178,10 +178,10 @@ const DriverPage = () => {
 
   const stats = {
     totalSlots: dateFilteredBookings.length,
-    completed: dateFilteredBookings.filter((b) => b.status === "completed")
+    completed: dateFilteredBookings.filter((b) => b.status == "completed")
       .length,
-    pending: dateFilteredBookings.filter((b) => b.status === "pending").length,
-    cancelled: dateFilteredBookings.filter((b) => b.status === "cancelled")
+    pending: dateFilteredBookings.filter((b) => b.status == "pending").length,
+    cancelled: dateFilteredBookings.filter((b) => b.status == "cancelled")
       .length,
   };
 
@@ -202,7 +202,7 @@ const DriverPage = () => {
 
     updateSessionMutation.mutate({
       sessionId: attendanceModal.sessionId,
-      status: attendanceModal.status === "completed" ? "COMPLETED" : "NO_SHOW",
+      status: attendanceModal.status == "completed" ? "COMPLETED" : "NO_SHOW",
       notes: attendanceModal.notes,
     });
 
@@ -216,7 +216,7 @@ const DriverPage = () => {
   };
 
   const getStatusTag = (status: "pending" | "completed" | "cancelled") => {
-    if (status === "completed") {
+    if (status == "completed") {
       return (
         <Tag
           color="green"
@@ -227,7 +227,7 @@ const DriverPage = () => {
         </Tag>
       );
     }
-    if (status === "cancelled") {
+    if (status == "cancelled") {
       return (
         <Tag
           color="red"
@@ -370,7 +370,7 @@ const DriverPage = () => {
             <span className="text-gray-700 font-medium">Filter:</span>
             <Space.Compact>
               <Button
-                type={filterStatus === "all" ? "primary" : "default"}
+                type={filterStatus == "all" ? "primary" : "default"}
                 onClick={() => {
                   setFilterStatus("all");
                   setCurrentPage(1);
@@ -379,7 +379,7 @@ const DriverPage = () => {
                 All ({dateFilteredBookings.length})
               </Button>
               <Button
-                type={filterStatus === "pending" ? "primary" : "default"}
+                type={filterStatus == "pending" ? "primary" : "default"}
                 onClick={() => {
                   setFilterStatus("pending");
                   setCurrentPage(1);
@@ -388,7 +388,7 @@ const DriverPage = () => {
                 Pending ({stats.pending})
               </Button>
               <Button
-                type={filterStatus === "completed" ? "primary" : "default"}
+                type={filterStatus == "completed" ? "primary" : "default"}
                 onClick={() => {
                   setFilterStatus("completed");
                   setCurrentPage(1);
@@ -397,7 +397,7 @@ const DriverPage = () => {
                 Completed ({stats.completed})
               </Button>
               <Button
-                type={filterStatus === "cancelled" ? "primary" : "default"}
+                type={filterStatus == "cancelled" ? "primary" : "default"}
                 onClick={() => {
                   setFilterStatus("cancelled");
                   setCurrentPage(1);
@@ -424,7 +424,7 @@ const DriverPage = () => {
       <div></div>
       {/* Bookings List */}
       <div className="space-y-4">
-        {paginatedBookings.length === 0 && (
+        {paginatedBookings.length == 0 && (
           <div>
             <Card className="shadow-sm">
               <div className="text-center py-12">
@@ -433,7 +433,7 @@ const DriverPage = () => {
                   No bookings found
                 </h3>
                 <p className="text-gray-500">
-                  {filterStatus === "all"
+                  {filterStatus == "all"
                     ? `You don't have any bookings scheduled for ${selectedDate.format(
                         "DD MMMM YYYY"
                       )}.`
@@ -524,7 +524,7 @@ const DriverPage = () => {
 
                 {/* Right Section - Action Button */}
                 <div className="flex-shrink-0 flex items-start">
-                  {booking.status === "pending" &&
+                  {booking.status == "pending" &&
                     !booking.attendanceMarked && (
                       <Button
                         type="primary"
@@ -642,7 +642,7 @@ const DriverPage = () => {
               <Space size="middle">
                 <Button
                   type={
-                    attendanceModal.status === "completed"
+                    attendanceModal.status == "completed"
                       ? "primary"
                       : "default"
                   }
@@ -655,7 +655,7 @@ const DriverPage = () => {
                     }))
                   }
                   className={
-                    attendanceModal.status === "completed"
+                    attendanceModal.status == "completed"
                       ? "!bg-green-600 !border-green-600"
                       : ""
                   }
@@ -664,10 +664,10 @@ const DriverPage = () => {
                 </Button>
                 <Button
                   type={
-                    attendanceModal.status === "no_show" ? "primary" : "default"
+                    attendanceModal.status == "no_show" ? "primary" : "default"
                   }
                   size="large"
-                  danger={attendanceModal.status === "no_show"}
+                  danger={attendanceModal.status == "no_show"}
                   icon={<MaterialSymbolsFreeCancellation />}
                   onClick={() =>
                     setAttendanceModal((prev) => ({

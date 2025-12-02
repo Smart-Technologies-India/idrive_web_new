@@ -146,7 +146,7 @@ const UserLoginPage = () => {
   };
 
   const handleResendOtp = () => {
-    if (timer === 0) {
+    if (timer == 0) {
       sendOtp.mutate({ contact });
     }
   };

@@ -36,7 +36,7 @@ export function YesNoRabioInput<T extends FieldValues>(
                   type="radio"
                   value="yes"
                   disabled={props.disable ?? false}
-                  checked={field.value === true}
+                  checked={field.value == true}
                   onChange={() => field.onChange(true)}
                 />
                 {props.valueOne ?? "Yes"}
@@ -46,7 +46,7 @@ export function YesNoRabioInput<T extends FieldValues>(
                   type="radio"
                   value="no"
                   disabled={props.disable ?? false}
-                  checked={field.value === false}
+                  checked={field.value == false}
                   onChange={() => field.onChange(false)}
                 />
                 {props.valueTwo ?? "No"}

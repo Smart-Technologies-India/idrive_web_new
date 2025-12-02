@@ -73,7 +73,7 @@ const EditSchoolProfilePage = () => {
   const { data: schoolResponse, isLoading, isError, error } = useQuery({
     queryKey: ["school", schoolId],
     queryFn: async () => {
-      if (!schoolId || schoolId === 0) {
+      if (!schoolId || schoolId == 0) {
         throw new Error("School ID not found");
       }
       return await getSchoolById(schoolId);

@@ -55,8 +55,8 @@ const CarManagementPage = () => {
       },
       whereSearchInput: {
         schoolId: schoolId,
-        status: filterStatus === "all" ? undefined : filterStatus,
-        fuelType: filterFuelType === "all" ? undefined : filterFuelType,
+        status: filterStatus == "all" ? undefined : filterStatus,
+        fuelType: filterFuelType == "all" ? undefined : filterFuelType,
       },
     }),
     enabled: schoolId > 0,
@@ -168,7 +168,7 @@ const CarManagementPage = () => {
         { text: "Electric", value: "Electric" },
         { text: "Hybrid", value: "Hybrid" },
       ],
-      onFilter: (value, record) => record.fuelType === value,
+      onFilter: (value, record) => record.fuelType == value,
       render: (fuelType) => (
         <Tag color="purple" className="!text-sm !px-3 !py-1">
           {fuelType}
@@ -215,7 +215,7 @@ const CarManagementPage = () => {
         { text: "Maintenance", value: "maintenance" },
         { text: "Inactive", value: "inactive" },
       ],
-      onFilter: (value, record) => record.status === value,
+      onFilter: (value, record) => record.status == value,
       render: (status: string) => (
         <Tag
           color={getStatusColor(status)}
@@ -253,9 +253,9 @@ const CarManagementPage = () => {
 
   const stats = {
     total: cars.length,
-    available: cars.filter((c) => c.status === "available").length,
-    inUse: cars.filter((c) => c.status === "in-use").length,
-    maintenance: cars.filter((c) => c.status === "maintenance").length,
+    available: cars.filter((c) => c.status == "available").length,
+    inUse: cars.filter((c) => c.status == "in-use").length,
+    maintenance: cars.filter((c) => c.status == "maintenance").length,
   };
 
   return (

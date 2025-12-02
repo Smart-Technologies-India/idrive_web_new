@@ -77,7 +77,7 @@ const ServiceBookingViewPage = ({ params }: ServiceBookingViewPageProps) => {
             </div>
           </div>
           <Tag
-            color={bookingService.serviceType === "LICENSE" ? "green" : "blue"}
+            color={bookingService.serviceType == "LICENSE" ? "green" : "blue"}
             className="text-base px-4 py-1"
           >
             {bookingService.serviceType}
@@ -94,7 +94,7 @@ const ServiceBookingViewPage = ({ params }: ServiceBookingViewPageProps) => {
             </Descriptions.Item>
             <Descriptions.Item label="Service Type">
               <Tag
-                color={bookingService.serviceType === "LICENSE" ? "green" : "blue"}
+                color={bookingService.serviceType == "LICENSE" ? "green" : "blue"}
               >
                 {bookingService.serviceType}
               </Tag>

@@ -21,6 +21,8 @@ import { getSchoolById, getSchoolDashboardStats } from "@/services/school.api";
 import { getAllBookings } from "@/services/booking.api";
 import { getCookie } from "cookies-next";
 import { useQuery } from "@tanstack/react-query";
+import { SetupWizard } from "@/components/setup-wizard";
+import { useSetupProgress } from "@/utils/use-setup-progress";
 
 interface BookingData {
   key: string;
@@ -49,6 +51,9 @@ const Dashboard = () => {
   const [checkingProfile, setCheckingProfile] = useState(true);
 
   const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
+  
+  // Get setup progress
+  const { progress: setupProgress, isLoading: setupLoading } = useSetupProgress();
 
   // Fetch dashboard statistics
   const {
@@ -90,7 +95,7 @@ const Dashboard = () => {
     const checkProfileCompletion = async () => {
       setCheckingProfile(true);
       try {
-        if (!schoolId || schoolId === 0) {
+        if (!schoolId || schoolId == 0) {
           setCheckingProfile(false);
           return;
         }
@@ -303,7 +308,12 @@ const Dashboard = () => {
       </div>
 
       <div className="px-8 pb-8 space-y-6">
-        {/* Profile Completion Alert */}
+        {/* Setup Wizard - Shows onboarding steps */}
+        {!setupLoading && !setupProgress.setupComplete && (
+          <SetupWizard progress={setupProgress} />
+        )}
+
+        {/* Profile Completion Alert (Legacy - can be removed if setup wizard is sufficient) */}
         {!checkingProfile && profileIncomplete && (
           <Alert
             message="Complete Your School Profile"

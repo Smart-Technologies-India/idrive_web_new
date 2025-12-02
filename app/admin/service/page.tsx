@@ -61,7 +61,7 @@ const ServiceManagementPage = () => {
         },
         whereSearchInput: {
           status:
-            filterStatus === "all" ? undefined : filterStatus.toUpperCase(),
+            filterStatus == "all" ? undefined : filterStatus.toUpperCase(),
         },
       }),
   });
@@ -112,11 +112,11 @@ const ServiceManagementPage = () => {
   };
 
   const getTypeColor = (type: string) => {
-    return type === "license" ? "purple" : "cyan";
+    return type == "license" ? "purple" : "cyan";
   };
 
   const getTypeText = (type: string) => {
-    return type === "license" ? "License Service" : "Add-on";
+    return type == "license" ? "License Service" : "Add-on";
   };
 
   const columns: ColumnsType<ServiceData> = [
@@ -159,7 +159,7 @@ const ServiceManagementPage = () => {
         { text: "Upcoming", value: "upcoming" },
         { text: "Discontinued", value: "discontinued" },
       ],
-      onFilter: (value, record) => record.status === value,
+      onFilter: (value, record) => record.status == value,
       render: (status: string) => (
         <Tag
           color={getStatusColor(status)}
@@ -189,7 +189,7 @@ const ServiceManagementPage = () => {
 
   const stats = {
     total: totalServices,
-    active: services.filter((s) => s.status === "active").length,
+    active: services.filter((s) => s.status == "active").length,
   };
 
   return (

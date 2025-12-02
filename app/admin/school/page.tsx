@@ -205,9 +205,9 @@ const SchoolsListPage = () => {
 
   const stats = {
     total: schools.length,
-    active: schools.filter((s) => s.status === "ACTIVE").length,
-    inactive: schools.filter((s) => s.status === "INACTIVE").length,
-    suspended: schools.filter((s) => s.status === "SUSPENDED").length,
+    active: schools.filter((s) => s.status == "ACTIVE").length,
+    inactive: schools.filter((s) => s.status == "INACTIVE").length,
+    suspended: schools.filter((s) => s.status == "SUSPENDED").length,
   };
 
   return (

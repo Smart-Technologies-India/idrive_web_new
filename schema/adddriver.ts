@@ -30,7 +30,7 @@ export const AddDriverSchema = v.object({
         const age = today.getFullYear() - birthDate.getFullYear();
         const monthDiff = today.getMonth() - birthDate.getMonth();
         const dayDiff = today.getDate() - birthDate.getDate();
-        const adjustedAge = monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age;
+        const adjustedAge = monthDiff < 0 || (monthDiff == 0 && dayDiff < 0) ? age - 1 : age;
         return adjustedAge >= 18;
       },
       "Driver must be at least 18 years old"

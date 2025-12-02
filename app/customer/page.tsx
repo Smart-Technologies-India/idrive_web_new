@@ -58,7 +58,7 @@ const CustomerPage = () => {
   const { data: userResponse, isLoading: userLoading } = useQuery({
     queryKey: ["user", userId],
     queryFn: async () => {
-      if (!userId || userId === 0) throw new Error("User ID not found");
+      if (!userId || userId == 0) throw new Error("User ID not found");
       return await getUserById(userId);
     },
     enabled: userId > 0,
@@ -74,7 +74,7 @@ const CustomerPage = () => {
   } = useQuery({
     queryKey: ["customerBookings", userId],
     queryFn: async () => {
-      if (!userId || userId === 0) throw new Error("User ID not found");
+      if (!userId || userId == 0) throw new Error("User ID not found");
       return await getAllBookings({ customerId: userId });
     },
     enabled: userId > 0,
@@ -116,13 +116,13 @@ const CustomerPage = () => {
   // Calculate statistics
   const totalSessions = allSessions.length;
   const completedSessions = allSessions.filter(
-    (s) => s.status === "COMPLETED"
+    (s) => s.status == "COMPLETED"
   ).length;
   const pendingSessions = allSessions.filter(
-    (s) => s.status === "PENDING"
+    (s) => s.status == "PENDING"
   ).length;
   const upcomingSessions = allSessions.filter(
-    (s) => s.status === "PENDING" && dayjs(s.date).isAfter(dayjs())
+    (s) => s.status == "PENDING" && dayjs(s.date).isAfter(dayjs())
   ).length;
 
   const completionPercentage =
@@ -132,12 +132,12 @@ const CustomerPage = () => {
 
   // Get next session
   const nextSession = allSessions
-    .filter((s) => s.status === "PENDING" && dayjs(s.date).isAfter(dayjs()))
+    .filter((s) => s.status == "PENDING" && dayjs(s.date).isAfter(dayjs()))
     .sort((a, b) => dayjs(a.date).diff(dayjs(b.date)))[0];
 
   // Get recent sessions for timeline
   const recentSessions = allSessions
-    .filter((s) => s.status === "COMPLETED")
+    .filter((s) => s.status == "COMPLETED")
     .sort((a, b) => dayjs(b.date).diff(dayjs(a.date)))
     .slice(0, 5);
 
@@ -349,7 +349,7 @@ const CustomerPage = () => {
                       "0%": "#108ee9",
                       "100%": "#87d068",
                     }}
-                    status={completionPercentage === 100 ? "success" : "active"}
+                    status={completionPercentage == 100 ? "success" : "active"}
                   />
                 </div>
                 <Descriptions column={2} size="small">
@@ -522,7 +522,7 @@ const CustomerPage = () => {
                   </Descriptions.Item>
                 )}
                 <Descriptions.Item label="Status">
-                  <Tag color={user.status === "ACTIVE" ? "green" : "red"}>
+                  <Tag color={user.status == "ACTIVE" ? "green" : "red"}>
                     {user.status}
                   </Tag>
                 </Descriptions.Item>

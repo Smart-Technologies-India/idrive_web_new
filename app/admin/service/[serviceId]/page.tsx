@@ -38,11 +38,11 @@ const ServiceDetailPage = ({
 
   // Parse features and includedServices from JSON strings to arrays
   const parsedFeatures = serviceData?.features ? 
-    (typeof serviceData.features === 'string' ? 
+    (typeof serviceData.features == 'string' ? 
       JSON.parse(serviceData.features) : serviceData.features) : [];
   
   const parsedIncludedServices = serviceData?.includedServices ? 
-    (typeof serviceData.includedServices === 'string' ? 
+    (typeof serviceData.includedServices == 'string' ? 
       JSON.parse(serviceData.includedServices) : serviceData.includedServices) : [];
 
   const formatCategory = (category: string) => {
@@ -66,7 +66,7 @@ const ServiceDetailPage = ({
   };
 
   const getTypeColor = (type: string) => {
-    return type === "LICENSE" ? "purple" : "cyan";
+    return type == "LICENSE" ? "purple" : "cyan";
   };
 
   if (isLoading) {

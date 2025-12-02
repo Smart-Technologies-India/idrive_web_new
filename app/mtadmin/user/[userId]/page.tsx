@@ -322,10 +322,10 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
       render: (amount, record) => (
         <span
           className={`font-semibold ${
-            record.type === "debit" ? "text-red-600" : "text-green-600"
+            record.type == "debit" ? "text-red-600" : "text-green-600"
           }`}
         >
-          {record.type === "debit" ? "-" : "+"}₹{amount.toLocaleString()}
+          {record.type == "debit" ? "-" : "+"}₹{amount.toLocaleString()}
         </span>
       ),
     },
@@ -423,10 +423,10 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
                 <p className="text-gray-600 mt-1">{userData.email}</p>
                 <div className="flex items-center gap-3 mt-2">
                   <Tag
-                    color={userData.status === "active" ? "green" : "red"}
+                    color={userData.status == "active" ? "green" : "red"}
                     className="!text-sm !px-3 !py-1"
                   >
-                    {userData.status === "active" ? "Active" : "Inactive"}
+                    {userData.status == "active" ? "Active" : "Inactive"}
                   </Tag>
                   <span className="text-sm text-gray-600">
                     ID: {userData.userId}
@@ -549,10 +549,10 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
             </Descriptions.Item>
             <Descriptions.Item label="Status">
               <Tag
-                color={userData.status === "active" ? "green" : "red"}
+                color={userData.status == "active" ? "green" : "red"}
                 className="!text-sm"
               >
-                {userData.status === "active" ? "Active" : "Inactive"}
+                {userData.status == "active" ? "Active" : "Inactive"}
               </Tag>
             </Descriptions.Item>
           </Descriptions>

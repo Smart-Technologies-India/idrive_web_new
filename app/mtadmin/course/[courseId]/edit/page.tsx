@@ -100,7 +100,7 @@ const EditCoursePage = ({ params }: { params: Promise<{ courseId: string }> }) =
 
   // Set initial car assignments (filter out soft-deleted)
   useEffect(() => {
-    if (currentCarCourses.length > 0 && initialCarIds.length === 0) {
+    if (currentCarCourses.length > 0 && initialCarIds.length == 0) {
       const activeCarCourses = currentCarCourses.filter((cc: CarCourse) => !cc.deletedAt);
       const carIds = activeCarCourses.map((cc: CarCourse) => cc.carId);
       setSelectedCarIds(carIds);
@@ -420,7 +420,7 @@ const EditCoursePage = ({ params }: { params: Promise<{ courseId: string }> }) =
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <div className="flex flex-wrap gap-2">
                           {selectedCarIds.map((carId) => {
-                            const car = availableCars.find((c) => c.id === carId);
+                            const car = availableCars.find((c) => c.id == carId);
                             const isNew = !initialCarIds.includes(carId);
                             return (
                               <Tag
@@ -472,7 +472,7 @@ const EditCoursePage = ({ params }: { params: Promise<{ courseId: string }> }) =
                       value: car.id,
                     }))}
                     tagRender={(props) => {
-                      const car = availableCars.find((c) => c.id === props.value);
+                      const car = availableCars.find((c) => c.id == props.value);
                       return (
                         <Tag
                           color="blue"
@@ -497,7 +497,7 @@ const EditCoursePage = ({ params }: { params: Promise<{ courseId: string }> }) =
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {initialCarIds.filter(id => !selectedCarIds.includes(id)).map((carId) => {
-                          const car = availableCars.find((c) => c.id === carId);
+                          const car = availableCars.find((c) => c.id == carId);
                           return (
                             <Tag 
                               key={carId} 

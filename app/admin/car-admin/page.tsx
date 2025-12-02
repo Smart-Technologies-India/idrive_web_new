@@ -48,9 +48,9 @@ const CarAdminManagementPage = () => {
         },
         whereSearchInput: {
           status:
-            filterStatus === "all" ? undefined : filterStatus.toUpperCase(),
+            filterStatus == "all" ? undefined : filterStatus.toUpperCase(),
           category:
-            filterCategory === "all" ? undefined : filterCategory.toUpperCase(),
+            filterCategory == "all" ? undefined : filterCategory.toUpperCase(),
         },
       }),
   });
@@ -157,7 +157,7 @@ const CarAdminManagementPage = () => {
         { text: "SUV", value: "SUV" },
         { text: "Hatchback", value: "HATCHBACK" },
       ],
-      onFilter: (value, record) => record.category === value,
+      onFilter: (value, record) => record.category == value,
       render: (category) => (
         <Tag
           color={getCategoryColor(category)}
@@ -178,7 +178,7 @@ const CarAdminManagementPage = () => {
         { text: "Inactive", value: "inactive" },
         { text: "Maintenance", value: "maintenance" },
       ],
-      onFilter: (value, record) => record.status === value,
+      onFilter: (value, record) => record.status == value,
       render: (status: string) => (
         <Tag
           color={getStatusColor(status)}
@@ -208,9 +208,9 @@ const CarAdminManagementPage = () => {
 
   const stats = {
     total: totalCarAdmins,
-    active: carAdmins.filter((c) => c.status === "active").length,
-    sedan: carAdmins.filter((c) => c.category === "SEDAN").length,
-    suv: carAdmins.filter((c) => c.category === "SUV").length,
+    active: carAdmins.filter((c) => c.status == "active").length,
+    sedan: carAdmins.filter((c) => c.category == "SEDAN").length,
+    suv: carAdmins.filter((c) => c.category == "SUV").length,
   };
 
   return (

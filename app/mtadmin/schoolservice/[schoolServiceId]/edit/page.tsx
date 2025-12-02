@@ -62,7 +62,7 @@ const EditSchoolServicePage = ({
   // Filter services by selected category
   const filteredServices = selectedCategory
     ? servicesResponse?.data?.getAllService?.filter(
-        (service) => service.category === selectedCategory
+        (service) => service.category == selectedCategory
       )
     : servicesResponse?.data?.getAllService;
 
@@ -123,7 +123,7 @@ const EditSchoolServicePage = ({
       if (response.status && response.data?.updateSchoolService) {
         const schoolService = response.data.updateSchoolService;
         const selectedService = servicesResponse?.data?.getAllService?.find(
-          (s) => s.id === schoolService.serviceId
+          (s) => s.id == schoolService.serviceId
         );
         Modal.success({
           title: "School Service Updated Successfully",

@@ -70,7 +70,7 @@ const HolidayManagementPage = () => {
         whereSearchInput: {
           schoolId: schoolId,
           declarationType:
-            filterType === "all" ? undefined : filterType.toUpperCase(),
+            filterType == "all" ? undefined : filterType.toUpperCase(),
         },
       }),
     enabled: schoolId > 0,
@@ -263,7 +263,7 @@ const HolidayManagementPage = () => {
       key: "slots",
       width: 120,
       render: (slots) => {
-        if (!slots || slots.length === 0) {
+        if (!slots || slots.length == 0) {
           return <Tag color="purple">Full Day</Tag>;
         }
         return (
@@ -328,9 +328,9 @@ const HolidayManagementPage = () => {
 
   const stats = {
     total: holidays.length,
-    active: holidays.filter((h) => h.status === "active").length,
-    upcoming: holidays.filter((h) => h.status === "upcoming").length,
-    expired: holidays.filter((h) => h.status === "expired").length,
+    active: holidays.filter((h) => h.status == "active").length,
+    upcoming: holidays.filter((h) => h.status == "upcoming").length,
+    expired: holidays.filter((h) => h.status == "expired").length,
   };
 
   return (

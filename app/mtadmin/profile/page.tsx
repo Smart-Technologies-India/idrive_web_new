@@ -22,7 +22,7 @@ const SchoolProfilePage = () => {
     setLoading(true);
     setError(null);
     try {
-      if (!schoolId || schoolId === 0) {
+      if (!schoolId || schoolId == 0) {
         setError("School information not found. Please contact administrator.");
         return;
       }

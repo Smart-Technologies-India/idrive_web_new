@@ -100,7 +100,7 @@ const StudentsPage = () => {
   } = useQuery({
     queryKey: ["driverStudents", userId],
     queryFn: async () => {
-      if (!userId || userId === 0) {
+      if (!userId || userId == 0) {
         throw new Error("User ID not found");
       }
       const data = await getAllBookings({});
@@ -118,23 +118,23 @@ const StudentsPage = () => {
     bookingsResponse.data.getAllBooking.forEach((booking: Booking) => {
       // Filter sessions for this driver
       const driverSessions = (booking.sessions || []).filter(
-        (session: BookingSession) => session.driver?.userId === userId
+        (session: BookingSession) => session.driver?.userId == userId
       );
 
-      if (driverSessions.length === 0) return;
+      if (driverSessions.length == 0) return;
 
       const customerId = booking.customer?.id || booking.customerMobile;
       const key = `${customerId}-${booking.id}`;
 
       const completed = driverSessions.filter(
-        (s: BookingSession) => s.status === "COMPLETED"
+        (s: BookingSession) => s.status == "COMPLETED"
       ).length;
       const pending = driverSessions.filter(
         (s: BookingSession) =>
-          s.status === "PENDING" || s.status === "CONFIRMED"
+          s.status == "PENDING" || s.status == "CONFIRMED"
       ).length;
       const cancelled = driverSessions.filter(
-        (s: BookingSession) => s.status === "CANCELLED" || s.status === "NO_SHOW"
+        (s: BookingSession) => s.status == "CANCELLED" || s.status == "NO_SHOW"
       ).length;
       const total = driverSessions.length;
       const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
@@ -149,7 +149,7 @@ const StudentsPage = () => {
 
       // Determine status
       let status: "active" | "completed" | "inactive" = "inactive";
-      if (completed === total && total > 0) {
+      if (completed == total && total > 0) {
         status = "completed";
       } else if (pending > 0) {
         status = "active";
@@ -179,8 +179,8 @@ const StudentsPage = () => {
 
   // Filter by status
   const filteredStudents = useMemo(() => {
-    if (statusFilter === "all") return students;
-    return students.filter((student) => student.status === statusFilter);
+    if (statusFilter == "all") return students;
+    return students.filter((student) => student.status == statusFilter);
   }, [students, statusFilter]);
 
   // Define columns
@@ -340,7 +340,7 @@ const StudentsPage = () => {
         header: "Actions",
         cell: ({ row }) => {
           const booking = bookingsResponse?.data?.getAllBooking.find(
-            (b: Booking) => b.id === row.original.id
+            (b: Booking) => b.id == row.original.id
           );
           return (
             <Button
@@ -427,7 +427,7 @@ const StudentsPage = () => {
             <div className="text-center">
               <p className="text-gray-600 text-sm mb-2">Active</p>
               <p className="text-3xl font-bold text-green-600">
-                {students.filter((s) => s.status === "active").length}
+                {students.filter((s) => s.status == "active").length}
               </p>
             </div>
           </Card>
@@ -435,7 +435,7 @@ const StudentsPage = () => {
             <div className="text-center">
               <p className="text-gray-600 text-sm mb-2">Completed</p>
               <p className="text-3xl font-bold text-purple-600">
-                {students.filter((s) => s.status === "completed").length}
+                {students.filter((s) => s.status == "completed").length}
               </p>
             </div>
           </Card>
@@ -519,7 +519,7 @@ const StudentsPage = () => {
                 ))}
               </thead>
               <tbody>
-                {table.getRowModel().rows.length === 0 ? (
+                {table.getRowModel().rows.length == 0 ? (
                   <tr>
                     <td
                       colSpan={columns.length}
@@ -649,7 +649,7 @@ const StudentsPage = () => {
               <div className="max-h-96 overflow-y-auto">
                 <Timeline
                   items={(selectedBooking.sessions || [])
-                    .filter((session: BookingSession) => session.driver?.userId === userId)
+                    .filter((session: BookingSession) => session.driver?.userId == userId)
                     .sort((a: BookingSession, b: BookingSession) => 
                       dayjs(a.sessionDate).diff(dayjs(b.sessionDate))
                     )

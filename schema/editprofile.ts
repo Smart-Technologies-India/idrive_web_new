@@ -20,7 +20,7 @@ const EditProfileSchema = object({
     pipe(
       string(),
       check(
-        (value) => value === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+        (value) => value == "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
         "Please enter valid email address"
       )
     )
@@ -44,7 +44,7 @@ const EditProfileSchema = object({
       string(),
       check(
         (value) =>
-          value === "" ||
+          value == "" ||
           /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(
             value
           ),
@@ -108,7 +108,7 @@ const EditProfileSchema = object({
     pipe(
       string(),
       check(
-        (value) => value === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+        (value) => value == "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
         "Please enter valid email address"
       )
     )

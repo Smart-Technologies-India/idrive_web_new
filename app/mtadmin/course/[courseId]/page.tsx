@@ -348,7 +348,7 @@ const ConnectedCarsSection = ({ courseId }: { courseId: number }) => {
         <div className="flex justify-center py-8">
           <Spin />
         </div>
-      ) : activeCars.length === 0 ? (
+      ) : activeCars.length == 0 ? (
         <Empty
           description="No cars connected to this course"
           image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -407,7 +407,7 @@ const SyllabusManagement = ({
   // Get day options for edit (current day + available days)
   const getEditDayOptions = (currentDay: number) => {
     return Array.from({ length: courseDays }, (_, i) => i + 1).filter(
-      (day) => day === currentDay || !usedDays.includes(day)
+      (day) => day == currentDay || !usedDays.includes(day)
     );
   };
 
@@ -658,7 +658,7 @@ const SyllabusManagement = ({
             <span className="text-xl font-semibold">Course Syllabus</span>
             <Tag
               color={
-                syllabusList.length === courseDays ? "success" : "processing"
+                syllabusList.length == courseDays ? "success" : "processing"
               }
               className="text-sm px-3 py-1"
             >
@@ -682,7 +682,7 @@ const SyllabusManagement = ({
                 notes: "",
               });
             }}
-            disabled={availableDays.length === 0}
+            disabled={availableDays.length == 0}
             className="!bg-gradient-to-r from-green-600 to-teal-600"
           >
             Add Syllabus
@@ -718,7 +718,7 @@ const SyllabusManagement = ({
               {availableDays.length} days remaining
             </span>
           )}
-          {availableDays.length === 0 && (
+          {availableDays.length == 0 && (
             <span className="text-xs text-green-600 font-medium">
               ✓ All days completed
             </span>
@@ -775,7 +775,7 @@ const SyllabusManagement = ({
                   value: day.toString(),
                 }))}
               />
-              {availableDays.length === 0 && (
+              {availableDays.length == 0 && (
                 <div className="text-red-500 text-sm -mt-2">
                   All days have syllabus created. Edit or delete existing
                   syllabus to add new ones.

@@ -35,7 +35,7 @@ export function proxy(request: NextRequest) {
   }
 
   // Allow access to home page and public routes without any checks
-  if (pathname === "/" || pathname === "/adduser" || pathname === "/adduser") {
+  if (pathname == "/" || pathname == "/adduser" || pathname == "/adduser") {
     return NextResponse.next();
   }
 

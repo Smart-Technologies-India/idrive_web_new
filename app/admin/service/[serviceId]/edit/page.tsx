@@ -79,12 +79,12 @@ const EditServicePage = ({
     if (serviceData) {
       // Parse features and includedServices from JSON strings
       const parsedFeatures = serviceData.features
-        ? typeof serviceData.features === "string"
+        ? typeof serviceData.features == "string"
           ? JSON.parse(serviceData.features)
           : serviceData.features
         : [];
       const parsedIncludedServices = serviceData.includedServices
-        ? typeof serviceData.includedServices === "string"
+        ? typeof serviceData.includedServices == "string"
           ? JSON.parse(serviceData.includedServices)
           : serviceData.includedServices
         : [];
@@ -164,12 +164,12 @@ const EditServicePage = ({
     if (serviceData) {
       // Parse features and includedServices from JSON strings
       const parsedFeatures = serviceData.features
-        ? typeof serviceData.features === "string"
+        ? typeof serviceData.features == "string"
           ? JSON.parse(serviceData.features)
           : serviceData.features
         : [];
       const parsedIncludedServices = serviceData.includedServices
-        ? typeof serviceData.includedServices === "string"
+        ? typeof serviceData.includedServices == "string"
           ? JSON.parse(serviceData.includedServices)
           : serviceData.includedServices
         : [];

@@ -55,7 +55,7 @@ const AddSchoolServicePage = () => {
   // Filter services by selected category
   const filteredServices = selectedCategory
     ? servicesResponse?.data?.getAllService?.filter(
-        (service) => service.category === selectedCategory
+        (service) => service.category == selectedCategory
       )
     : servicesResponse?.data?.getAllService;
 
@@ -76,7 +76,7 @@ const AddSchoolServicePage = () => {
         addonPrice: parseFloat(data.addonPrice.toString()),
       };
       const selectedService = servicesResponse?.data?.getAllService?.find(
-        (s) => s.id === parseInt(data.serviceId.toString())
+        (s) => s.id == parseInt(data.serviceId.toString())
       );
       return { response: await createSchoolService(createData), selectedService };
     },

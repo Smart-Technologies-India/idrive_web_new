@@ -55,7 +55,7 @@ const DriverManagementPage = () => {
       },
       whereSearchInput: {
         schoolId: schoolId,
-        status: filterStatus === "all" ? undefined : filterStatus,
+        status: filterStatus == "all" ? undefined : filterStatus,
       },
     }),
     enabled: schoolId > 0,
@@ -127,7 +127,7 @@ const DriverManagementPage = () => {
       sorter: (a, b) => a.experience - b.experience,
       render: (exp) => (
         <Tag color="purple" className="!text-sm !px-3 !py-1">
-          {exp} {exp === 1 ? "Year" : "Years"}
+          {exp} {exp == 1 ? "Year" : "Years"}
         </Tag>
       ),
     },
@@ -232,9 +232,9 @@ const DriverManagementPage = () => {
 
   const stats = {
     total: drivers.length,
-    active: drivers.filter((d) => d.status === "ACTIVE").length,
-    inactive: drivers.filter((d) => d.status === "INACTIVE").length,
-    onLeave: drivers.filter((d) => d.status === "ON_LEAVE").length,
+    active: drivers.filter((d) => d.status == "ACTIVE").length,
+    inactive: drivers.filter((d) => d.status == "INACTIVE").length,
+    onLeave: drivers.filter((d) => d.status == "ON_LEAVE").length,
     avgRating: drivers.length > 0 
       ? (drivers.reduce((sum, d) => sum + d.rating, 0) / drivers.length).toFixed(1)
       : "0.0",

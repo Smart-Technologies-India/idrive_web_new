@@ -25,7 +25,7 @@ export { due_date_of_month, get28thDate };
 
 const errorToString = (e: unknown): string => {
   let err: string = "";
-  if (typeof e === "string") {
+  if (typeof e == "string") {
     err = e.toUpperCase();
   } else if (e instanceof Error) {
     err = e.message;
@@ -256,7 +256,7 @@ const validateAadharCard = (aadharNumber: string): boolean => {
     c = d[c][p[i % 8][val]];
   });
 
-  return c === 0;
+  return c == 0;
 };
 
 const validatePanCard = (panNumber: string): boolean => {

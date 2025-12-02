@@ -274,7 +274,7 @@ const CarScheduler = () => {
     })[];
     const ids = new Set<number>();
     sessions.forEach((session) => {
-      if (session.booking?.id && session.booking?.schoolId === schoolId) {
+      if (session.booking?.id && session.booking?.schoolId == schoolId) {
         ids.add(session.booking.id);
       }
     });
@@ -290,7 +290,7 @@ const CarScheduler = () => {
         bookingIds.join(","),
       ],
       queryFn: async () => {
-        if (bookingIds.length === 0)
+        if (bookingIds.length == 0)
           return { data: { getAllBookingSession: [] } };
 
         // Fetch sessions for all bookings in parallel
@@ -349,7 +349,7 @@ const CarScheduler = () => {
       booking: Booking;
     })[];
     // Filter sessions by schoolId since the query doesn't support it directly
-    return sessions.filter((session) => session.booking?.schoolId === schoolId);
+    return sessions.filter((session) => session.booking?.schoolId == schoolId);
   }, [sessionsResponse, schoolId]);
 
   // Get all sessions from bookings and filter for future dates
@@ -363,7 +363,7 @@ const CarScheduler = () => {
     const today = selectedDate.format("YYYY-MM-DD");
     return sessions.filter(
       (session) =>
-        session.booking?.schoolId === schoolId && session.sessionDate >= today
+        session.booking?.schoolId == schoolId && session.sessionDate >= today
     );
   }, [futureSessionsResponse, schoolId, selectedDate]);
 
@@ -408,17 +408,17 @@ const CarScheduler = () => {
     return carsData.map((car) => {
       // Get all sessions for this car (including future sessions for accurate free date)
       const carSessions = allSessions.filter(
-        (session) => session.booking?.carId === car.id
+        (session) => session.booking?.carId == car.id
       );
 
       const carFutureSessions = allFutureSessions.filter(
-        (session) => session.booking?.carId === car.id
+        (session) => session.booking?.carId == car.id
       );
 
       // Combine current and future sessions, removing duplicates
       const allCarSessions = [...carSessions];
       carFutureSessions.forEach((futureSession) => {
-        if (!allCarSessions.some((s) => s.id === futureSession.id)) {
+        if (!allCarSessions.some((s) => s.id == futureSession.id)) {
           allCarSessions.push(futureSession);
         }
       });
@@ -466,16 +466,16 @@ const CarScheduler = () => {
         if (!isDateInHolidayRange) return;
 
         if (
-          holiday.declarationType === "ALL_CARS_MULTIPLE_DATES" ||
-          (holiday.declarationType === "ONE_CAR_MULTIPLE_DATES" &&
-            holiday.carId === car.id)
+          holiday.declarationType == "ALL_CARS_MULTIPLE_DATES" ||
+          (holiday.declarationType == "ONE_CAR_MULTIPLE_DATES" &&
+            holiday.carId == car.id)
         ) {
           // All slots are holidays
           holidaySlots.push(...allSlots);
         } else if (
-          holiday.declarationType === "ALL_CARS_PARTICULAR_SLOTS" ||
-          (holiday.declarationType === "ONE_CAR_PARTICULAR_SLOTS" &&
-            holiday.carId === car.id)
+          holiday.declarationType == "ALL_CARS_PARTICULAR_SLOTS" ||
+          (holiday.declarationType == "ONE_CAR_PARTICULAR_SLOTS" &&
+            holiday.carId == car.id)
         ) {
           // Specific slots are holidays
           if (holiday.slots) {
@@ -508,12 +508,12 @@ const CarScheduler = () => {
 
   // Filter cars by status
   const filteredCars = useMemo(() => {
-    if (statusFilter === "all") return enrichedCars;
+    if (statusFilter == "all") return enrichedCars;
     return enrichedCars.filter((car) => {
-      if (statusFilter === "AVAILABLE") return car.status === "AVAILABLE";
-      if (statusFilter === "IN_USE") return car.status === "IN_USE";
-      if (statusFilter === "MAINTENANCE") return car.status === "MAINTENANCE";
-      if (statusFilter === "INACTIVE") return car.status === "INACTIVE";
+      if (statusFilter == "AVAILABLE") return car.status == "AVAILABLE";
+      if (statusFilter == "IN_USE") return car.status == "IN_USE";
+      if (statusFilter == "MAINTENANCE") return car.status == "MAINTENANCE";
+      if (statusFilter == "INACTIVE") return car.status == "INACTIVE";
       return true;
     });
   }, [enrichedCars, statusFilter]);
@@ -540,7 +540,7 @@ const CarScheduler = () => {
         return booking.sessions.some(
           (session) =>
             dayjs(session.sessionDate).isSame(selectedDate, "day") &&
-            session.slot === slot &&
+            session.slot == slot &&
             session.status !== "CANCELLED"
         );
       }
@@ -564,7 +564,7 @@ const CarScheduler = () => {
         const session = booking.sessions.find(
           (s) =>
             dayjs(s.sessionDate).isSame(selectedDate, "day") &&
-            s.slot === slot &&
+            s.slot == slot &&
             s.status !== "CANCELLED"
         );
         if (session) {
@@ -583,13 +583,13 @@ const CarScheduler = () => {
     car.bookings.forEach((booking) => {
       if (booking.sessions) {
         const sessions = booking.sessions.filter(
-          (s) => s.slot === slot && s.status !== "CANCELLED"
+          (s) => s.slot == slot && s.status !== "CANCELLED"
         );
         allSlotSessions.push(...sessions);
       }
     });
 
-    if (allSlotSessions.length === 0) return null;
+    if (allSlotSessions.length == 0) return null;
 
 
     // Sort all sessions by date to find the absolute last one
@@ -617,7 +617,7 @@ const CarScheduler = () => {
       };
 
       const holidayDay = dayMap[weeklyHoliday];
-      if (holidayDay !== undefined && nextDate.day() === holidayDay) {
+      if (holidayDay !== undefined && nextDate.day() == holidayDay) {
         nextDate = nextDate.add(1, "day");
       }
     }
@@ -746,32 +746,32 @@ const CarScheduler = () => {
           <div className="mt-2 flex items-center gap-2 flex-wrap">
             <Tooltip
               title={
-                car.status === "AVAILABLE"
+                car.status == "AVAILABLE"
                   ? "Car is operational and available for booking"
-                  : car.status === "MAINTENANCE"
+                  : car.status == "MAINTENANCE"
                   ? "Car is under maintenance/repair"
-                  : car.status === "IN_USE"
+                  : car.status == "IN_USE"
                   ? "Car is currently in use"
                   : "Car is not in service"
               }
             >
               <Tag
                 color={
-                  car.status === "AVAILABLE"
+                  car.status == "AVAILABLE"
                     ? "green"
-                    : car.status === "IN_USE"
+                    : car.status == "IN_USE"
                     ? "blue"
-                    : car.status === "MAINTENANCE"
+                    : car.status == "MAINTENANCE"
                     ? "orange"
                     : "red"
                 }
                 className="text-xs px-2 py-1 m-0 cursor-help font-medium"
               >
-                {car.status === "AVAILABLE"
+                {car.status == "AVAILABLE"
                   ? "✓ AVAILABLE"
-                  : car.status === "IN_USE"
+                  : car.status == "IN_USE"
                   ? "🚗 IN USE"
-                  : car.status === "MAINTENANCE"
+                  : car.status == "MAINTENANCE"
                   ? "🔧 MAINTENANCE"
                   : "✗ INACTIVE"}
               </Tag>
@@ -807,7 +807,7 @@ const CarScheduler = () => {
   // Stats calculations
   const totalCars = filteredCars.length;
   const activeCars = filteredCars.filter(
-    (car) => car.status === "AVAILABLE"
+    (car) => car.status == "AVAILABLE"
   ).length;
   const totalSlots = filteredCars.length * allSlots.length;
   const bookedSlots = filteredCars.reduce(
@@ -970,7 +970,7 @@ const CarScheduler = () => {
                     };
 
                     const holidayDay = dayMap[weeklyHoliday];
-                    if (holidayDay !== undefined && dayOfWeek === holidayDay) {
+                    if (holidayDay !== undefined && dayOfWeek == holidayDay) {
                       return true;
                     }
                   }

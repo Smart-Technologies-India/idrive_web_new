@@ -293,13 +293,13 @@ const AmendmentForm = () => {
   // Search for bookings with mutation
   const { mutate: searchBookings, isPending: loadingSearch } = useMutation({
     mutationFn: async () => {
-      if (searchMethod === "mobile" && formValues.customerMobile) {
+      if (searchMethod == "mobile" && formValues.customerMobile) {
         return await fetchBookingsWithSessions(
           formValues.customerMobile,
           undefined,
           schoolId
         );
-      } else if (searchMethod === "bookingId" && formValues.bookingId) {
+      } else if (searchMethod == "bookingId" && formValues.bookingId) {
         return await fetchBookingsWithSessions(
           undefined,
           formValues.bookingId,
@@ -309,7 +309,7 @@ const AmendmentForm = () => {
       return [];
     },
     onSuccess: (results) => {
-      if (results.length === 0) {
+      if (results.length == 0) {
         toast.error("No bookings found");
       } else {
         toast.success(
@@ -437,7 +437,7 @@ const AmendmentForm = () => {
       };
 
       const holidayDay = dayMap[weeklyHoliday];
-      if (holidayDay !== undefined && dayOfWeek === holidayDay) {
+      if (holidayDay !== undefined && dayOfWeek == holidayDay) {
         return true;
       }
     }
@@ -448,8 +448,8 @@ const AmendmentForm = () => {
       
       // Block ALL dates that have PENDING, CONFIRMED, or CANCELLED sessions
       // This includes dates from the current booking to prevent selecting the old dates again
-      return sessionDateStr === dateStr && 
-             (session.status === "PENDING" || session.status === "CONFIRMED" || session.status === "CANCELLED");
+      return sessionDateStr == dateStr && 
+             (session.status == "PENDING" || session.status == "CONFIRMED" || session.status == "CANCELLED");
     });
     
     // Check school holidays
@@ -462,12 +462,12 @@ const AmendmentForm = () => {
       const isInDateRange = dateStr >= holidayStart && dateStr <= holidayEnd;
       
       // For SCHOOL type holidays, block all cars
-      if (holiday.declarationType === "SCHOOL") {
+      if (holiday.declarationType == "SCHOOL") {
         return isInDateRange;
       }
       
       // For CAR type holidays, only block if it's the same car
-      if (holiday.declarationType === "CAR" && holiday.carId === selectedBooking.carId) {
+      if (holiday.declarationType == "CAR" && holiday.carId == selectedBooking.carId) {
         // If slots are specified, check if booking slot matches
         if (holiday.slots) {
           try {
@@ -493,7 +493,7 @@ const AmendmentForm = () => {
 
     // Get the earliest date from the booking sessions
     const scheduledSessions = selectedBooking.sessions
-      .filter((s) => s.status === "PENDING" || s.status === "CONFIRMED")
+      .filter((s) => s.status == "PENDING" || s.status == "CONFIRMED")
       .sort((a, b) => dayjs.utc(a.sessionDate).diff(dayjs.utc(b.sessionDate)));
 
     if (scheduledSessions.length > 0) {
@@ -515,12 +515,12 @@ const AmendmentForm = () => {
       errors.push("Please select an action");
     }
 
-    if (amendmentAction === "CANCEL_BOOKING" && selectedDates.length === 0) {
+    if (amendmentAction == "CANCEL_BOOKING" && selectedDates.length == 0) {
       errors.push("Please select at least one date to cancel");
     }
 
-    if (amendmentAction === "CHANGE_DATE") {
-      if (selectedDates.length === 0) {
+    if (amendmentAction == "CHANGE_DATE") {
+      if (selectedDates.length == 0) {
         errors.push("Please select dates to change");
       }
       if (newDates.length !== selectedDates.length) {
@@ -536,12 +536,12 @@ const AmendmentForm = () => {
       }
     }
 
-    if (!formValues.reason || formValues.reason.trim() === "") {
+    if (!formValues.reason || formValues.reason.trim() == "") {
       errors.push("Please provide a reason for the amendment");
     }
 
     return {
-      isValid: errors.length === 0,
+      isValid: errors.length == 0,
       errors,
     };
   };
@@ -569,9 +569,9 @@ const AmendmentForm = () => {
 
       // Handle different amendment actions
       if (
-        amendmentAction === "CANCEL_BOOKING" ||
-        amendmentAction === "CAR_BREAKDOWN" ||
-        amendmentAction === "CAR_HOLIDAY"
+        amendmentAction == "CANCEL_BOOKING" ||
+        amendmentAction == "CAR_BREAKDOWN" ||
+        amendmentAction == "CAR_HOLIDAY"
       ) {
         // Cancel selected sessions - set status to CANCELLED and deletedAt
         for (const sessionId of selectedSessionIds) {
@@ -597,8 +597,8 @@ const AmendmentForm = () => {
           );
         }
       } else if (
-        amendmentAction === "CHANGE_DATE" &&
-        newDates.length === selectedSessionIds.length
+        amendmentAction == "CHANGE_DATE" &&
+        newDates.length == selectedSessionIds.length
       ) {
         // For date changes: First mark old sessions as CANCELLED with deletedAt
         const updatePromises = [];
@@ -792,7 +792,7 @@ const AmendmentForm = () => {
                     </Radio.Group>
                   </div>
 
-                  {searchMethod === "mobile" ? (
+                  {searchMethod == "mobile" ? (
                     <TextInput
                       name="customerMobile"
                       title="Customer Mobile Number"
@@ -818,9 +818,9 @@ const AmendmentForm = () => {
                     loading={loadingSearch}
                     disabled={
                       loadingSearch ||
-                      (searchMethod === "mobile" &&
+                      (searchMethod == "mobile" &&
                         !formValues.customerMobile) ||
-                      (searchMethod === "bookingId" && !formValues.bookingId)
+                      (searchMethod == "bookingId" && !formValues.bookingId)
                     }
                   >
                     Search Bookings
@@ -841,7 +841,7 @@ const AmendmentForm = () => {
                         key={booking.id}
                         size="small"
                         className={`cursor-pointer transition-all border-2 ${
-                          selectedBooking?.id === booking.id
+                          selectedBooking?.id == booking.id
                             ? "border-blue-500 bg-blue-50"
                             : "border-gray-200 hover:border-blue-300"
                         }`}
@@ -854,11 +854,11 @@ const AmendmentForm = () => {
                             </span>
                             <Badge
                               status={
-                                booking.status === "CONFIRMED"
+                                booking.status == "CONFIRMED"
                                   ? "success"
-                                  : booking.status === "PENDING"
+                                  : booking.status == "PENDING"
                                   ? "warning"
-                                  : booking.status === "CANCELLED"
+                                  : booking.status == "CANCELLED"
                                   ? "error"
                                   : "default"
                               }
@@ -924,7 +924,7 @@ const AmendmentForm = () => {
                     {/* Course Date Range */}
                     {selectedBooking.sessions && selectedBooking.sessions.length > 0 && (() => {
                       const sortedSessions = [...selectedBooking.sessions]
-                        .filter(s => s.status === 'PENDING' || s.status === 'CONFIRMED')
+                        .filter(s => s.status == 'PENDING' || s.status == 'CONFIRMED')
                         .sort((a, b) => dayjs.utc(a.sessionDate).diff(dayjs.utc(b.sessionDate)));
                       const startDate = sortedSessions.length > 0 ? dayjs.utc(sortedSessions[0].sessionDate).format('DD MMM YYYY') : 'N/A';
                       const endDate = sortedSessions.length > 0 ? dayjs.utc(sortedSessions[sortedSessions.length - 1].sessionDate).format('DD MMM YYYY') : 'N/A';
@@ -1055,9 +1055,9 @@ const AmendmentForm = () => {
                               <div className="mt-2">
                                 <Tag
                                   color={
-                                    session.status === "COMPLETED"
+                                    session.status == "COMPLETED"
                                       ? "success"
-                                      : session.status === "CANCELLED"
+                                      : session.status == "CANCELLED"
                                       ? "error"
                                       : isFuture
                                       ? "processing"
@@ -1065,9 +1065,9 @@ const AmendmentForm = () => {
                                   }
                                   className="text-xs"
                                 >
-                                  {session.status === "COMPLETED"
+                                  {session.status == "COMPLETED"
                                     ? "Done"
-                                    : session.status === "CANCELLED"
+                                    : session.status == "CANCELLED"
                                     ? "Cancelled"
                                     : isFuture
                                     ? "Upcoming"
@@ -1096,7 +1096,7 @@ const AmendmentForm = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                       <div
                         className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                          amendmentAction === "CANCEL_BOOKING"
+                          amendmentAction == "CANCEL_BOOKING"
                             ? "border-red-500 bg-red-50"
                             : "border-gray-300 hover:border-red-400"
                         }`}
@@ -1115,7 +1115,7 @@ const AmendmentForm = () => {
 
                       <div
                         className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                          amendmentAction === "CHANGE_DATE"
+                          amendmentAction == "CHANGE_DATE"
                             ? "border-blue-500 bg-blue-50"
                             : "border-gray-300 hover:border-blue-400"
                         }`}
@@ -1134,7 +1134,7 @@ const AmendmentForm = () => {
 
                       <div
                         className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                          amendmentAction === "CAR_BREAKDOWN"
+                          amendmentAction == "CAR_BREAKDOWN"
                             ? "border-orange-500 bg-orange-50"
                             : "border-gray-300 hover:border-orange-400"
                         }`}
@@ -1153,7 +1153,7 @@ const AmendmentForm = () => {
 
                       <div
                         className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                          amendmentAction === "CAR_HOLIDAY"
+                          amendmentAction == "CAR_HOLIDAY"
                             ? "border-purple-500 bg-purple-50"
                             : "border-gray-300 hover:border-purple-400"
                         }`}
@@ -1173,7 +1173,7 @@ const AmendmentForm = () => {
 
                     {amendmentAction && (
                       <div className="space-y-4 animate-fadeIn">
-                        {amendmentAction === "CHANGE_DATE" &&
+                        {amendmentAction == "CHANGE_DATE" &&
                           selectedDates.length > 0 && (() => {
                             // Sort selected dates chronologically
                             const sortedDatesWithIndex = selectedDates
@@ -1258,7 +1258,7 @@ const AmendmentForm = () => {
                                 Selected Dates: {selectedDates.length}
                               </p>
                               <p className="text-yellow-700">
-                                {selectedDates.length === 0
+                                {selectedDates.length == 0
                                   ? "Please select dates from the calendar above to proceed"
                                   : `${selectedDates
                                       .map((d) => dayjs(d).format("DD MMM"))
@@ -1275,12 +1275,12 @@ const AmendmentForm = () => {
                           icon={actionIcons[amendmentAction]}
                           onClick={handleSubmit}
                           disabled={
-                            selectedDates.length === 0 ||
+                            selectedDates.length == 0 ||
                             !formValues.reason ||
-                            (amendmentAction === "CHANGE_DATE" &&
+                            (amendmentAction == "CHANGE_DATE" &&
                               newDates.length !== selectedDates.length)
                           }
-                          danger={amendmentAction === "CANCEL_BOOKING"}
+                          danger={amendmentAction == "CANCEL_BOOKING"}
                           className="mt-4"
                         >
                           Process Amendment
@@ -1319,7 +1319,7 @@ const AmendmentForm = () => {
             size="large"
             loading={isPending}
             onClick={confirmAmendment}
-            danger={amendmentAction === "CANCEL_BOOKING"}
+            danger={amendmentAction == "CANCEL_BOOKING"}
             icon={amendmentAction ? actionIcons[amendmentAction] : undefined}
           >
             Confirm Amendment
@@ -1379,7 +1379,7 @@ const AmendmentForm = () => {
               </div>
             </div>
 
-            {amendmentAction === "CHANGE_DATE" && newDates.length > 0 && (
+            {amendmentAction == "CHANGE_DATE" && newDates.length > 0 && (
               <div className="bg-green-50 rounded-lg p-4 border border-green-200">
                 <h3 className="font-bold text-gray-900 mb-3">Date Changes</h3>
                 <div className="space-y-2">

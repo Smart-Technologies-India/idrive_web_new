@@ -52,7 +52,7 @@ const EditCarPage = ({ params }: { params: Promise<{ carId: string }> }) => {
   const { data: driversResponse } = useQuery({
     queryKey: ["allDrivers", schoolId],
     queryFn: async () => {
-      if (!schoolId || schoolId === 0) {
+      if (!schoolId || schoolId == 0) {
         throw new Error("School ID not found");
       }
       return await getAllDrivers({
@@ -142,7 +142,7 @@ const EditCarPage = ({ params }: { params: Promise<{ carId: string }> }) => {
     onSuccess: (response) => {
       if (response.status && response.data?.updateCar) {
         const car = response.data.updateCar;
-        const selectedCarAdmin = carAdminsResponse?.data?.getAllCarAdmin?.find(c => c.id === car.carAdminId);
+        const selectedCarAdmin = carAdminsResponse?.data?.getAllCarAdmin?.find(c => c.id == car.carAdminId);
         Modal.success({
           title: "Car Updated Successfully",
           content: (

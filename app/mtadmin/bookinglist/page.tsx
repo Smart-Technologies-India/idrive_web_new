@@ -37,7 +37,7 @@ const PaymentStatusCell = ({
 
   // Check if urgent
   const { isUrgent, daysUntilEnd } = useMemo(() => {
-    if (!booking.sessions || booking.sessions.length === 0) return { isUrgent: false, daysUntilEnd: 999 };
+    if (!booking.sessions || booking.sessions.length == 0) return { isUrgent: false, daysUntilEnd: 999 };
     
     const lastSession = booking.sessions.reduce((latest, session) => {
       const sessionDate = new Date(session.sessionDate);
@@ -74,7 +74,7 @@ const PaymentStatusCell = ({
         <span className="text-gray-600">Paid: ₹{totalPaid.toLocaleString("en-IN")}</span>
         <span className="text-red-600 font-semibold">Due: ₹{remaining.toLocaleString("en-IN")}</span>
       </div>
-      <Progress percent={percentage} size="small" status={percentage === 100 ? "success" : "active"} />
+      <Progress percent={percentage} size="small" status={percentage == 100 ? "success" : "active"} />
     </div>
   );
 };
@@ -189,7 +189,7 @@ const BookingListPage = () => {
       key: "status",
       width: 120,
       render: (status) => (
-        <Tag color={status === "COMPLETED" ? "green" : status === "CANCELLED" ? "red" : "blue"}>
+        <Tag color={status == "COMPLETED" ? "green" : status == "CANCELLED" ? "red" : "blue"}>
           {status}
         </Tag>
       ),

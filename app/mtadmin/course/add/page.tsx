@@ -260,7 +260,7 @@ const AddCoursePage = () => {
                       value: car.id,
                     }))}
                     tagRender={(props) => {
-                      const car = availableCars.find((c) => c.id === props.value);
+                      const car = availableCars.find((c) => c.id == props.value);
                       return (
                         <Tag
                           color="blue"
@@ -283,7 +283,7 @@ const AddCoursePage = () => {
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {selectedCarIds.map((carId) => {
-                          const car = availableCars.find((c) => c.id === carId);
+                          const car = availableCars.find((c) => c.id == carId);
                           return (
                             <Tag
                               key={carId}

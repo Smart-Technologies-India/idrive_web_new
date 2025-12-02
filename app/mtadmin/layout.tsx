@@ -181,7 +181,7 @@ export default function MtAdminLayout({
   // Create menu items with disabled state
   const menuItems = baseMenuItems.map((item) => {
     // Handle group items (no profile check needed)
-    if (item.type === "group") {
+    if (item.type == "group") {
       return {
         key: item.key,
         label: item.label,
@@ -230,7 +230,7 @@ export default function MtAdminLayout({
   ];
 
   const handleUserMenuClick: MenuProps["onClick"] = (e) => {
-    if (e.key === "logout") {
+    if (e.key == "logout") {
       deleteCookie("id");
       deleteCookie("role");
       router.push("/adminlogin");

@@ -41,7 +41,7 @@ export function RabioInput<T extends FieldValues>(props: RabioInputProps<T>) {
                     <input
                       type="radio"
                       value={val.value}
-                      checked={field.value === val.value}
+                      checked={field.value == val.value}
                       onChange={() => field.onChange(val.value)}
                       disabled={props.disable ?? false}
                     />

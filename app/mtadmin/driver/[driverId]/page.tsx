@@ -385,21 +385,21 @@ const DriverDetailPage = ({ params }: { params: Promise<{ driverId: string }> })
                 <div className="flex items-center gap-3 mt-2">
                   <Tag
                     color={
-                      driverData.status === "ACTIVE"
+                      driverData.status == "ACTIVE"
                         ? "green"
-                        : driverData.status === "ON_LEAVE"
+                        : driverData.status == "ON_LEAVE"
                         ? "orange"
-                        : driverData.status === "SUSPENDED"
+                        : driverData.status == "SUSPENDED"
                         ? "volcano"
                         : "red"
                     }
                     className="!text-sm !px-3 !py-1"
                   >
-                    {driverData.status === "ACTIVE"
+                    {driverData.status == "ACTIVE"
                       ? "Active"
-                      : driverData.status === "ON_LEAVE"
+                      : driverData.status == "ON_LEAVE"
                       ? "On Leave"
-                      : driverData.status === "SUSPENDED"
+                      : driverData.status == "SUSPENDED"
                       ? "Suspended"
                       : "Inactive"}
                   </Tag>

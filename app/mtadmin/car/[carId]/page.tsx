@@ -484,7 +484,7 @@ const CarDetailPage = ({ params }: { params: Promise<{ carId: string }> }) => {
               <Descriptions.Item label="Status">
                 <Tag
                   color={
-                    carData.assignedDriver.status === "ACTIVE" ? "green" : "red"
+                    carData.assignedDriver.status == "ACTIVE" ? "green" : "red"
                   }
                 >
                   {carData.assignedDriver.status}
@@ -685,7 +685,7 @@ const ConnectedCoursesSection = ({ carId }: { carId: number }) => {
         <div className="flex justify-center py-8">
           <Spin />
         </div>
-      ) : activeCourses.length === 0 ? (
+      ) : activeCourses.length == 0 ? (
         <Empty
           description="This car is not assigned to any courses yet"
           image={Empty.PRESENTED_IMAGE_SIMPLE}

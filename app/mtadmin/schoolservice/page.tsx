@@ -72,7 +72,7 @@ const SchoolServiceManagementPage = () => {
         },
         whereSearchInput: {
           schoolId: schoolId,
-          status: filterStatus === "all" ? undefined : filterStatus,
+          status: filterStatus == "all" ? undefined : filterStatus,
         },
       }),
     enabled: schoolId > 0,
@@ -169,7 +169,7 @@ const SchoolServiceManagementPage = () => {
         { text: "Active", value: "ACTIVE" },
         { text: "Inactive", value: "INACTIVE" },
       ],
-      onFilter: (value, record) => record.status === value,
+      onFilter: (value, record) => record.status == value,
       render: (status: string) => (
         <Tag
           color={getStatusColor(status)}
@@ -201,8 +201,8 @@ const SchoolServiceManagementPage = () => {
 
   const stats = {
     total: schoolServices.length,
-    active: schoolServices.filter((s) => s.status === "ACTIVE").length,
-    inactive: schoolServices.filter((s) => s.status === "INACTIVE").length,
+    active: schoolServices.filter((s) => s.status == "ACTIVE").length,
+    inactive: schoolServices.filter((s) => s.status == "INACTIVE").length,
   };
 
   return (

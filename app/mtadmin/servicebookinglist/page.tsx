@@ -127,7 +127,7 @@ const ServiceBookingListPage = () => {
         accessorKey: "serviceType",
         header: "Type",
         cell: (info) => (
-          <Tag color={info.getValue() === "LICENSE" ? "green" : "blue"}>
+          <Tag color={info.getValue() == "LICENSE" ? "green" : "blue"}>
             {info.getValue() as string}
           </Tag>
         ),
@@ -320,7 +320,7 @@ const ServiceBookingListPage = () => {
                       Loading...
                     </td>
                   </tr>
-                ) : table.getRowModel().rows.length === 0 ? (
+                ) : table.getRowModel().rows.length == 0 ? (
                   <tr>
                     <td
                       colSpan={columns.length}

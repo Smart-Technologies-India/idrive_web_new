@@ -1454,11 +1454,11 @@ const AmendmentForm = () => {
                         <div className="flex items-center gap-3 mb-2">
                           <StopOutlined className="text-2xl text-purple-600" />
                           <span className="font-bold text-gray-900">
-                            Car Holiday
+                            HOLD Slot
                           </span>
                         </div>
                         <p className="text-sm text-gray-600">
-                          Mark car as unavailable for holiday
+                          Place booking on HOLD for selected dates
                         </p>
                       </div>
 

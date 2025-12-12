@@ -22,6 +22,7 @@ import { getCourseById, type Course } from "@/services/course.api";
 import { searchUserByContact, type User } from "@/services/user.api";
 import { getPaginatedCars, getCarById } from "@/services/car.api";
 import { getSchoolById } from "@/services/school.api";
+import { createLicenseApplication } from "@/services/license-application.api";
 import {
   CheckCircleOutlined,
   CarOutlined,
@@ -1030,8 +1031,8 @@ const BookingForm = () => {
           ? (data.serviceDiscount || 0) / data.selectedServices.length 
           : 0;
         
-        const servicePromises = data.selectedServices.map((service) =>
-          ApiCall({
+        const servicePromises = data.selectedServices.map(async (service) => {
+          const serviceResponse = await ApiCall({
             query: `mutation CreateBookingService($inputType: CreateBookingServiceInput!) {
               createBookingService(inputType: $inputType) {
                 id
@@ -1050,8 +1051,34 @@ const BookingForm = () => {
                 description: service.description,
               },
             },
-          })
-        );
+          });
+
+          // If service is NEW_LICENSE, create license application
+          if (service.serviceType === "NEW_LICENSE" && serviceResponse.status) {
+            const bookingServiceData = serviceResponse.data as { createBookingService?: { id: number } };
+            const bookingServiceId = bookingServiceData.createBookingService?.id;
+
+            if (bookingServiceId) {
+              try {
+                const licenseAppResponse = await createLicenseApplication({
+                  bookingServiceId: bookingServiceId,
+                  status: "PENDING",
+                });
+
+                if (!licenseAppResponse.status) {
+                  console.error(`Failed to create license application for service ${service.name}:`, licenseAppResponse.message);
+                } else {
+                  console.log(`License application created successfully for service: ${service.name}`);
+                }
+              } catch (error) {
+                console.error(`Error creating license application for service ${service.name}:`, error);
+              }
+            }
+          }
+
+          return serviceResponse;
+        });
+        
         // Wait for all booking services to be created
         await Promise.all(servicePromises);
       }

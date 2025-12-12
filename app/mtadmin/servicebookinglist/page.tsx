@@ -73,13 +73,33 @@ const ServiceBookingListPage = () => {
   const columns = useMemo<ColumnDef<BookingService>[]>(
     () => [
       {
-        accessorKey: "confirmationNumber",
-        header: "Confirmation #",
-        cell: (info) => (
-          <span className="font-medium text-blue-600">
-            {(info.getValue() as string) || "N/A"}
-          </span>
-        ),
+        accessorKey: "licenseApplications",
+        header: "License Status",
+        cell: (info) => {
+          const licenseApps = info.getValue() as BookingService["licenseApplications"];
+          if (!licenseApps || licenseApps.length === 0) {
+            return <span className="text-xs text-gray-400">No License Application</span>;
+          }
+          const statusColors: Record<string, string> = {
+            PENDING: "orange",
+            LL_APPLIED: "blue",
+            DL_PENDING: "purple",
+            DL_APPLIED: "cyan",
+            CLOSED: "green",
+          };
+          // Show the first license application status
+          const firstApp = licenseApps[0];
+          return (
+            <div className="flex flex-col gap-1">
+              <Tag color={statusColors[firstApp.status] || "default"}>
+                {firstApp.status.replace(/_/g, " ")}
+              </Tag>
+              {licenseApps.length > 1 && (
+                <span className="text-xs text-gray-500">+{licenseApps.length - 1} more</span>
+              )}
+            </div>
+          );
+        },
         size: 140,
       },
       {

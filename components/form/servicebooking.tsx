@@ -16,6 +16,7 @@ import {
   type SchoolService,
 } from "@/services/school-service.api";
 import { searchUserByContact, type User } from "@/services/user.api";
+import { createLicenseApplication } from "@/services/license-application.api";
 import {
   CheckCircleOutlined,
   UserOutlined,
@@ -183,7 +184,6 @@ const ServiceBookingForm = () => {
         setValue("customerName", user.name);
         setValue("customerEmail", user.email || "");
         toast.success("Customer details loaded successfully!");
-        router.back();
       } else {
         setCustomerData(null);
         setValue("customerName", "");
@@ -311,7 +311,6 @@ const ServiceBookingForm = () => {
 
   // Validate form
   const validateForm = (): { isValid: boolean; errors: string[] } => {
-    console.log("Validating form with values:", formValues);
     const errors: string[] = [];
 
     if (!formValues.customerMobile || formValues.customerMobile.length !== 10) {
@@ -345,7 +344,10 @@ const ServiceBookingForm = () => {
       return;
     }
 
-    setPendingData(formValues);
+    setPendingData({
+      ...formValues,
+      selectedService: selectedService || undefined,
+    });
     setShowConfirmModal(true);
   };
 
@@ -389,6 +391,29 @@ const ServiceBookingForm = () => {
         );
       }
 
+      const bookingServiceData = serviceResponse.data as { createBookingService?: { id: number } };
+      const bookingServiceId = bookingServiceData.createBookingService?.id;
+
+      // Create license application for NEW_LICENSE service type
+      if (data.selectedService?.serviceType === "NEW_LICENSE" && bookingServiceId) {
+        try {
+          const licenseAppResponse = await createLicenseApplication({
+            bookingServiceId: bookingServiceId,
+            status: "PENDING",
+          });
+
+          if (!licenseAppResponse.status) {
+            console.error("Failed to create license application:", licenseAppResponse.message);
+            // Don't throw error here, just log it - booking service was created successfully
+          } else {
+            console.log("License application created successfully for NEW_LICENSE service");
+          }
+        } catch (error) {
+          console.error("Error creating license application:", error);
+          // Don't throw error - booking service was created successfully
+        }
+      }
+
       return serviceResponse;
     },
     onSuccess: () => {
@@ -409,6 +434,8 @@ const ServiceBookingForm = () => {
       mutate(pendingData);
     }
   };
+
+
 
   const progress = calculateProgress();
 

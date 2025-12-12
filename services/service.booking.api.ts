@@ -44,6 +44,15 @@ export interface BookingService {
     id: number;
     name: string;
   };
+  licenseApplications?: Array<{
+    id: number;
+    status: "PENDING" | "CLOSED" | "LL_APPLIED" | "DL_PENDING" | "DL_APPLIED";
+    llNumber?: string;
+    issuedDate?: string;
+    dlApplicationNumber?: string;
+    testDate?: string;
+    testStatus: "NONE" | "PASSED" | "FAILED" | "ABSENT";
+  }>;
 }
 
 export interface BookingServicePagination {
@@ -110,6 +119,13 @@ const GET_PAGINATED_BOOKING_SERVICES = `
           id
           name
         }
+        licenseApplications {
+          id
+          status
+          llNumber
+          dlApplicationNumber
+          testStatus
+        }
       }
       total
       skip
@@ -163,6 +179,15 @@ const GET_ALL_BOOKING_SERVICES = `
         id
         name
       }
+      licenseApplications {
+        id
+        status
+        llNumber
+        issuedDate
+        dlApplicationNumber
+        testDate
+        testStatus
+      }
     }
   }
 `;
@@ -211,6 +236,15 @@ const GET_BOOKING_SERVICE_BY_ID = `
       school {
         id
         name
+      }
+      licenseApplications {
+        id
+        status
+        llNumber
+        issuedDate
+        dlApplicationNumber
+        testDate
+        testStatus
       }
     }
   }

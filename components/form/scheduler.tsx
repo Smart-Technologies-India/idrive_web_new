@@ -231,7 +231,7 @@ const CarScheduler = () => {
     [carsResponse]
   );
 
-  // Fetch booking sessions for the selected date
+  // Fetch ALL future booking sessions (from today onwards) for proper availability calculation
   const {
     data: sessionsResponse,
     isLoading: loadingBookings,
@@ -268,117 +268,29 @@ const CarScheduler = () => {
           }
         }`,
         variables: {
-          whereSearchInput: {
-            sessionDate: selectedDate.format("YYYY-MM-DD"),
-          },
+          whereSearchInput: {},
         },
       });
+      console.log("Fetched booking sessions for scheduler:", response);
       return response;
     },
     enabled: schoolId > 0,
   });
 
-  // Get all booking IDs from current sessions to fetch complete session data
-  const bookingIds = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = sessionsResponse?.data as any;
-    const sessions = (data?.getAllBookingSession || []) as (BookingSession & {
-      booking: Booking;
-    })[];
-    const ids = new Set<number>();
-    sessions.forEach((session) => {
-      if (session.booking?.id && session.booking?.schoolId == schoolId) {
-        ids.add(session.booking.id);
-      }
-    });
-    return Array.from(ids);
-  }, [sessionsResponse, schoolId]);
-
-  // Fetch all sessions for each booking to get accurate free dates
-  const { data: futureSessionsResponse, isLoading: loadingFutureSessions } =
-    useQuery({
-      queryKey: [
-        "scheduler-all-booking-sessions",
-        schoolId,
-        bookingIds.join(","),
-      ],
-      queryFn: async () => {
-        if (bookingIds.length == 0)
-          return { data: { getAllBookingSession: [] } };
-
-        // Fetch sessions for all bookings in parallel
-        const promises = bookingIds.map((bookingId) =>
-          ApiCall({
-            query: `query GetAllBookingSession($whereSearchInput: WhereBookingSessionSearchInput!) {
-            getAllBookingSession(whereSearchInput: $whereSearchInput) {
-              id
-              bookingId
-              dayNumber
-              sessionDate
-              slot
-              status
-              attended
-              booking {
-                id
-                bookingId
-                carId
-                slot
-                bookingDate
-                customerName
-                customerMobile
-                courseName
-                status
-                schoolId
-              }
-            }
-          }`,
-            variables: {
-              whereSearchInput: {
-                bookingId: bookingId,
-              },
-            },
-          })
-        );
-
-        const results = await Promise.all(promises);
-
-        // Combine all sessions from all bookings
-        const allSessions: (BookingSession & { booking: Booking })[] = [];
-        results.forEach((result) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const data = result?.data as any;
-          const sessions = data?.getAllBookingSession || [];
-          allSessions.push(...sessions);
-        });
-        return { data: { getAllBookingSession: allSessions } };
-      },
-      enabled: schoolId > 0 && bookingIds.length > 0,
-    });
-
+  // Get all sessions and filter for current school
   const allSessions = useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = sessionsResponse?.data as any;
     const sessions = (data?.getAllBookingSession || []) as (BookingSession & {
       booking: Booking;
     })[];
-    // Filter sessions by schoolId since the query doesn't support it directly
-    return sessions.filter((session) => session.booking?.schoolId == schoolId);
-  }, [sessionsResponse, schoolId]);
-
-  // Get all sessions from bookings and filter for future dates
-  const allFutureSessions = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = futureSessionsResponse?.data as any;
-    const sessions = (data?.getAllBookingSession || []) as (BookingSession & {
-      booking: Booking;
-    })[];
-    // Filter by school and only include current/future sessions
+    // Filter sessions by schoolId and only include current/future sessions
     const today = selectedDate.format("YYYY-MM-DD");
     return sessions.filter(
       (session) =>
         session.booking?.schoolId == schoolId && session.sessionDate >= today
     );
-  }, [futureSessionsResponse, schoolId, selectedDate]);
+  }, [sessionsResponse, schoolId, selectedDate]);
 
   // Fetch holidays for the school
   const { data: holidaysResponse, isLoading: loadingHolidays } = useQuery({
@@ -419,22 +331,10 @@ const CarScheduler = () => {
   // Enrich cars with bookings and holiday information
   const enrichedCars: EnrichedCar[] = useMemo(() => {
     return carsData.map((car) => {
-      // Get all sessions for this car (including future sessions for accurate free date)
-      const carSessions = allSessions.filter(
+      // Get all future sessions for this car
+      const allCarSessions = allSessions.filter(
         (session) => session.booking?.carId == car.id
       );
-
-      const carFutureSessions = allFutureSessions.filter(
-        (session) => session.booking?.carId == car.id
-      );
-
-      // Combine current and future sessions, removing duplicates
-      const allCarSessions = [...carSessions];
-      carFutureSessions.forEach((futureSession) => {
-        if (!allCarSessions.some((s) => s.id == futureSession.id)) {
-          allCarSessions.push(futureSession);
-        }
-      });
 
       // Group sessions by booking
       const bookingsMap = new Map<
@@ -510,14 +410,7 @@ const CarScheduler = () => {
         holidaySlots: [...new Set(holidaySlots)], // Remove duplicates
       };
     });
-  }, [
-    carsData,
-    allSessions,
-    allFutureSessions,
-    holidays,
-    selectedDate,
-    allSlots,
-  ]);
+  }, [carsData, allSessions, holidays, selectedDate, allSlots]);
 
   // Filter cars by status
   const filteredCars = useMemo(() => {
@@ -572,9 +465,10 @@ const CarScheduler = () => {
     car.bookings.forEach((booking) => {
       if (booking.sessions) {
         const sessions = booking.sessions.filter(
-          (s) => s.slot == slot && 
-          dayjs(s.sessionDate).isSameOrAfter(selectedDate, "day") &&
-          !["CANCELLED", "NO_SHOW", "HOLD", "EDITED"].includes(s.status)
+          (s) =>
+            s.slot == slot &&
+            dayjs(s.sessionDate).isSameOrAfter(selectedDate, "day") &&
+            !["CANCELLED", "NO_SHOW", "HOLD", "EDITED"].includes(s.status)
         );
         allSlotSessions.push(...sessions);
       }
@@ -652,12 +546,16 @@ const CarScheduler = () => {
       for (const booking of car.bookings) {
         if (booking.sessions) {
           const session = booking.sessions
-            .filter((s) => 
-              s.slot == slot && 
-              dayjs(s.sessionDate).isSameOrAfter(selectedDate, "day") &&
-              !["CANCELLED", "NO_SHOW", "HOLD", "EDITED"].includes(s.status)
+            .filter(
+              (s) =>
+                s.slot == slot &&
+                dayjs(s.sessionDate).isSameOrAfter(selectedDate, "day") &&
+                !["CANCELLED", "NO_SHOW", "HOLD", "EDITED"].includes(s.status)
             )
-            .sort((a, b) => dayjs(a.sessionDate).valueOf() - dayjs(b.sessionDate).valueOf())[0];
+            .sort(
+              (a, b) =>
+                dayjs(a.sessionDate).valueOf() - dayjs(b.sessionDate).valueOf()
+            )[0];
           if (session) {
             firstBookingInfo = { booking, session };
             break;
@@ -680,7 +578,10 @@ const CarScheduler = () => {
                   Course: {firstBookingInfo.booking.courseName}
                 </div>
                 <div className="text-gray-300">
-                  Starts: {dayjs(firstBookingInfo.session.sessionDate).format("DD MMM YYYY")}
+                  Starts:{" "}
+                  {dayjs(firstBookingInfo.session.sessionDate).format(
+                    "DD MMM YYYY"
+                  )}
                 </div>
                 <div className="text-yellow-300 font-semibold mt-2">
                   Free from: {freeDateDisplay}
@@ -817,9 +718,7 @@ const CarScheduler = () => {
     ...currentSlots.map((slot) => ({
       title: (
         <div className="text-center py-1">
-          <div className="font-bold text-base">
-            {convertSlotTo12Hour(slot)}
-          </div>
+          <div className="font-bold text-base">{convertSlotTo12Hour(slot)}</div>
         </div>
       ),
       key: slot,
@@ -844,10 +743,7 @@ const CarScheduler = () => {
   const isInitialLoading = loadingSchool || loadingCars;
 
   // Background loading for heavy queries
-  const isBackgroundLoading =
-    loadingBookings ||
-    loadingHolidays ||
-    (bookingIds.length > 0 && loadingFutureSessions);
+  const isBackgroundLoading = loadingBookings || loadingHolidays;
 
   // Show loading spinner while essential data is being fetched
   if (isInitialLoading) {
@@ -1011,7 +907,11 @@ const CarScheduler = () => {
           open={showStatusModal}
           onCancel={() => setShowStatusModal(false)}
           footer={[
-            <Button key="close" type="primary" onClick={() => setShowStatusModal(false)}>
+            <Button
+              key="close"
+              type="primary"
+              onClick={() => setShowStatusModal(false)}
+            >
               Close
             </Button>,
           ]}
@@ -1020,16 +920,22 @@ const CarScheduler = () => {
           <div className="space-y-6">
             {/* Slot Status Legend */}
             <div>
-              <h3 className="text-base font-bold text-gray-800 mb-3">Slot Status:</h3>
+              <h3 className="text-base font-bold text-gray-800 mb-3">
+                Slot Status:
+              </h3>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 bg-green-50 border-2 border-green-400 rounded flex flex-col items-center justify-center">
                     <CheckCircleOutlined className="text-green-600 text-base" />
-                    <span className="text-xs text-green-700 font-bold">Free</span>
+                    <span className="text-xs text-green-700 font-bold">
+                      Free
+                    </span>
                   </div>
                   <div>
                     <div className="font-medium text-gray-900">Available</div>
-                    <div className="text-sm text-gray-600">Slot is free and can be booked</div>
+                    <div className="text-sm text-gray-600">
+                      Slot is free and can be booked
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -1046,7 +952,9 @@ const CarScheduler = () => {
                   </div>
                   <div>
                     <div className="font-medium text-gray-900">Booked</div>
-                    <div className="text-sm text-gray-600">Shows the next available date when slot becomes free</div>
+                    <div className="text-sm text-gray-600">
+                      Shows the next available date when slot becomes free
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -1058,7 +966,9 @@ const CarScheduler = () => {
                   </div>
                   <div>
                     <div className="font-medium text-gray-900">Blocked</div>
-                    <div className="text-sm text-gray-600">Slot is unavailable due to holiday</div>
+                    <div className="text-sm text-gray-600">
+                      Slot is unavailable due to holiday
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1066,42 +976,72 @@ const CarScheduler = () => {
 
             {/* Car Status Legend */}
             <div>
-              <h3 className="text-base font-bold text-gray-800 mb-3">Car Status:</h3>
+              <h3 className="text-base font-bold text-gray-800 mb-3">
+                Car Status:
+              </h3>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <Tag color="green" className="text-xs px-2 py-1 m-0 font-medium">
+                  <Tag
+                    color="green"
+                    className="text-xs px-2 py-1 m-0 font-medium"
+                  >
                     ✓ AVAILABLE
                   </Tag>
                   <div>
-                    <div className="font-medium text-gray-900">Ready for booking</div>
-                    <div className="text-sm text-gray-600">Car is operational and available</div>
+                    <div className="font-medium text-gray-900">
+                      Ready for booking
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Car is operational and available
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Tag color="blue" className="text-xs px-2 py-1 m-0 font-medium">
+                  <Tag
+                    color="blue"
+                    className="text-xs px-2 py-1 m-0 font-medium"
+                  >
                     🚗 IN USE
                   </Tag>
                   <div>
-                    <div className="font-medium text-gray-900">Currently booked</div>
-                    <div className="text-sm text-gray-600">Car has active bookings</div>
+                    <div className="font-medium text-gray-900">
+                      Currently booked
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Car has active bookings
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Tag color="orange" className="text-xs px-2 py-1 m-0 font-medium">
+                  <Tag
+                    color="orange"
+                    className="text-xs px-2 py-1 m-0 font-medium"
+                  >
                     🔧 MAINTENANCE
                   </Tag>
                   <div>
-                    <div className="font-medium text-gray-900">Under repair</div>
-                    <div className="text-sm text-gray-600">Car is undergoing maintenance</div>
+                    <div className="font-medium text-gray-900">
+                      Under repair
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Car is undergoing maintenance
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Tag color="red" className="text-xs px-2 py-1 m-0 font-medium">
+                  <Tag
+                    color="red"
+                    className="text-xs px-2 py-1 m-0 font-medium"
+                  >
                     ✗ INACTIVE
                   </Tag>
                   <div>
-                    <div className="font-medium text-gray-900">Not in service</div>
-                    <div className="text-sm text-gray-600">Car is not available for booking</div>
+                    <div className="font-medium text-gray-900">
+                      Not in service
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Car is not available for booking
+                    </div>
                   </div>
                 </div>
               </div>

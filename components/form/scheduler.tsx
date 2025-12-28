@@ -170,7 +170,7 @@ const categorizeSlots = (slots: string[]) => {
 
 const CarScheduler = () => {
   const router = useRouter();
-  const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
+  const selectedDate = dayjs(); // Always use current date
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -544,20 +544,18 @@ const CarScheduler = () => {
     refetchBookings();
   };
 
-  // Check if a slot is booked for a specific car on the selected date
+  // Check if a slot is booked - if there's any future booking for this car+slot, mark as unavailable
   const isSlotBooked = (car: EnrichedCar, slot: string): boolean => {
+    // Check if there's any booking session for this car and slot on or after the selected date
     return car.bookings.some((booking) => {
-      // Don't check booking.slot as it may have been edited - check actual session.slot
-      // Check if selected date falls within booking sessions
       if (booking.sessions) {
         return booking.sessions.some(
           (session) =>
-            dayjs(session.sessionDate).isSame(selectedDate, "day") &&
             session.slot == slot &&
+            dayjs(session.sessionDate).isSameOrAfter(selectedDate, "day") &&
             !["CANCELLED", "NO_SHOW", "HOLD", "EDITED"].includes(session.status)
         );
       }
-
       return false;
     });
   };
@@ -588,15 +586,17 @@ const CarScheduler = () => {
     return null;
   };
 
-  // Get next available date for a booked slot by checking ALL sessions for this car and slot
+  // Get next available date after the absolute last session for this car and slot
   const getNextFreeDate = (car: EnrichedCar, slot: string): string | null => {
-    // Collect all sessions for this car and slot from ALL bookings
+    // Collect all future sessions for this car and slot from ALL bookings
     const allSlotSessions: BookingSession[] = [];
 
     car.bookings.forEach((booking) => {
       if (booking.sessions) {
         const sessions = booking.sessions.filter(
-          (s) => s.slot == slot && !["CANCELLED", "NO_SHOW", "HOLD", "EDITED"].includes(s.status)
+          (s) => s.slot == slot && 
+          dayjs(s.sessionDate).isSameOrAfter(selectedDate, "day") &&
+          !["CANCELLED", "NO_SHOW", "HOLD", "EDITED"].includes(s.status)
         );
         allSlotSessions.push(...sessions);
       }
@@ -663,35 +663,64 @@ const CarScheduler = () => {
       );
     }
 
-    if (isBooked && bookingInfo) {
+    if (isBooked) {
       const nextFreeDate = getNextFreeDate(car, slot);
       const freeDateDisplay = nextFreeDate
         ? dayjs(nextFreeDate).format("DD MMM")
         : "TBD";
 
+      // Get the first booking session on or after today for tooltip
+      let firstBookingInfo = null;
+      for (const booking of car.bookings) {
+        if (booking.sessions) {
+          const session = booking.sessions
+            .filter((s) => 
+              s.slot == slot && 
+              dayjs(s.sessionDate).isSameOrAfter(selectedDate, "day") &&
+              !["CANCELLED", "NO_SHOW", "HOLD", "EDITED"].includes(s.status)
+            )
+            .sort((a, b) => dayjs(a.sessionDate).valueOf() - dayjs(b.sessionDate).valueOf())[0];
+          if (session) {
+            firstBookingInfo = { booking, session };
+            break;
+          }
+        }
+      }
+
       return (
         <Tooltip
           title={
-            <div className="text-sm">
-              <div className="font-semibold">
-                {bookingInfo.booking.customerName}
+            firstBookingInfo ? (
+              <div className="text-sm">
+                <div className="font-semibold">
+                  {firstBookingInfo.booking.customerName}
+                </div>
+                <div className="text-gray-300">
+                  Mobile: {firstBookingInfo.booking.customerMobile}
+                </div>
+                <div className="text-gray-300">
+                  Course: {firstBookingInfo.booking.courseName}
+                </div>
+                <div className="text-gray-300">
+                  Starts: {dayjs(firstBookingInfo.session.sessionDate).format("DD MMM YYYY")}
+                </div>
+                <div className="text-yellow-300 font-semibold mt-2">
+                  Free from: {freeDateDisplay}
+                </div>
+                <div className="text-yellow-300 text-xs mt-1">
+                  Click to rebook from {freeDateDisplay}
+                </div>
               </div>
-              <div className="text-gray-300">
-                Mobile: {bookingInfo.booking.customerMobile}
+            ) : (
+              <div className="text-sm">
+                <div className="text-yellow-300 font-semibold">
+                  Free from: {freeDateDisplay}
+                </div>
+                <div className="text-yellow-300 text-xs mt-1">
+                  Click to rebook from {freeDateDisplay}
+                </div>
               </div>
-              <div className="text-gray-300">
-                Course: {bookingInfo.booking.courseName}
-              </div>
-              <div className="text-gray-300">
-                Day: {bookingInfo.session.dayNumber}
-              </div>
-              <div className="text-yellow-300 font-semibold mt-2">
-                Free from: {freeDateDisplay}
-              </div>
-              <div className="text-yellow-300 text-xs mt-1">
-                Click to rebook from {freeDateDisplay}
-              </div>
-            </div>
+            )
           }
         >
           <div
@@ -945,52 +974,11 @@ const CarScheduler = () => {
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1">
                 <CalendarOutlined className="mr-1" />
-                Select Date
+                Current Date
               </label>
-              <DatePicker
-                value={selectedDate}
-                onChange={(date) => {
-                  if (date) {
-                    setSelectedDate(date);
-                    setCurrentPage(1);
-                  }
-                }}
-                format="DD MMM YYYY"
-                size="large"
-                className="w-full"
-                disabledDate={(current) => {
-                  if (!current) return false;
-
-                  // Disable dates before today
-                  if (current.isBefore(dayjs(), "day")) {
-                    return true;
-                  }
-
-                  // Check weekend restriction if school has a weekly holiday
-                  if (schoolData?.weeklyHoliday) {
-                    const dayOfWeek = current.day();
-                    const weeklyHoliday =
-                      schoolData.weeklyHoliday.toUpperCase();
-
-                    const dayMap: { [key: string]: number } = {
-                      SUNDAY: 0,
-                      MONDAY: 1,
-                      TUESDAY: 2,
-                      WEDNESDAY: 3,
-                      THURSDAY: 4,
-                      FRIDAY: 5,
-                      SATURDAY: 6,
-                    };
-
-                    const holidayDay = dayMap[weeklyHoliday];
-                    if (holidayDay !== undefined && dayOfWeek == holidayDay) {
-                      return true;
-                    }
-                  }
-
-                  return false;
-                }}
-              />
+              <div className="h-10 px-3 py-2 bg-blue-50 border-2 border-blue-300 rounded text-base font-bold text-blue-900 flex items-center">
+                {selectedDate.format("DD MMM YYYY")}
+              </div>
             </div>
 
             <div>

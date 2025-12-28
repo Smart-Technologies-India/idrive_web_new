@@ -1,7 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
 import {
-  DatePicker,
   Table,
   Tag,
   Pagination,
@@ -20,7 +19,7 @@ import {
   ReloadOutlined,
   InfoCircleOutlined,
 } from "@ant-design/icons";
-import dayjs, { Dayjs } from "dayjs";
+import dayjs from "dayjs";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import utc from "dayjs/plugin/utc";
@@ -565,27 +564,6 @@ const CarScheduler = () => {
     return car.holidaySlots.includes(slot);
   };
 
-  // Get booking information for a slot
-  const getBookingInfo = (
-    car: EnrichedCar,
-    slot: string
-  ): { booking: Booking; session: BookingSession } | null => {
-    for (const booking of car.bookings) {
-      if (booking.sessions) {
-        const session = booking.sessions.find(
-          (s) =>
-            dayjs(s.sessionDate).isSame(selectedDate, "day") &&
-            s.slot == slot &&
-            !["CANCELLED", "NO_SHOW", "HOLD", "EDITED"].includes(s.status)
-        );
-        if (session) {
-          return { booking, session };
-        }
-      }
-    }
-    return null;
-  };
-
   // Get next available date after the absolute last session for this car and slot
   const getNextFreeDate = (car: EnrichedCar, slot: string): string | null => {
     // Collect all future sessions for this car and slot from ALL bookings
@@ -648,7 +626,7 @@ const CarScheduler = () => {
   const renderSlotCell = (car: EnrichedCar, slot: string) => {
     const isBooked = isSlotBooked(car, slot);
     const isHoliday = isSlotOnHoliday(car, slot);
-    const bookingInfo = getBookingInfo(car, slot);
+    // const bookingInfo = getBookingInfo(car, slot);
 
     if (isHoliday) {
       return (

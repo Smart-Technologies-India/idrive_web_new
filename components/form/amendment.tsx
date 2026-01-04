@@ -131,6 +131,8 @@ interface GetAllCarResponse {
 const fetchBookingsWithSessions = async (
   mobile?: string,
   bookingId?: string,
+  name?: string,
+  surname?: string,
   schoolId?: number
 ): Promise<Booking[]> => {
   try {
@@ -140,6 +142,212 @@ const fetchBookingsWithSessions = async (
       whereSearchInput = { bookingId };
     } else if (mobile) {
       whereSearchInput = { customerMobile: mobile };
+    } else if (name) {
+      // For name search, we need to find users first and then get their bookings by mobile
+      const userResponse = await ApiCall({
+        query: `query GetAllUser($whereSearchInput: WhereUserSearchInput!) {
+          getAllUser(whereSearchInput: $whereSearchInput) {
+            id
+            name
+            surname
+            contact1
+          }
+        }`,
+        variables: {
+          whereSearchInput: {
+            name: name,
+            schoolId: schoolId,
+            role: "USER",
+          },
+        },
+      });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const users = (userResponse?.data as any)?.getAllUser || [];
+      if (users.length === 0) {
+        return [];
+      }
+
+      // Get bookings for all matching users
+      const allBookings: Booking[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const user of users as any[]) {
+        const userBookingsResponse = await ApiCall({
+          query: `query GetAllBooking($whereSearchInput: WhereBookingSearchInput!) {
+            getAllBooking(whereSearchInput: $whereSearchInput) {
+              id
+              bookingId
+              carId
+              carName
+              slot
+              bookingDate
+              customerName
+              customerMobile
+              customerEmail
+              courseName
+              coursePrice
+              totalAmount
+              status
+              schoolId
+            }
+          }`,
+          variables: {
+            whereSearchInput: {
+              customerMobile: user.contact1,
+              schoolId: schoolId,
+            },
+          },
+        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const userBookings = (userBookingsResponse?.data as any)?.getAllBooking || [];
+        allBookings.push(...userBookings);
+      }
+
+
+      // Fetch sessions for each booking
+      const bookingsWithSessions = await Promise.all(
+        allBookings.map(async (booking: Booking) => {
+          const sessionsResponse = await ApiCall<GetAllBookingSessionResponse>({
+            query: `query GetAllBookingSession($whereSearchInput: WhereBookingSessionSearchInput!) {
+              getAllBookingSession(whereSearchInput: $whereSearchInput) {
+                id
+                bookingId
+                dayNumber
+                sessionDate
+                slot
+                status
+                attended
+                carId
+                driverId
+                car {
+                  id
+                  carName
+                  registrationNumber
+                }
+                driver {
+                  id
+                  name
+                }
+              }
+            }`,
+            variables: {
+              whereSearchInput: {
+                bookingId: booking.id,
+              },
+            },
+          });
+
+          const sessions =
+            (sessionsResponse?.data as GetAllBookingSessionResponse)
+              ?.getAllBookingSession || [];
+          return { ...booking, sessions };
+        })
+      );
+
+
+      return bookingsWithSessions;
+    } else if (surname) {
+      // For surname search, we need to find users first and then get their bookings by mobile
+      const userResponse = await ApiCall({
+        query: `query GetAllUser($whereSearchInput: WhereUserSearchInput!) {
+          getAllUser(whereSearchInput: $whereSearchInput) {
+            id
+            name
+            surname
+            contact1
+          }
+        }`,
+        variables: {
+          whereSearchInput: {
+            surname: surname,
+            schoolId: schoolId,
+            role: "USER",
+          },
+        },
+      });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const users = (userResponse?.data as any)?.getAllUser || [];
+      if (users.length === 0) {
+        return [];
+      }
+
+      // Get bookings for all matching users
+      const allBookings: Booking[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const user of users as any[]) {
+        const userBookingsResponse = await ApiCall({
+          query: `query GetAllBooking($whereSearchInput: WhereBookingSearchInput!) {
+            getAllBooking(whereSearchInput: $whereSearchInput) {
+              id
+              bookingId
+              carId
+              carName
+              slot
+              bookingDate
+              customerName
+              customerMobile
+              customerEmail
+              courseName
+              coursePrice
+              totalAmount
+              status
+              schoolId
+            }
+          }`,
+          variables: {
+            whereSearchInput: {
+              customerMobile: user.contact1,
+              schoolId: schoolId,
+            },
+          },
+        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const userBookings = (userBookingsResponse?.data as any)?.getAllBooking || [];
+        allBookings.push(...userBookings);
+      }
+
+      // Fetch sessions for each booking
+      const bookingsWithSessions = await Promise.all(
+        allBookings.map(async (booking: Booking) => {
+          const sessionsResponse = await ApiCall<GetAllBookingSessionResponse>({
+            query: `query GetAllBookingSession($whereSearchInput: WhereBookingSessionSearchInput!) {
+              getAllBookingSession(whereSearchInput: $whereSearchInput) {
+                id
+                bookingId
+                dayNumber
+                sessionDate
+                slot
+                status
+                attended
+                carId
+                driverId
+                car {
+                  id
+                  carName
+                  registrationNumber
+                }
+                driver {
+                  id
+                  name
+                }
+              }
+            }`,
+            variables: {
+              whereSearchInput: {
+                bookingId: booking.id,
+              },
+            },
+          });
+
+          const sessions =
+            (sessionsResponse?.data as GetAllBookingSessionResponse)
+              ?.getAllBookingSession || [];
+          return { ...booking, sessions };
+        })
+      );
+
+      return bookingsWithSessions;
     }
 
     if (schoolId) {
@@ -221,7 +429,7 @@ const fetchBookingsWithSessions = async (
 const AmendmentForm = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [searchMethod, setSearchMethod] = useState<"mobile" | "bookingId">(
+  const [searchMethod, setSearchMethod] = useState<"mobile" | "bookingId" | "name" | "surname">(
     "mobile"
   );
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -281,6 +489,8 @@ const AmendmentForm = () => {
     defaultValues: {
       searchMethod: "mobile",
       customerMobile: "",
+      customerName: "",
+      customerSurname: "",
       bookingId: "",
       selectedBookingId: "",
       amendmentAction: undefined,
@@ -325,12 +535,32 @@ const AmendmentForm = () => {
         return await fetchBookingsWithSessions(
           formValues.customerMobile,
           undefined,
+          undefined,
+          undefined,
           schoolId
         );
       } else if (searchMethod == "bookingId" && formValues.bookingId) {
         return await fetchBookingsWithSessions(
           undefined,
           formValues.bookingId,
+          undefined,
+          undefined,
+          schoolId
+        );
+      } else if (searchMethod == "name" && formValues.customerName) {
+        return await fetchBookingsWithSessions(
+          undefined,
+          undefined,
+          formValues.customerName,
+          undefined,
+          schoolId
+        );
+      } else if (searchMethod == "surname" && formValues.customerSurname) {
+        return await fetchBookingsWithSessions(
+          undefined,
+          undefined,
+          undefined,
+          formValues.customerSurname,
           schoolId
         );
       }
@@ -1356,21 +1586,35 @@ const AmendmentForm = () => {
                         setBookings([]);
                         setSelectedBooking(null);
                       }}
-                      className="w-full"
+                      className="w-full grid grid-cols-2 gap-2"
                     >
                       <Radio.Button
                         value="mobile"
-                        className="w-1/2 text-center"
+                        className="text-center h-10 flex items-center justify-center"
                       >
                         <PhoneOutlined className="mr-2" />
-                        Mobile Number
+                        Mobile
                       </Radio.Button>
                       <Radio.Button
                         value="bookingId"
-                        className="w-1/2 text-center"
+                        className="text-center h-10 flex items-center justify-center"
                       >
                         <BookOutlined className="mr-2" />
                         Booking ID
+                      </Radio.Button>
+                      <Radio.Button
+                        value="name"
+                        className="text-center h-10 flex items-center justify-center"
+                      >
+                        <SearchOutlined className="mr-2" />
+                        Name
+                      </Radio.Button>
+                      <Radio.Button
+                        value="surname"
+                        className="text-center h-10 flex items-center justify-center"
+                      >
+                        <SearchOutlined className="mr-2" />
+                        Surname
                       </Radio.Button>
                     </Radio.Group>
                   </div>
@@ -1382,6 +1626,20 @@ const AmendmentForm = () => {
                       placeholder="Enter 10-digit mobile number"
                       required={true}
                       maxlength={10}
+                    />
+                  ) : searchMethod == "name" ? (
+                    <TextInput
+                      name="customerName"
+                      title="Customer Name"
+                      placeholder="Enter customer name"
+                      required={true}
+                    />
+                  ) : searchMethod == "surname" ? (
+                    <TextInput
+                      name="customerSurname"
+                      title="Customer Surname"
+                      placeholder="Enter customer surname"
+                      required={true}
                     />
                   ) : (
                     <TextInput
@@ -1403,6 +1661,10 @@ const AmendmentForm = () => {
                       loadingSearch ||
                       (searchMethod == "mobile" &&
                         !formValues.customerMobile) ||
+                      (searchMethod == "name" &&
+                        !formValues.customerName) ||
+                      (searchMethod == "surname" &&
+                        !formValues.customerSurname) ||
                       (searchMethod == "bookingId" && !formValues.bookingId)
                     }
                   >

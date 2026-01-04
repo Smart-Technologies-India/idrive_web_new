@@ -88,6 +88,7 @@ const baseMenuItems = [
     label: "CONFIGURATION",
     type: "group",
   },
+
   {
     key: "/mtadmin/user",
     icon: <MaterialSymbolsPersonRounded className="text-lg" />,
@@ -122,6 +123,12 @@ const baseMenuItems = [
     key: "/mtadmin/holiday",
     icon: <Fa6RegularCalendarXmark className="text-lg" />,
     label: "Holidays",
+    requiresProfile: true,
+  },
+  {
+    key: "/mtadmin/reports",
+    icon: <span className="text-lg">📊</span>,
+    label: "Reports",
     requiresProfile: true,
   },
   {

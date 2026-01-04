@@ -10,15 +10,23 @@ export type AmendmentAction =
   | "CAR_DATE_TIME_CHANGE";
 
 // Search method
-export type SearchMethod = "mobile" | "bookingId";
+export type SearchMethod = "mobile" | "bookingId" | "name" | "surname";
 
 // Amendment schema
 export const AmendmentSchema = v.object({
-  searchMethod: v.picklist(["mobile", "bookingId"] as const),
+  searchMethod: v.picklist(["mobile", "bookingId", "name", "surname"] as const),
   customerMobile: v.optional(v.pipe(
     v.string(),
     v.minLength(10, "Mobile number must be at least 10 digits"),
     v.regex(/^[0-9+\-\s()]+$/, "Please enter a valid mobile number")
+  )),
+  customerName: v.optional(v.pipe(
+    v.string(),
+    v.minLength(1, "Please enter a customer name")
+  )),
+  customerSurname: v.optional(v.pipe(
+    v.string(),
+    v.minLength(1, "Please enter a customer surname")
   )),
   bookingId: v.optional(v.pipe(
     v.string(),

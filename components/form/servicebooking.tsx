@@ -51,6 +51,7 @@ type ServiceBookingFormData = {
   totalAmount: number;
   discount?: number;
   advanceAmount?: number;
+  paymentMethod?: string;
   notes: string;
 };
 
@@ -65,6 +66,7 @@ const ServiceBookingForm = () => {
   );
   const [discount, setDiscount] = useState<number>(0);
   const [advanceAmount, setAdvanceAmount] = useState<number>(0);
+  const [paymentMethod, setPaymentMethod] = useState<string>("CASH");
   const [customerData, setCustomerData] = useState<Customer | null>(null);
   const [showCreateUserDrawer, setShowCreateUserDrawer] = useState(false);
   const [newUserName, setNewUserName] = useState("");
@@ -361,6 +363,7 @@ const ServiceBookingForm = () => {
     setPendingData({
       ...formValues,
       selectedService: selectedService || undefined,
+      paymentMethod: paymentMethod,
     });
     setShowConfirmModal(true);
   };
@@ -467,7 +470,7 @@ const ServiceBookingForm = () => {
                 bookingServiceId: data.bookingServiceId,
                 userId: customerData?.id,
                 amount: pendingData.advanceAmount,
-                paymentMethod: "CASH",
+                paymentMethod: pendingData.paymentMethod || "CASH",
                 transactionId: "",
                 installmentNumber: 1,
                 totalInstallments: 1,
@@ -833,7 +836,45 @@ const ServiceBookingForm = () => {
                   </div>
 
                   {advanceAmount > 0 && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Payment Method <span className="text-red-500">*</span>
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {["CASH", "CARD", "UPI", "BANK_TRANSFER"].map((method) => (
+                          <Tag.CheckableTag
+                            key={method}
+                            checked={paymentMethod === method}
+                            onChange={() => setPaymentMethod(method)}
+                            style={{
+                              padding: "6px 16px",
+                              fontSize: "14px",
+                              border: paymentMethod === method
+                                ? "2px solid #1890ff"
+                                : "2px solid #d9d9d9",
+                              borderRadius: "20px",
+                              backgroundColor: paymentMethod === method
+                                ? "#e6f7ff"
+                                : "#ffffff",
+                              color: paymentMethod === method
+                                ? "#1890ff"
+                                : "#666666",
+                              cursor: "pointer",
+                              fontWeight: paymentMethod === method ? 600 : 400,
+                            }}
+                          >
+                            {method === "BANK_TRANSFER" ? "Bank Transfer" : method.charAt(0) + method.slice(1).toLowerCase()}
+                          </Tag.CheckableTag>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Select how the advance payment was received
+                      </p>
+                    </div>
+                  )}
+
+                  {advanceAmount > 0 && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
                       <p className="text-sm font-semibold text-blue-800 mb-2">
                         Advance: ₹{advanceAmount.toLocaleString("en-IN")}
                       </p>
@@ -842,6 +883,9 @@ const ServiceBookingForm = () => {
                         {(
                           formValues.totalAmount - advanceAmount
                         ).toLocaleString("en-IN")}
+                      </p>
+                      <p className="text-xs text-blue-700">
+                        • Payment Method: <strong>{paymentMethod === "BANK_TRANSFER" ? "Bank Transfer" : paymentMethod.charAt(0) + paymentMethod.slice(1).toLowerCase()}</strong>
                       </p>
                     </div>
                   )}

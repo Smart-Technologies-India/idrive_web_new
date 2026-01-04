@@ -177,6 +177,8 @@ const CarScheduler = () => {
     "morning" | "afternoon" | "evening"
   >("morning");
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showBookedUsersModal, setShowBookedUsersModal] = useState(false);
+  const [selectedCarSlot, setSelectedCarSlot] = useState<{car: EnrichedCar | null, slot: string | null}>({car: null, slot: null});
 
   // Get school ID from cookie
   const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
@@ -586,40 +588,52 @@ const CarScheduler = () => {
                 <div className="text-yellow-300 font-semibold mt-2">
                   Free from: {freeDateDisplay}
                 </div>
-                <div className="text-yellow-300 text-xs mt-1">
-                  Click to rebook from {freeDateDisplay}
-                </div>
               </div>
             ) : (
               <div className="text-sm">
                 <div className="text-yellow-300 font-semibold">
                   Free from: {freeDateDisplay}
                 </div>
-                <div className="text-yellow-300 text-xs mt-1">
-                  Click to rebook from {freeDateDisplay}
-                </div>
               </div>
             )
           }
         >
-          <div
-            className="w-full h-16 flex flex-col items-center justify-center bg-red-50 border-2 border-red-300 rounded cursor-pointer hover:bg-red-100 transition-all"
-            onClick={() => {
-              if (nextFreeDate) {
-                const bookingUrl = `/mtadmin/booking?carId=${
-                  car.id
-                }&slot=${encodeURIComponent(slot)}&date=${nextFreeDate}`;
-                router.push(bookingUrl);
-              }
-            }}
-          >
-            <CloseCircleOutlined className="text-red-600 text-xl" />
-            <div className="text-center">
-              <div className="text-xs text-red-600 font-medium">Free from</div>
-              <div className="text-sm text-red-700 font-bold">
-                {freeDateDisplay}
+          <div className="w-full h-16 bg-gradient-to-br from-red-50 to-red-100 border-2 border-red-400 rounded-lg shadow-sm relative overflow-hidden group">
+            {/* Main clickable area */}
+            <div
+              className="h-full flex flex-col items-center justify-center cursor-pointer hover:from-red-100 hover:to-red-200 transition-all pt-1"
+              onClick={() => {
+                if (nextFreeDate) {
+                  const bookingUrl = `/mtadmin/booking?carId=${
+                    car.id
+                  }&slot=${encodeURIComponent(slot)}&date=${nextFreeDate}`;
+                  router.push(bookingUrl);
+                }
+              }}
+            >
+              <CloseCircleOutlined className="text-red-600 text-lg mb-0.5" />
+              <div className="text-center px-1">
+                <div className="text-[10px] text-red-600 font-semibold leading-tight">
+                  Free from
+                </div>
+                <div className="text-xs text-red-700 font-bold leading-tight">
+                  {freeDateDisplay}
+                </div>
               </div>
             </div>
+            
+            {/* Info button in corner */}
+            <button
+              className="absolute top-1 right-1 bg-blue-600 hover:bg-blue-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold transition-all shadow-md hover:scale-110 z-10"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedCarSlot({car, slot});
+                setShowBookedUsersModal(true);
+              }}
+              title="View booking details"
+            >
+              i
+            </button>
           </div>
         </Tooltip>
       );
@@ -1124,6 +1138,155 @@ const CarScheduler = () => {
           </div>
         )}
       </div>
+
+      {/* Booked Users Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <CalendarOutlined className="text-blue-600" />
+            <span>
+              {selectedCarSlot.car && selectedCarSlot.slot
+                ? `Bookings for ${selectedCarSlot.car.carName} - ${convertSlotTo12Hour(selectedCarSlot.slot)}`
+                : "Booked Users"}
+            </span>
+          </div>
+        }
+        open={showBookedUsersModal}
+        onCancel={() => {
+          setShowBookedUsersModal(false);
+          setSelectedCarSlot({car: null, slot: null});
+        }}
+        footer={[
+          <Button
+            key="close"
+            type="primary"
+            onClick={() => {
+              setShowBookedUsersModal(false);
+              setSelectedCarSlot({car: null, slot: null});
+            }}
+          >
+            Close
+          </Button>,
+        ]}
+        width={900}
+      >
+        <div className="py-4">
+          <Table
+            dataSource={(selectedCarSlot.car ? [selectedCarSlot.car] : enrichedCars).flatMap((car) =>
+              car.bookings.flatMap((booking) => {
+                if (!booking.sessions || booking.sessions.length === 0) {
+                  return [];
+                }
+                // Filter by slot if one is selected
+                const relevantSessions = selectedCarSlot.slot
+                  ? booking.sessions.filter(s => s.slot === selectedCarSlot.slot)
+                  : booking.sessions;
+                
+                if (relevantSessions.length === 0) {
+                  return [];
+                }
+                // Get earliest and latest dates from filtered sessions
+                const sessionDates = relevantSessions
+                  .map((s) => s.sessionDate)
+                  .sort();
+                const startDate = sessionDates[0];
+                const endDate = sessionDates[sessionDates.length - 1];
+
+                return {
+                  key: `${booking.id}-${car.id}`,
+                  id: booking.id,
+                  bookingId: booking.bookingId,
+                  customerName: booking.customerName,
+                  customerMobile: booking.customerMobile,
+                  courseName: booking.courseName,
+                  carName: car.carName,
+                  startDate: startDate,
+                  endDate: endDate,
+                  status: booking.status,
+                  slot: selectedCarSlot.slot || "All slots",
+                  totalSessions: relevantSessions.length,
+                };
+              })
+            )}
+            columns={[
+              {
+                title: "Booking ID",
+                dataIndex: "bookingId",
+                key: "bookingId",
+                width: 120,
+                render: (text: string) => (
+                  <span className="font-mono text-xs">{text}</span>
+                ),
+              },
+              {
+                title: "Customer Name",
+                dataIndex: "customerName",
+                key: "customerName",
+                width: 150,
+                render: (text: string) => (
+                  <span className="font-semibold">{text}</span>
+                ),
+              },
+              {
+                title: "Contact Number",
+                dataIndex: "customerMobile",
+                key: "customerMobile",
+                width: 130,
+              },
+              {
+                title: "Start Date",
+                dataIndex: "startDate",
+                key: "startDate",
+                width: 110,
+                render: (date: string) => dayjs(date).format("DD MMM YYYY"),
+                sorter: (a: { startDate: string }, b: { startDate: string }) =>
+                  dayjs(a.startDate).unix() - dayjs(b.startDate).unix(),
+              },
+              {
+                title: "End Date",
+                dataIndex: "endDate",
+                key: "endDate",
+                width: 110,
+                render: (date: string) => dayjs(date).format("DD MMM YYYY"),
+              },
+              {
+                title: "Course",
+                dataIndex: "courseName",
+                key: "courseName",
+                width: 120,
+                render: (text: string) => (
+                  <Tag color="blue" className="text-xs">
+                    {text}
+                  </Tag>
+                ),
+              },
+              {
+                title: "Car",
+                dataIndex: "carName",
+                key: "carName",
+                width: 100,
+              },
+              {
+                title: "Sessions",
+                dataIndex: "totalSessions",
+                key: "totalSessions",
+                width: 80,
+                align: "center" as const,
+                render: (count: number) => (
+                  <Tag color="purple">{count}</Tag>
+                ),
+              },
+            ]}
+            pagination={{
+              pageSize: 10,
+              showSizeChanger: true,
+              showTotal: (total) => `Total ${total} bookings`,
+            }}
+            scroll={{ x: 800 }}
+            size="small"
+          />
+        </div>
+      </Modal>
 
       <style jsx global>{`
         .scheduler-table .ant-table-cell {

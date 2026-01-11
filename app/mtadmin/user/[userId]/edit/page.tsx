@@ -247,7 +247,7 @@ const EditUserPage = ({ params }: { params: Promise<{ userId: string }> }) => {
                     size="large"
                     className="w-full"
                     placeholder="Select date of birth"
-                    format="DD/MM/YYYY"
+                    format="DD-MM-YYYY"
                     maxDate={dayjs()}
                   />
                 </Form.Item>

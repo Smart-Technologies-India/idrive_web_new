@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { formatDate } from "@/utils/date-format";
 import {
   Card,
   Descriptions,
@@ -198,7 +199,7 @@ const BookingDetailsPage = () => {
             {convertSlotTo12Hour(booking.slot)}
           </Descriptions.Item>
           <Descriptions.Item label="Booking Date">
-            {new Date(booking.bookingDate).toLocaleDateString("en-IN")}
+            {formatDate(booking.bookingDate)}
           </Descriptions.Item>
           <Descriptions.Item label="Amount">
             ₹{booking.totalAmount}
@@ -225,7 +226,7 @@ const BookingDetailsPage = () => {
               dataIndex: "sessionDate",
               key: "sessionDate",
               width: 130,
-              render: (date) => new Date(date).toLocaleDateString("en-IN"),
+              render: (date) => formatDate(date),
             },
             {
               title: "Slot",
@@ -466,7 +467,7 @@ const BookingDetailsPage = () => {
               dataIndex: "paymentDate",
               key: "paymentDate",
               width: 130,
-              render: (date) => new Date(date).toLocaleDateString("en-IN"),
+              render: (date) => formatDate(date),
             },
             {
               title: "Amount",

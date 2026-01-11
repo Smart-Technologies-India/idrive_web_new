@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, Table, Input, Button, Tag, Space, Select, Avatar } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { formatDate } from "@/utils/date-format";
 import {
   AntDesignEyeOutlined,
   AntDesignEditOutlined,
@@ -174,7 +175,7 @@ const SchoolsListPage = () => {
       dataIndex: "createdAt",
       key: "createdAt",
       width: 130,
-      render: (date: string) => new Date(date).toLocaleDateString("en-IN"),
+      render: (date: string) => formatDate(date),
     },
     {
       title: "Action",

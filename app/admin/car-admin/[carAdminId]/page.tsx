@@ -2,6 +2,7 @@
 
 import { use } from "react";
 import { Card, Button, Tag, Descriptions, Spin } from "antd";
+import { formatDateTime } from "@/utils/date-format";
 import {
   AntDesignEditOutlined,
   Fa6SolidArrowLeftLong,
@@ -157,16 +158,10 @@ const CarAdminDetailPage = ({
         >
           <Descriptions column={{ xs: 1, sm: 2 }} bordered>
             <Descriptions.Item label="Created At">
-              {new Date(carAdminData.createdAt).toLocaleString("en-IN", {
-                dateStyle: "long",
-                timeStyle: "short",
-              })}
+              {formatDateTime(carAdminData.createdAt)}
             </Descriptions.Item>
             <Descriptions.Item label="Last Updated">
-              {new Date(carAdminData.updatedAt).toLocaleString("en-IN", {
-                dateStyle: "long",
-                timeStyle: "short",
-              })}
+              {formatDateTime(carAdminData.updatedAt)}
             </Descriptions.Item>
           </Descriptions>
         </Card>

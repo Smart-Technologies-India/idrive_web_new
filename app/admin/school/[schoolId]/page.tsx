@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { Card, Button, Tag, Avatar, Descriptions, Statistic, Row, Col, Spin } from "antd";
+import { formatDate } from "@/utils/date-format";
 import {
   IcBaselineArrowBack,
   AntDesignEditOutlined,
@@ -245,11 +246,7 @@ const SchoolDetailPage = ({ params }: { params: Promise<{ schoolId: string }> })
               </Tag>
             </Descriptions.Item>
             <Descriptions.Item label="Joined Date">
-              {new Date(schoolData.createdAt).toLocaleDateString("en-IN", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
+              {formatDate(schoolData.createdAt)}
             </Descriptions.Item>
           </Descriptions>
         </Card>
@@ -405,9 +402,7 @@ const SchoolDetailPage = ({ params }: { params: Promise<{ schoolId: string }> })
               {schoolData.rtoLicenseExpiry ? (
                 <Tag color="green" className="!text-sm !px-3 !py-1">
                   Valid till{" "}
-                  {new Date(schoolData.rtoLicenseExpiry).toLocaleDateString(
-                    "en-IN"
-                  )}
+                  {formatDate(schoolData.rtoLicenseExpiry)}
                 </Tag>
               ) : (
                 <span className="text-gray-400 italic">N/A</span>
@@ -428,9 +423,7 @@ const SchoolDetailPage = ({ params }: { params: Promise<{ schoolId: string }> })
             <Descriptions.Item label="Insurance Expiry">
               {schoolData.insuranceExpiry ? (
                 <Tag color="orange" className="!text-sm !px-3 !py-1">
-                  {new Date(schoolData.insuranceExpiry).toLocaleDateString(
-                    "en-IN"
-                  )}
+                  {formatDate(schoolData.insuranceExpiry)}
                 </Tag>
               ) : (
                 <span className="text-gray-400 italic">N/A</span>

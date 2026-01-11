@@ -258,7 +258,7 @@ const EditProfilePage = () => {
                 >
                   <DatePicker
                     className="w-full"
-                    format="DD/MM/YYYY"
+                    format="DD-MM-YYYY"
                     placeholder="Select your date of birth"
                     disabledDate={(current) => {
                       // Disable dates that would make the user younger than 18

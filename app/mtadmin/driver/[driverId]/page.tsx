@@ -30,6 +30,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getDriverWithHistory, type LeaveHistory, type SalaryHistory } from "@/services/driver.api";
 import { toast } from "react-toastify";
 import { convertSlotTo12Hour } from "@/utils/time-format";
+import { formatDate } from "@/utils/date-format";
 
 const { TextArea } = Input;
 
@@ -245,13 +246,13 @@ const DriverDetailPage = ({ params }: { params: Promise<{ driverId: string }> })
       title: "From Date",
       dataIndex: "fromDate",
       key: "fromDate",
-      render: (date) => new Date(date).toLocaleDateString("en-IN"),
+      render: (date) => formatDate(date),
     },
     {
       title: "To Date",
       dataIndex: "toDate",
       key: "toDate",
-      render: (date) => new Date(date).toLocaleDateString("en-IN"),
+      render: (date) => formatDate(date),
     },
     {
       title: "Days",
@@ -324,7 +325,7 @@ const DriverDetailPage = ({ params }: { params: Promise<{ driverId: string }> })
       title: "Payment Date",
       dataIndex: "paymentDate",
       key: "paymentDate",
-      render: (date) => date ? new Date(date).toLocaleDateString("en-IN") : "N/A",
+      render: (date) => date ? formatDate(date) : "N/A",
     },
     {
       title: "Status",
@@ -491,11 +492,7 @@ const DriverDetailPage = ({ params }: { params: Promise<{ driverId: string }> })
               {driverData.mobile}
             </Descriptions.Item>
             <Descriptions.Item label="Date of Birth">
-              {new Date(driverData.dateOfBirth).toLocaleDateString("en-IN", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
+              {formatDate(driverData.dateOfBirth)}
             </Descriptions.Item>
             <Descriptions.Item label="Blood Group">
               {driverData.bloodGroup}
@@ -526,14 +523,10 @@ const DriverDetailPage = ({ params }: { params: Promise<{ driverId: string }> })
                 {driverData.licenseType}
               </Descriptions.Item>
               <Descriptions.Item label="Issue Date">
-                {new Date(driverData.licenseIssueDate).toLocaleDateString(
-                  "en-IN"
-                )}
+                {formatDate(driverData.licenseIssueDate)}
               </Descriptions.Item>
               <Descriptions.Item label="Expiry Date">
-                {new Date(driverData.licenseExpiryDate).toLocaleDateString(
-                  "en-IN"
-                )}
+                {formatDate(driverData.licenseExpiryDate)}
               </Descriptions.Item>
             </Descriptions>
           </Card>
@@ -551,11 +544,7 @@ const DriverDetailPage = ({ params }: { params: Promise<{ driverId: string }> })
                 {driverData.experience} Years
               </Descriptions.Item>
               <Descriptions.Item label="Joining Date">
-                {new Date(driverData.joiningDate).toLocaleDateString("en-IN", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
+                {formatDate(driverData.joiningDate)}
               </Descriptions.Item>
               <Descriptions.Item label="Monthly Salary">
                 ₹{driverData.salary.toLocaleString()}

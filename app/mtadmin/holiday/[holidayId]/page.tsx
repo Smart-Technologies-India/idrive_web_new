@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, Button, Tag, Descriptions, Spin, Empty, Timeline } from "antd";
 import { IcBaselineArrowBack } from "@/components/icons";
 import { getHolidayById } from "@/services/holiday.api";
+import { formatDate, formatDateShort, formatDateTime } from "@/utils/date-format";
 
 const HolidayViewPage = () => {
   const params = useParams();
@@ -48,25 +49,6 @@ const HolidayViewPage = () => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   };
 
-  // Format date
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
-  };
-
-  // Format date and time
-  const formatDateTime = (dateString: string): string => {
-    return new Date(dateString).toLocaleString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {

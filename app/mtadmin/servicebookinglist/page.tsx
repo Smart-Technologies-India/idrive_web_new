@@ -8,16 +8,13 @@ import { getPaginatedBookingServices } from "@/services/service.booking.api";
 import type { BookingService } from "@/services/service.booking.api";
 import { getCookie } from "cookies-next";
 import { PlusOutlined } from "@ant-design/icons";
+import { formatDateShort } from "@/utils/date-format";
 import {
   useReactTable,
   getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
   flexRender,
   type ColumnDef,
   type SortingState,
-  type ColumnFiltersState,
 } from "@tanstack/react-table";
 import { encryptURLData } from "@/utils/methods";
 
@@ -28,12 +25,9 @@ const ServiceBookingListPage = () => {
   const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
   const [searchText, setSearchText] = useState("");
   const [filterServiceType, setFilterServiceType] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [pagination, setPagination] = useState({
-    pageIndex: 0,
-    pageSize: 10,
-  });
+  const pageSize = 10;
 
   // Fetch booking services
   const {
@@ -46,23 +40,34 @@ const ServiceBookingListPage = () => {
       schoolId,
       searchText,
       filterServiceType,
-      pagination.pageIndex,
-      pagination.pageSize,
+      currentPage,
+      JSON.stringify(sorting), // Stringify to ensure React Query detects changes
     ],
-    queryFn: () =>
-      getPaginatedBookingServices({
+    queryFn: () => {
+      // Convert TanStack sorting to backend orderBy format
+      const orderBy = sorting.map((sort) => ({
+        field: sort.id,
+        direction: sort.desc ? ("desc" as const) : ("asc" as const),
+      }));
+
+      return getPaginatedBookingServices({
         searchPaginationInput: {
-          skip: pagination.pageIndex * pagination.pageSize,
-          take: pagination.pageSize,
+          skip: (currentPage - 1) * pageSize,
+          take: pageSize,
           search: searchText,
+          filters: ["serviceName", "confirmationNumber", "user.name", "user.contact1"],
+          orderBy: orderBy.length > 0 ? orderBy : undefined,
         },
         whereSearchInput: {
           schoolId,
           serviceType:
             filterServiceType !== "all" ? filterServiceType : undefined,
         },
-      }),
+      });
+    },
     enabled: schoolId > 0,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const bookingServices =
@@ -189,12 +194,7 @@ const ServiceBookingListPage = () => {
       {
         accessorKey: "createdAt",
         header: "Booked Date",
-        cell: (info) =>
-          new Date(info.getValue() as string).toLocaleDateString("en-IN", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          }),
+        cell: (info) => formatDateShort(info.getValue() as string),
         size: 120,
       },
       {
@@ -219,24 +219,18 @@ const ServiceBookingListPage = () => {
     [router]
   );
 
-  // Create table instance
+  // Initialize TanStack Table
   const table = useReactTable({
     data: bookingServices,
     columns,
     state: {
       sorting,
-      columnFilters,
-      pagination,
     },
     onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    manualPagination: true,
-    pageCount: Math.ceil(totalBookingServices / pagination.pageSize),
+    manualPagination: true, // Backend handles pagination
+    manualSorting: true, // Backend handles sorting
+    pageCount: Math.ceil(totalBookingServices / pageSize),
   });
 
   return (
@@ -270,13 +264,13 @@ const ServiceBookingListPage = () => {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex-1 max-w-md">
               <Search
-                placeholder="Search by customer, service, or confirmation number..."
+                placeholder="Search by customer name, mobile, service name or confirmation number..."
                 allowClear
                 size="large"
                 value={searchText}
                 onChange={(e) => {
                   setSearchText(e.target.value);
-                  setPagination({ ...pagination, pageIndex: 0 });
+                  setCurrentPage(1);
                 }}
               />
             </div>
@@ -285,7 +279,7 @@ const ServiceBookingListPage = () => {
                 value={filterServiceType}
                 onChange={(value) => {
                   setFilterServiceType(value);
-                  setPagination({ ...pagination, pageIndex: 0 });
+                  setCurrentPage(1);
                 }}
                 style={{ width: 150 }}
                 size="large"
@@ -302,14 +296,14 @@ const ServiceBookingListPage = () => {
 
         <Card className="shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
+            <table className="w-full">
+              <thead className="bg-gray-50">
                 {table.getHeaderGroups().map((headerGroup) => (
                   <tr key={headerGroup.id} className="border-b border-gray-200">
                     {headerGroup.headers.map((header) => (
                       <th
                         key={header.id}
-                        className="px-4 py-3 text-left text-sm font-semibold text-gray-700 bg-gray-50"
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                         style={{ width: header.getSize() }}
                       >
                         {header.isPlaceholder ? null : (
@@ -363,7 +357,7 @@ const ServiceBookingListPage = () => {
                   table.getRowModel().rows.map((row) => (
                     <tr
                       key={row.id}
-                      className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                      className="border-b border-gray-200 bg-white hover:bg-gray-50 transition-colors"
                     >
                       {row.getVisibleCells().map((cell) => (
                         <td
@@ -384,44 +378,53 @@ const ServiceBookingListPage = () => {
           </div>
 
           {/* Pagination Controls */}
-          <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+          <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 bg-white">
             <div className="text-sm text-gray-700">
-              Showing {pagination.pageIndex * pagination.pageSize + 1} to{" "}
-              {Math.min(
-                (pagination.pageIndex + 1) * pagination.pageSize,
-                totalBookingServices
-              )}{" "}
-              of {totalBookingServices} service bookings
+              {bookingServices.length > 0 ? (
+                <>
+                  Showing {(currentPage - 1) * pageSize + 1} to{" "}
+                  {Math.min(currentPage * pageSize, totalBookingServices)} of{" "}
+                  {totalBookingServices} service bookings
+                </>
+              ) : (
+                <>No service bookings to display</>
+              )}
             </div>
-            <Space>
+            <div className="flex gap-2">
               <Button
-                onClick={() => table.setPageIndex(0)}
-                disabled={!table.getCanPreviousPage()}
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
               >
                 First
               </Button>
               <Button
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
               >
                 Previous
               </Button>
               <span className="px-4 py-2 text-sm">
-                Page {pagination.pageIndex + 1} of {table.getPageCount()}
+                Page {currentPage} of {Math.ceil(totalBookingServices / pageSize)}
               </span>
               <Button
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
+                onClick={() =>
+                  setCurrentPage((prev) =>
+                    Math.min(Math.ceil(totalBookingServices / pageSize), prev + 1)
+                  )
+                }
+                disabled={currentPage >= Math.ceil(totalBookingServices / pageSize)}
               >
                 Next
               </Button>
               <Button
-                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                disabled={!table.getCanNextPage()}
+                onClick={() =>
+                  setCurrentPage(Math.ceil(totalBookingServices / pageSize))
+                }
+                disabled={currentPage >= Math.ceil(totalBookingServices / pageSize)}
               >
                 Last
               </Button>
-            </Space>
+            </div>
           </div>
         </Card>
       </div>

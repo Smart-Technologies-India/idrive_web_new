@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import { useState } from "react";
+import { formatDateShort } from "@/utils/date-format";
 import { DateRangePicker } from "./inputfields/daterangepicker";
 import { SlotMultiSelect } from "./inputfields/slotmultiselect";
 import { MultiSelect } from "./inputfields/multiselect";
@@ -324,8 +325,8 @@ const HolidayDeclarationPage = () => {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
     return {
-      startDate: startDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      endDate: endDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      startDate: formatDateShort(startDate),
+      endDate: formatDateShort(endDate),
       totalDays: diffDays,
     };
   };

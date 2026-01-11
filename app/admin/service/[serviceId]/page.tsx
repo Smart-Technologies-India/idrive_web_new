@@ -10,6 +10,7 @@ import {
   Row,
   Col,
 } from "antd";
+import { formatDateTime } from "@/utils/date-format";
 import {
   AntDesignEditOutlined,
   Fa6SolidArrowLeftLong,
@@ -242,16 +243,10 @@ const ServiceDetailPage = ({
         >
           <Descriptions column={{ xs: 1, sm: 2 }} bordered>
             <Descriptions.Item label="Created At">
-              {new Date(serviceData.createdAt).toLocaleString("en-IN", {
-                dateStyle: "long",
-                timeStyle: "short",
-              })}
+              {formatDateTime(serviceData.createdAt)}
             </Descriptions.Item>
             <Descriptions.Item label="Last Updated">
-              {new Date(serviceData.updatedAt).toLocaleString("en-IN", {
-                dateStyle: "long",
-                timeStyle: "short",
-              })}
+              {formatDateTime(serviceData.updatedAt)}
             </Descriptions.Item>
           </Descriptions>
         </Card>

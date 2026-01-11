@@ -12,6 +12,7 @@ type TextInputProps<T extends FieldValues> = {
   disable?: boolean;
   maxlength?: number;
   extratax?: string;
+  capitalize?: boolean;
 };
 
 export function TextInput<T extends FieldValues>(props: TextInputProps<T>) {
@@ -61,6 +62,12 @@ export function TextInput<T extends FieldValues>(props: TextInputProps<T>) {
                   // Keep as string for onlynumber fields to maintain string validation
                   field.onChange(value);
                   return;
+                }
+                if (props.capitalize) {
+                  value = value
+                    .split(" ")
+                    .map((word) => word.toUpperCase())
+                    .join(" ");
                 }
 
                 field.onChange(value);

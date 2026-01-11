@@ -322,6 +322,8 @@ export const getPaginatedDrivers = async (variables: {
     skip: number;
     take: number;
     search?: string;
+    filters?: string[];
+    orderBy?: { field: string; direction: "asc" | "desc" }[];
   };
   whereSearchInput: {
     schoolId?: number;

@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { Card, Table, Input, Button, Tag, Space, Select } from "antd";
-import type { ColumnsType } from "antd/es/table";
+import { useState, useMemo } from "react";
+import { Card, Input, Button, Tag, Space, Select } from "antd";
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  type ColumnDef,
+  type SortingState,
+} from "@tanstack/react-table";
 import {
   AntDesignEyeOutlined,
   FluentMdl2Search,
@@ -42,24 +48,37 @@ const CarManagementPage = () => {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterFuelType, setFilterFuelType] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [sorting, setSorting] = useState<SortingState>([]);
   const pageSize = 10;
 
   // Fetch cars from API
   const { data: carsResponse, isLoading, refetch } = useQuery({
-    queryKey: ["cars", schoolId, currentPage, pageSize, searchText, filterStatus, filterFuelType],
-    queryFn: () => getPaginatedCars({
-      searchPaginationInput: {
-        skip: (currentPage - 1) * pageSize,
-        take: pageSize,
-        search: searchText,
-      },
-      whereSearchInput: {
-        schoolId: schoolId,
-        status: filterStatus == "all" ? undefined : filterStatus,
-        fuelType: filterFuelType == "all" ? undefined : filterFuelType,
-      },
-    }),
+    queryKey: ["cars", schoolId, currentPage, pageSize, searchText, filterStatus, filterFuelType, JSON.stringify(sorting)],
+    queryFn: () => {
+      // Convert TanStack sorting to backend orderBy format
+      const orderBy = sorting.map((sort) => ({
+        field: sort.id,
+        direction: sort.desc ? ("desc" as const) : ("asc" as const),
+      }));
+
+      return getPaginatedCars({
+        searchPaginationInput: {
+          skip: (currentPage - 1) * pageSize,
+          take: pageSize,
+          search: searchText,
+          filters: ["carName", "model", "registrationNumber", "carId"],
+          orderBy: orderBy.length > 0 ? orderBy : undefined,
+        },
+        whereSearchInput: {
+          schoolId: schoolId,
+          status: filterStatus == "all" ? undefined : filterStatus,
+          fuelType: filterFuelType == "all" ? undefined : filterFuelType,
+        },
+      });
+    },
     enabled: schoolId > 0,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   // No longer need to fetch drivers separately - using assignedDriver from car query
@@ -126,137 +145,123 @@ const CarManagementPage = () => {
     return texts[status] || status;
   };
 
-  const columns: ColumnsType<CarData> = [
-    {
-      title: "Car ID",
-      dataIndex: "carId",
-      key: "carId",
-      width: 120,
-      sorter: (a, b) => a.carId.localeCompare(b.carId),
-    },
-    {
-      title: "Car Details",
-      key: "carDetails",
-      width: 280,
-      render: (_, record) => (
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-            {record.carName.charAt(0)}
-          </div>
-          <div className="min-w-0">
-            <div className="font-semibold text-gray-900 truncate">
-              {record.carName} - {record.model}
-            </div>
-            <div className="text-xs text-gray-600 font-mono">
-              {record.registrationNumber}
-            </div>
-            <div className="text-xs text-gray-500">
-              {record.year} • {record.color}
-            </div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: "Fuel Type",
-      dataIndex: "fuelType",
-      key: "fuelType",
-      width: 120,
-      filters: [
-        { text: "Petrol", value: "Petrol" },
-        { text: "Diesel", value: "Diesel" },
-        { text: "Electric", value: "Electric" },
-        { text: "Hybrid", value: "Hybrid" },
-      ],
-      onFilter: (value, record) => record.fuelType == value,
-      render: (fuelType) => (
-        <Tag color="purple" className="!text-sm !px-3 !py-1">
-          {fuelType}
-        </Tag>
-      ),
-    },
-    {
-      title: "Assigned Driver",
-      key: "driver",
-      width: 180,
-      render: (_, record) =>
-        record.driverName ? (
-          <div>
-            <div className="font-medium text-gray-900">{record.driverName}</div>
-            <div className="text-xs text-gray-500">{record.driverId}</div>
-          </div>
-        ) : (
-          <span className="text-gray-400 italic">Not Assigned</span>
+  // Define columns using TanStack Table
+  const columns = useMemo<ColumnDef<CarData>[]>(
+    () => [
+      {
+        accessorKey: "carId",
+        header: "Car ID",
+        cell: (info) => (
+          <span className="font-medium">{info.getValue() as string}</span>
         ),
+        enableSorting: true,
+      },
+      {
+        id: "carDetails",
+        header: "Car Details",
+        cell: (info) => (
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+              {info.row.original.carName.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <div className="font-semibold text-gray-900 truncate">
+                {info.row.original.carName} - {info.row.original.model}
+              </div>
+              <div className="text-xs text-gray-600 font-mono">
+                {info.row.original.registrationNumber}
+              </div>
+              <div className="text-xs text-gray-500">
+                {info.row.original.year} • {info.row.original.color}
+              </div>
+            </div>
+          </div>
+        ),
+        enableSorting: false,
+      },
+      {
+        accessorKey: "fuelType",
+        header: "Fuel Type",
+        cell: (info) => (
+          <Tag color="purple" className="!text-sm !px-3 !py-1">
+            {info.getValue() as string}
+          </Tag>
+        ),
+        enableSorting: true,
+      },
+      {
+        id: "driver",
+        header: "Assigned Driver",
+        cell: (info) =>
+          info.row.original.driverName ? (
+            <div>
+              <div className="font-medium text-gray-900">{info.row.original.driverName}</div>
+              <div className="text-xs text-gray-500">{info.row.original.driverId}</div>
+            </div>
+          ) : (
+            <span className="text-gray-400 italic">Not Assigned</span>
+          ),
+        enableSorting: false,
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: (info) => {
+          const status = info.getValue() as string;
+          return (
+            <Tag
+              color={getStatusColor(status)}
+              className="!text-sm !px-3 !py-1 !font-medium"
+            >
+              {getStatusText(status)}
+            </Tag>
+          );
+        },
+        enableSorting: false,
+      },
+      {
+        id: "action",
+        header: "Action",
+        cell: (info) => (
+          <Button
+            type="primary"
+            icon={<AntDesignEyeOutlined />}
+            onClick={() => router.push(`/mtadmin/car/${info.row.original.id || info.row.original.key}`)}
+            className="!bg-blue-600"
+          >
+            View Details
+          </Button>
+        ),
+        enableSorting: false,
+      },
+    ],
+    [router]
+  );
+
+  // Initialize TanStack Table
+  const table = useReactTable({
+    data: cars,
+    columns,
+    state: {
+      sorting,
     },
-    {
-      title: "Total Bookings",
-      dataIndex: "totalBookings",
-      key: "totalBookings",
-      width: 140,
-      align: "center",
-      sorter: (a, b) => a.totalBookings - b.totalBookings,
-      render: (bookings) => (
-        <div className="flex items-center justify-center gap-2">
-          <IcBaselineCalendarMonth className="text-purple-600 text-lg" />
-          <span className="font-medium">{bookings}</span>
-        </div>
-      ),
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      width: 130,
-      align: "center",
-      filters: [
-        { text: "Available", value: "available" },
-        { text: "In Use", value: "in-use" },
-        { text: "Maintenance", value: "maintenance" },
-        { text: "Inactive", value: "inactive" },
-      ],
-      onFilter: (value, record) => record.status == value,
-      render: (status: string) => (
-        <Tag
-          color={getStatusColor(status)}
-          className="!text-sm !px-3 !py-1 !font-medium"
-        >
-          {getStatusText(status)}
-        </Tag>
-      ),
-    },
-    {
-      title: "Next Service",
-      dataIndex: "nextService",
-      key: "nextService",
-      width: 130,
-      sorter: (a, b) => a.nextService.localeCompare(b.nextService),
-      render: (date) => new Date(date).toLocaleDateString("en-IN"),
-    },
-    {
-      title: "Action",
-      key: "action",
-      width: 140,
-      fixed: "right",
-      render: (_, record) => (
-        <Button
-          type="primary"
-          icon={<AntDesignEyeOutlined />}
-          onClick={() => router.push(`/mtadmin/car/${(record as CarData & { id?: number }).id || record.key}`)}
-          className="!bg-blue-600"
-        >
-          View Details
-        </Button>
-      ),
-    },
-  ];
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    manualPagination: true, // Backend handles pagination
+    manualSorting: true, // Backend handles sorting
+    pageCount: Math.ceil(totalCars / pageSize),
+  });
 
   const stats = {
-    total: cars.length,
-    available: cars.filter((c) => c.status == "available").length,
-    inUse: cars.filter((c) => c.status == "in-use").length,
-    maintenance: cars.filter((c) => c.status == "maintenance").length,
+    total: totalCars,
+    available: cars.filter((c) => c.status === "available").length,
+    inUse: cars.filter((c) => c.status === "in-use").length,
+    maintenance: cars.filter((c) => c.status === "maintenance").length,
   };
+
+  // Calculate pagination info for display
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalCars);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -407,25 +412,120 @@ const CarManagementPage = () => {
             </Space>
           </div>
         </Card>
-        <div></div>
         {/* Cars Table */}
         <Card className="shadow-sm">
-          <Table
-            columns={columns}
-            dataSource={cars}
-            loading={isLoading}
-            pagination={{
-              current: currentPage,
-              pageSize: pageSize,
-              total: totalCars,
-              onChange: (page) => setCurrentPage(page),
-              showTotal: (total, range) =>
-                `${range[0]}-${range[1]} of ${total} cars`,
-              showSizeChanger: false,
-            }}
-            scroll={{ x: 1400 }}
-            size="middle"
-          />
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <tr key={headerGroup.id} className="border-b border-gray-200">
+                    {headerGroup.headers.map((header) => (
+                      <th
+                        key={header.id}
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        {header.isPlaceholder ? null : (
+                          <div
+                            className={
+                              header.column.getCanSort()
+                                ? "cursor-pointer select-none flex items-center gap-2"
+                                : ""
+                            }
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                            {header.column.getCanSort() && (
+                              <span className="text-xs">
+                                {{
+                                  asc: "↑",
+                                  desc: "↓",
+                                }[header.column.getIsSorted() as string] ?? "↕"}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td
+                      colSpan={columns.length}
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
+                      Loading...
+                    </td>
+                  </tr>
+                ) : table.getRowModel().rows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={columns.length}
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
+                      No cars found
+                    </td>
+                  </tr>
+                ) : (
+                  table.getRowModel().rows.map((row) => (
+                    <tr
+                      key={row.original.id}
+                      className="border-b border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className="px-4 py-3 text-sm">
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between px-4 py-4 border-t border-gray-200 bg-white">
+            <div className="text-sm text-gray-700">
+              {cars.length > 0 ? (
+                <>
+                  Showing {startIndex + 1} to {Math.min(endIndex, totalCars)}{" "}
+                  of {totalCars} cars
+                </>
+              ) : (
+                <>No cars to display</>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <span className="px-4 py-2 text-sm">
+                Page {currentPage} of {Math.ceil(totalCars / pageSize)}
+              </span>
+              <Button
+                onClick={() =>
+                  setCurrentPage((prev) =>
+                    Math.min(Math.ceil(totalCars / pageSize), prev + 1)
+                  )
+                }
+                disabled={currentPage >= Math.ceil(totalCars / pageSize)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         </Card>
       </div>
     </div>

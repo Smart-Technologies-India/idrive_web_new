@@ -3,7 +3,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Card,
-  Table,
   Input,
   Button,
   Tag,
@@ -13,7 +12,14 @@ import {
   Alert,
   Switch,
 } from "antd";
-import type { ColumnsType } from "antd/es/table";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  flexRender,
+  createColumnHelper,
+  SortingState,
+} from "@tanstack/react-table";
 import type { Booking } from "@/services/booking.api";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -23,6 +29,7 @@ import { getCookie } from "cookies-next";
 import { WarningOutlined } from "@ant-design/icons";
 import { convertSlotTo12Hour } from "@/utils/time-format";
 import { encryptURLData } from "@/utils/methods";
+import { formatDate } from "@/utils/date-format";
 
 const { Search } = Input;
 
@@ -91,9 +98,13 @@ const PaymentStatusCell = ({
 
   // Notify parent component of urgency status
   useEffect(() => {
-    if (onUrgencyDetected) {
+    let mounted = true;
+    if (onUrgencyDetected && mounted) {
       onUrgencyDetected(bookingId, isUrgent, daysUntilEnd);
     }
+    return () => {
+      mounted = false;
+    };
   }, [bookingId, isUrgent, daysUntilEnd, onUrgencyDetected]);
 
   return (
@@ -139,6 +150,7 @@ const BookingListPage = () => {
   const [urgentBookingIds, setUrgentBookingIds] = useState<Set<number>>(
     new Set()
   );
+  const [sorting, setSorting] = useState<SortingState>([]);
   const pageSize = 10;
 
   // Fetch bookings
@@ -147,20 +159,38 @@ const BookingListPage = () => {
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: ["booking-list", schoolId, searchText, filterStatus, currentPage],
-    queryFn: () =>
-      getPaginatedBookings({
+    queryKey: [
+      "booking-list",
+      schoolId,
+      searchText,
+      filterStatus,
+      currentPage,
+      JSON.stringify(sorting), // Stringify to ensure React Query detects changes
+    ],
+    queryFn: () => {
+      // Convert TanStack sorting to backend orderBy format
+      const orderBy = sorting.map((sort) => ({
+        field: sort.id,
+        direction: sort.desc ? ("desc" as const) : ("asc" as const),
+      }));
+
+      return getPaginatedBookings({
         searchPaginationInput: {
           skip: (currentPage - 1) * pageSize,
           take: pageSize,
           search: searchText,
+          filters: ["customerMobile", "customerName", "carName"],
+          ...(orderBy.length > 0 ? { orderBy } : {}),
         },
         whereSearchInput: {
           schoolId,
           status: filterStatus !== "all" ? filterStatus : undefined,
         },
-      }),
+      });
+    },
     enabled: schoolId > 0,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const allBookings = useMemo(() => {
@@ -187,8 +217,9 @@ const BookingListPage = () => {
 
   // Filter bookings based on urgent flag
   const bookings = useMemo(() => {
-    if (!showUrgentOnly) return allBookings;
-    return allBookings.filter((booking) => urgentBookingIds.has(booking.id));
+    return showUrgentOnly
+      ? allBookings.filter((booking) => urgentBookingIds.has(booking.id))
+      : allBookings;
   }, [allBookings, showUrgentOnly, urgentBookingIds]);
 
   // Calculate the correct total for pagination
@@ -197,113 +228,121 @@ const BookingListPage = () => {
     return bookings.length;
   }, [showUrgentOnly, totalBookings, bookings.length]);
 
-  const columns: ColumnsType<Booking> = [
-    {
-      title: "Booking ID",
-      dataIndex: "bookingId",
-      key: "bookingId",
-      width: 120,
-      sorter: true,
-    },
-    {
-      title: "Customer",
-      key: "customer",
-      width: 200,
-      render: (_, record) => (
-        <div>
-          <div className="font-semibold text-gray-900">
-            {record.customerName}
+  // Define columns using TanStack Table
+  const columns = useMemo(() => {
+    const columnHelper = createColumnHelper<Booking>();
+
+    return [
+      columnHelper.accessor("bookingId", {
+        header: "Booking ID",
+        cell: (info) => info.getValue(),
+        enableSorting: true,
+      }),
+      columnHelper.accessor("customerName", {
+        header: "Customer",
+        cell: (info) => (
+          <div>
+            <div className="font-semibold text-gray-900">
+              {info.getValue() || "N/A"}
+            </div>
+            <div className="text-xs text-gray-500">
+              {info.row.original.customerMobile}
+            </div>
           </div>
-          <div className="text-xs text-gray-500">{record.customerMobile}</div>
-        </div>
-      ),
+        ),
+        enableSorting: false,
+      }),
+      columnHelper.accessor("courseName", {
+        header: "Course",
+        cell: (info) => info.getValue(),
+        enableSorting: true,
+      }),
+      columnHelper.accessor("carName", {
+        header: "Car",
+        cell: (info) => info.getValue(),
+        enableSorting: true,
+      }),
+      columnHelper.accessor("bookingDate", {
+        header: "Date",
+        cell: (info) => formatDate(info.getValue()),
+        enableSorting: true,
+      }),
+      columnHelper.accessor("slot", {
+        header: "Slot",
+        cell: (info) => convertSlotTo12Hour(info.getValue()),
+        enableSorting: false,
+      }),
+      columnHelper.accessor("status", {
+        header: "Status",
+        cell: (info) => {
+          const status = info.getValue();
+          return (
+            <Tag
+              color={
+                status === "COMPLETED"
+                  ? "green"
+                  : status === "CANCELLED"
+                  ? "red"
+                  : "blue"
+              }
+            >
+              {status}
+            </Tag>
+          );
+        },
+        enableSorting: false,
+      }),
+      columnHelper.accessor("totalAmount", {
+        header: "Amount",
+        cell: (info) => `₹${info.getValue().toLocaleString("en-IN")}`,
+        enableSorting: false,
+      }),
+      columnHelper.display({
+        id: "paymentStatus",
+        header: "Payment Status",
+        cell: (info) => (
+          <PaymentStatusCell
+            bookingId={info.row.original.id}
+            totalAmount={info.row.original.totalAmount}
+            booking={info.row.original}
+            onUrgencyDetected={handleUrgencyDetected}
+          />
+        ),
+      }),
+      columnHelper.display({
+        id: "action",
+        header: "Action",
+        cell: (info) => (
+          <Button
+            type="primary"
+            onClick={() => {
+              const encodedId = encryptURLData(info.row.original.id.toString());
+              router.push(`/mtadmin/bookinglist/${encodedId}`);
+            }}
+          >
+            View
+          </Button>
+        ),
+      }),
+    ];
+  }, [handleUrgencyDetected, router]);
+
+  // Initialize TanStack Table
+  const table = useReactTable({
+    data: bookings,
+    columns,
+    state: {
+      sorting,
     },
-    {
-      title: "Course",
-      dataIndex: "courseName",
-      key: "courseName",
-      width: 160,
-      sorter: true,
-    },
-    {
-      title: "Car",
-      dataIndex: "carName",
-      key: "carName",
-      width: 140,
-      sorter: true,
-    },
-    {
-      title: "Date",
-      dataIndex: "bookingDate",
-      key: "bookingDate",
-      width: 130,
-      sorter: true,
-      render: (date) => new Date(date).toLocaleDateString("en-IN"),
-    },
-    {
-      title: "Slot",
-      dataIndex: "slot",
-      key: "slot",
-      render: (slot: string) => convertSlotTo12Hour(slot),
-      width: 110,
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      width: 120,
-      render: (status) => (
-        <Tag
-          color={
-            status == "COMPLETED"
-              ? "green"
-              : status == "CANCELLED"
-              ? "red"
-              : "blue"
-          }
-        >
-          {status}
-        </Tag>
-      ),
-    },
-    {
-      title: "Amount",
-      dataIndex: "totalAmount",
-      key: "totalAmount",
-      width: 120,
-      render: (amt) => `₹${amt.toLocaleString("en-IN")}`,
-    },
-    {
-      title: "Payment Status",
-      key: "paymentStatus",
-      width: 180,
-      render: (_, record) => (
-        <PaymentStatusCell
-          bookingId={record.id}
-          totalAmount={record.totalAmount}
-          booking={record}
-          onUrgencyDetected={handleUrgencyDetected}
-        />
-      ),
-    },
-    {
-      title: "Action",
-      key: "action",
-      width: 120,
-      fixed: "right",
-      render: (_, record) => (
-        <Button
-          type="primary"
-          onClick={() => {
-            const encodedId = encryptURLData(record.id.toString());
-            router.push(`/mtadmin/bookinglist/${encodedId}`);
-          }}
-        >
-          View
-        </Button>
-      ),
-    },
-  ];
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    manualPagination: true, // Use manual pagination since backend handles it
+    manualSorting: true, // Use manual sorting since backend handles it
+  });
+
+  // Calculate pagination info for display
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, displayTotal);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -380,28 +419,122 @@ const BookingListPage = () => {
         </Card>
         <div></div>
         <Card className="shadow-sm">
-          <Table
-            columns={columns}
-            dataSource={bookings}
-            loading={isLoading}
-            pagination={{
-              current: currentPage,
-              pageSize: pageSize,
-              total: displayTotal,
-              onChange: (page) => setCurrentPage(page),
-              showTotal: (total, range) =>
-                `${range[0]}-${range[1]} of ${total} bookings`,
-              showSizeChanger: false,
-            }}
-            scroll={{ x: 1200 }}
-            size="middle"
-            rowKey="id"
-            rowClassName={(record) =>
-              urgentBookingIds.has(record.id)
-                ? "bg-red-50 hover:bg-red-100"
-                : ""
-            }
-          />
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <tr key={headerGroup.id} className="border-b border-gray-200">
+                    {headerGroup.headers.map((header) => (
+                      <th
+                        key={header.id}
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        {header.isPlaceholder ? null : (
+                          <div
+                            className={
+                              header.column.getCanSort()
+                                ? "cursor-pointer select-none flex items-center gap-2"
+                                : ""
+                            }
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                            {header.column.getCanSort() && (
+                              <span className="text-xs">
+                                {{
+                                  asc: "↑",
+                                  desc: "↓",
+                                }[header.column.getIsSorted() as string] ?? "↕"}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td
+                      colSpan={columns.length}
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
+                      Loading...
+                    </td>
+                  </tr>
+                ) : table.getRowModel().rows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={columns.length}
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
+                      No bookings found
+                    </td>
+                  </tr>
+                ) : (
+                  table.getRowModel().rows.map((row) => (
+                    <tr
+                      key={row.original.id}
+                      className={`border-b border-gray-200 transition-colors ${
+                        urgentBookingIds.has(row.original.id)
+                          ? "bg-red-50 hover:bg-red-100"
+                          : "bg-white hover:bg-gray-50"
+                      }`}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className="px-4 py-3 text-sm">
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between px-4 py-4 border-t border-gray-200 bg-white">
+            <div className="text-sm text-gray-700">
+              {bookings.length > 0 ? (
+                <>
+                  Showing {startIndex + 1} to {Math.min(endIndex, displayTotal)}{" "}
+                  of {displayTotal} bookings
+                </>
+              ) : (
+                <>No bookings to display</>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <span className="px-4 py-2 text-sm">
+                Page {currentPage} of {Math.ceil(displayTotal / pageSize)}
+              </span>
+              <Button
+                onClick={() =>
+                  setCurrentPage((prev) =>
+                    Math.min(Math.ceil(displayTotal / pageSize), prev + 1)
+                  )
+                }
+                disabled={currentPage >= Math.ceil(displayTotal / pageSize)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         </Card>
       </div>
     </div>

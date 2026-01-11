@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { Card, Table, Input, Button, Tag, Space, Select, Avatar } from "antd";
-import type { ColumnsType } from "antd/es/table";
+import { useState, useMemo } from "react";
+import { Card, Input, Button, Tag, Space, Select, Avatar } from "antd";
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  type ColumnDef,
+  type SortingState,
+} from "@tanstack/react-table";
 import {
   AntDesignEyeOutlined,
   AntDesignEditOutlined,
@@ -16,6 +22,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getPaginatedDrivers, type Driver } from "@/services/driver.api";
 import { getCookie } from "cookies-next";
+import { formatDate } from "@/utils/date-format";
 
 const { Search } = Input;
 
@@ -42,23 +49,36 @@ const DriverManagementPage = () => {
   const [searchText, setSearchText] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [sorting, setSorting] = useState<SortingState>([]);
   const pageSize = 10;
 
   // Fetch drivers from API
   const { data: driversResponse, isLoading, refetch } = useQuery({
-    queryKey: ["drivers", schoolId, currentPage, pageSize, searchText, filterStatus],
-    queryFn: () => getPaginatedDrivers({
-      searchPaginationInput: {
-        skip: (currentPage - 1) * pageSize,
-        take: pageSize,
-        search: searchText,
-      },
-      whereSearchInput: {
-        schoolId: schoolId,
-        status: filterStatus == "all" ? undefined : filterStatus,
-      },
-    }),
+    queryKey: ["drivers", schoolId, currentPage, pageSize, searchText, filterStatus, JSON.stringify(sorting)],
+    queryFn: () => {
+      // Convert TanStack sorting to backend orderBy format
+      const orderBy = sorting.map((sort) => ({
+        field: sort.id,
+        direction: sort.desc ? ("desc" as const) : ("asc" as const),
+      }));
+
+      return getPaginatedDrivers({
+        searchPaginationInput: {
+          skip: (currentPage - 1) * pageSize,
+          take: pageSize,
+          search: searchText,
+          filters: ["name", "email", "mobile", "licenseNumber", "driverId"],
+          orderBy: orderBy.length > 0 ? orderBy : undefined,
+        },
+        whereSearchInput: {
+          schoolId: schoolId,
+          status: filterStatus == "all" ? undefined : filterStatus,
+        },
+      });
+    },
     enabled: schoolId > 0,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const drivers: DriverData[] = driversResponse?.data?.getPaginatedDriver?.data?.map((driver: Driver) => ({
@@ -80,165 +100,182 @@ const DriverManagementPage = () => {
 
   const totalDrivers = driversResponse?.data?.getPaginatedDriver?.total || 0;
 
-  const columns: ColumnsType<DriverData> = [
-    {
-      title: "Driver ID",
-      dataIndex: "driverId",
-      key: "driverId",
-      width: 120,
-      sorter: (a, b) => a.driverId.localeCompare(b.driverId),
-    },
-    {
-      title: "Driver Details",
-      key: "driverDetails",
-      width: 280,
-      render: (_, record) => (
-        <div className="flex items-center gap-3">
-          <Avatar
-            size={40}
-            icon={<MaterialSymbolsPersonRounded />}
-            className="bg-gradient-to-r from-green-600 to-teal-600 flex-shrink-0"
-          />
-          <div className="min-w-0">
-            <div className="font-semibold text-gray-900 truncate">
-              {record.name}
-            </div>
-            <div className="text-xs text-gray-500 truncate">{record.email}</div>
-            <div className="text-xs text-gray-600">{record.mobile}</div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: "License Number",
-      dataIndex: "licenseNumber",
-      key: "licenseNumber",
-      width: 180,
-      render: (license) => (
-        <span className="font-mono text-sm text-gray-700">{license}</span>
-      ),
-    },
-    {
-      title: "Experience",
-      dataIndex: "experience",
-      key: "experience",
-      width: 120,
-      align: "center",
-      sorter: (a, b) => a.experience - b.experience,
-      render: (exp) => (
-        <Tag color="purple" className="!text-sm !px-3 !py-1">
-          {exp} {exp == 1 ? "Year" : "Years"}
-        </Tag>
-      ),
-    },
-    {
-      title: "Total Bookings",
-      dataIndex: "totalBookings",
-      key: "totalBookings",
-      width: 140,
-      align: "center",
-      sorter: (a, b) => a.totalBookings - b.totalBookings,
-      render: (bookings) => (
-        <div className="flex items-center justify-center gap-2">
-          <IcBaselineCalendarMonth className="text-blue-600 text-lg" />
-          <span className="font-medium">{bookings}</span>
-        </div>
-      ),
-    },
-    {
-      title: "Completed",
-      dataIndex: "completedBookings",
-      key: "completedBookings",
-      width: 120,
-      align: "center",
-      sorter: (a, b) => a.completedBookings - b.completedBookings,
-      render: (completed) => (
-        <span className="font-medium text-green-600">{completed}</span>
-      ),
-    },
-    {
-      title: "Rating",
-      dataIndex: "rating",
-      key: "rating",
-      width: 100,
-      align: "center",
-      sorter: (a, b) => a.rating - b.rating,
-      render: (rating) => (
-        <div className="flex items-center justify-center gap-1">
-          <span className="text-yellow-500">⭐</span>
-          <span className="font-semibold">{rating.toFixed(1)}</span>
-        </div>
-      ),
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      width: 120,
-      align: "center",
-      render: (status: "ACTIVE" | "INACTIVE" | "ON_LEAVE" | "SUSPENDED") => {
-        const config = {
-          ACTIVE: { color: "green", text: "Active" },
-          INACTIVE: { color: "red", text: "Inactive" },
-          ON_LEAVE: { color: "orange", text: "On Leave" },
-          SUSPENDED: { color: "volcano", text: "Suspended" },
-        };
-        return (
-          <Tag
-            color={config[status].color}
-            className="!text-sm !px-3 !py-1"
-          >
-            {config[status].text}
-          </Tag>
-        );
+  // Define columns using TanStack Table
+  const columns = useMemo<ColumnDef<DriverData>[]>(
+    () => [
+      {
+        accessorKey: "driverId",
+        header: "Driver ID",
+        cell: (info) => (
+          <span className="font-medium">{info.getValue() as string}</span>
+        ),
+        enableSorting: true,
       },
+      {
+        id: "driverDetails",
+        header: "Driver Details",
+        cell: (info) => (
+          <div className="flex items-center gap-3">
+            <Avatar
+              size={40}
+              icon={<MaterialSymbolsPersonRounded />}
+              className="bg-gradient-to-r from-green-600 to-teal-600 flex-shrink-0"
+            />
+            <div className="min-w-0">
+              <div className="font-semibold text-gray-900 truncate">
+                {info.row.original.name}
+              </div>
+              <div className="text-xs text-gray-500 truncate">
+                {info.row.original.email}
+              </div>
+              <div className="text-xs text-gray-600">
+                {info.row.original.mobile}
+              </div>
+            </div>
+          </div>
+        ),
+        enableSorting: false,
+      },
+      {
+        accessorKey: "licenseNumber",
+        header: "License Number",
+        cell: (info) => (
+          <span className="font-mono text-sm text-gray-700">
+            {info.getValue() as string}
+          </span>
+        ),
+        enableSorting: true,
+      },
+      {
+        accessorKey: "experience",
+        header: "Experience",
+        cell: (info) => {
+          const exp = info.getValue() as number;
+          return (
+            <Tag color="purple" className="!text-sm !px-3 !py-1">
+              {exp} {exp === 1 ? "Year" : "Years"}
+            </Tag>
+          );
+        },
+        enableSorting: true,
+      },
+      {
+        accessorKey: "totalBookings",
+        header: "Total Bookings",
+        cell: (info) => (
+          <div className="flex items-center justify-center gap-2">
+            <IcBaselineCalendarMonth className="text-blue-600 text-lg" />
+            <span className="font-medium">{info.getValue() as number}</span>
+          </div>
+        ),
+        enableSorting: true,
+      },
+      {
+        accessorKey: "completedBookings",
+        header: "Completed",
+        cell: (info) => (
+          <span className="font-medium text-green-600">
+            {info.getValue() as number}
+          </span>
+        ),
+        enableSorting: true,
+      },
+      {
+        accessorKey: "rating",
+        header: "Rating",
+        cell: (info) => {
+          const rating = info.getValue() as number;
+          return (
+            <div className="flex items-center justify-center gap-1">
+              <span className="text-yellow-500">⭐</span>
+              <span className="font-semibold">{rating.toFixed(1)}</span>
+            </div>
+          );
+        },
+        enableSorting: true,
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: (info) => {
+          const status = info.getValue() as "ACTIVE" | "INACTIVE" | "ON_LEAVE" | "SUSPENDED";
+          const config = {
+            ACTIVE: { color: "green", text: "Active" },
+            INACTIVE: { color: "red", text: "Inactive" },
+            ON_LEAVE: { color: "orange", text: "On Leave" },
+            SUSPENDED: { color: "volcano", text: "Suspended" },
+          };
+          return (
+            <Tag color={config[status].color} className="!text-sm !px-3 !py-1">
+              {config[status].text}
+            </Tag>
+          );
+        },
+        enableSorting: false,
+      },
+      {
+        accessorKey: "joiningDate",
+        header: "Joined Date",
+        cell: (info) => formatDate(info.getValue() as string),
+        enableSorting: true,
+      },
+      {
+        id: "action",
+        header: "Action",
+        cell: (info) => (
+          <Space>
+            <Button
+              type="default"
+              icon={<AntDesignEyeOutlined />}
+              onClick={() => router.push(`/mtadmin/driver/${info.row.original.id}`)}
+            >
+              View
+            </Button>
+            <Button
+              type="primary"
+              icon={<AntDesignEditOutlined />}
+              onClick={() =>
+                router.push(`/mtadmin/driver/${info.row.original.id}/edit`)
+              }
+              className="!bg-blue-600"
+            >
+              Edit
+            </Button>
+          </Space>
+        ),
+        enableSorting: false,
+      },
+    ],
+    [router]
+  );
+
+  // Initialize TanStack Table
+  const table = useReactTable({
+    data: drivers,
+    columns,
+    state: {
+      sorting,
     },
-    {
-      title: "Joined Date",
-      dataIndex: "joiningDate",
-      key: "joiningDate",
-      width: 130,
-      sorter: (a, b) => a.joiningDate.localeCompare(b.joiningDate),
-      render: (date) => new Date(date).toLocaleDateString("en-IN"),
-    },
-    {
-      title: "Action",
-      key: "action",
-      width: 180,
-      fixed: "right",
-      render: (_, record) => (
-        <Space>
-          <Button
-            type="default"
-            icon={<AntDesignEyeOutlined />}
-            onClick={() => router.push(`/mtadmin/driver/${record.id}`)}
-          >
-            View
-          </Button>
-          <Button
-            type="primary"
-            icon={<AntDesignEditOutlined />}
-            onClick={() =>
-              router.push(`/mtadmin/driver/${record.id}/edit`)
-            }
-            className="!bg-blue-600"
-          >
-            Edit
-          </Button>
-        </Space>
-      ),
-    },
-  ];
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    manualPagination: true, // Backend handles pagination
+    manualSorting: true, // Backend handles sorting
+    pageCount: Math.ceil(totalDrivers / pageSize),
+  });
 
   const stats = {
-    total: drivers.length,
-    active: drivers.filter((d) => d.status == "ACTIVE").length,
-    inactive: drivers.filter((d) => d.status == "INACTIVE").length,
-    onLeave: drivers.filter((d) => d.status == "ON_LEAVE").length,
+    total: totalDrivers,
+    active: drivers.filter((d) => d.status === "ACTIVE").length,
+    inactive: drivers.filter((d) => d.status === "INACTIVE").length,
+    onLeave: drivers.filter((d) => d.status === "ON_LEAVE").length,
     avgRating: drivers.length > 0 
       ? (drivers.reduce((sum, d) => sum + d.rating, 0) / drivers.length).toFixed(1)
       : "0.0",
   };
+
+  // Calculate pagination info for display
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalDrivers);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -392,22 +429,118 @@ const DriverManagementPage = () => {
 
         {/* Drivers Table */}
         <Card className="shadow-sm">
-          <Table
-            columns={columns}
-            dataSource={drivers}
-            loading={isLoading}
-            pagination={{
-              current: currentPage,
-              pageSize: pageSize,
-              total: totalDrivers,
-              onChange: (page) => setCurrentPage(page),
-              showTotal: (total, range) =>
-                `${range[0]}-${range[1]} of ${total} drivers`,
-              showSizeChanger: false,
-            }}
-            scroll={{ x: 1400 }}
-            size="middle"
-          />
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <tr key={headerGroup.id} className="border-b border-gray-200">
+                    {headerGroup.headers.map((header) => (
+                      <th
+                        key={header.id}
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        {header.isPlaceholder ? null : (
+                          <div
+                            className={
+                              header.column.getCanSort()
+                                ? "cursor-pointer select-none flex items-center gap-2"
+                                : ""
+                            }
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                            {header.column.getCanSort() && (
+                              <span className="text-xs">
+                                {{
+                                  asc: "↑",
+                                  desc: "↓",
+                                }[header.column.getIsSorted() as string] ?? "↕"}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td
+                      colSpan={columns.length}
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
+                      Loading...
+                    </td>
+                  </tr>
+                ) : table.getRowModel().rows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={columns.length}
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
+                      No drivers found
+                    </td>
+                  </tr>
+                ) : (
+                  table.getRowModel().rows.map((row) => (
+                    <tr
+                      key={row.original.id}
+                      className="border-b border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className="px-4 py-3 text-sm">
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between px-4 py-4 border-t border-gray-200 bg-white">
+            <div className="text-sm text-gray-700">
+              {drivers.length > 0 ? (
+                <>
+                  Showing {startIndex + 1} to {Math.min(endIndex, totalDrivers)}{" "}
+                  of {totalDrivers} drivers
+                </>
+              ) : (
+                <>No drivers to display</>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <span className="px-4 py-2 text-sm">
+                Page {currentPage} of {Math.ceil(totalDrivers / pageSize)}
+              </span>
+              <Button
+                onClick={() =>
+                  setCurrentPage((prev) =>
+                    Math.min(Math.ceil(totalDrivers / pageSize), prev + 1)
+                  )
+                }
+                disabled={currentPage >= Math.ceil(totalDrivers / pageSize)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         </Card>
       </div>
     </div>

@@ -9,6 +9,7 @@ type TaxtAreaInputProps<T extends FieldValues> = {
   onlynumber?: boolean;
   disable?: boolean;
   maxlength?: number;
+  uppercase?: boolean;
 };
 
 export function TaxtAreaInput<T extends FieldValues>(
@@ -46,6 +47,9 @@ export function TaxtAreaInput<T extends FieldValues>(
                 let { value } = e.target;
                 if (props.onlynumber) {
                   value = value.replace(/[^0-9]/g, ""); // Filter out non-numeric characters
+                }
+                if (props.uppercase) {
+                  value = value.toUpperCase(); // Convert to uppercase
                 }
                 field.onChange(value);
               }}

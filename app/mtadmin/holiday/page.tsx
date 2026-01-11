@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card, Table, Input, Button, Tag, Space, Select, Modal } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { formatDateShort } from "@/utils/date-format";
 import {
   AntDesignEyeOutlined,
   FluentMdl2Search,
@@ -127,16 +128,8 @@ const HolidayManagementPage = () => {
 
   // Format date range
   const formatDateRange = (startDate: string, endDate: string): string => {
-    const start = new Date(startDate).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-    const end = new Date(endDate).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    const start = formatDateShort(startDate);
+    const end = formatDateShort(endDate);
     return `${start} - ${end}`;
   };
 

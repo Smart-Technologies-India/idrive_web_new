@@ -9,8 +9,21 @@ import { useState, useEffect } from "react";
 import { TextInput } from "./inputfields/textinput";
 import { TaxtAreaInput } from "./inputfields/textareainput";
 import { MultiSelect } from "./inputfields/multiselect";
-import { Modal, Button, Tag, Spin, Drawer, Input } from "antd";
+import {
+  Modal,
+  Button,
+  Tag,
+  Spin,
+  Drawer,
+  Input,
+  Select,
+  Checkbox,
+  DatePicker,
+} from "antd";
 import { getCookie } from "cookies-next";
+import dayjs, { Dayjs } from "dayjs";
+
+const { TextArea } = Input;
 import {
   getAllSchoolServices,
   type SchoolService,
@@ -70,7 +83,18 @@ const ServiceBookingForm = () => {
   const [customerData, setCustomerData] = useState<Customer | null>(null);
   const [showCreateUserDrawer, setShowCreateUserDrawer] = useState(false);
   const [newUserName, setNewUserName] = useState("");
+  const [newUserSurname, setNewUserSurname] = useState("");
+  const [newUserFatherName, setNewUserFatherName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserContact, setNewUserContact] = useState("");
+  const [newUserContact2, setNewUserContact2] = useState("");
+  const [newUserAddress, setNewUserAddress] = useState("");
+  const [newUserPermanentAddress, setNewUserPermanentAddress] = useState("");
+  const [newUserBloodGroup, setNewUserBloodGroup] = useState<
+    string | undefined
+  >(undefined);
+  const [newUserDob, setNewUserDob] = useState<Dayjs | null>(null);
+  const [sameAsCurrentAddress, setSameAsCurrentAddress] = useState(false);
   const [creatingUser, setCreatingUser] = useState(false);
 
   // Get school ID from cookie
@@ -227,14 +251,32 @@ const ServiceBookingForm = () => {
 
   // Mutation for creating new user
   const { mutate: createUser } = useMutation({
-    mutationFn: async (data: { name: string; contact1: string }) => {
+    mutationFn: async (data: {
+      name: string;
+      surname?: string;
+      fatherName?: string;
+      email?: string;
+      contact1: string;
+      contact2?: string;
+      address?: string;
+      permanentAddress?: string;
+      bloodGroup?: string;
+      dob?: Date;
+    }) => {
       return await ApiCall({
         query: `mutation CreateUser($inputType: CreateUserInput!) {
           createUser(inputType: $inputType) {
             id
             name
+            surname
+            fatherName
             contact1
+            contact2
             email
+            address
+            permanentAddress
+            bloodGroup
+            dob
             role
             status
           }
@@ -242,7 +284,15 @@ const ServiceBookingForm = () => {
         variables: {
           inputType: {
             name: data.name,
+            surname: data.surname,
+            fatherName: data.fatherName,
             contact1: data.contact1,
+            contact2: data.contact2,
+            email: data.email,
+            address: data.address,
+            permanentAddress: data.permanentAddress,
+            bloodGroup: data.bloodGroup,
+            dob: data.dob,
             role: "USER",
             status: "ACTIVE",
             schoolId: schoolId,
@@ -271,7 +321,16 @@ const ServiceBookingForm = () => {
         setValue("customerEmail", newUser.email || "");
         setShowCreateUserDrawer(false);
         setNewUserName("");
+        setNewUserSurname("");
+        setNewUserFatherName("");
+        setNewUserEmail("");
         setNewUserContact("");
+        setNewUserContact2("");
+        setNewUserAddress("");
+        setNewUserPermanentAddress("");
+        setNewUserBloodGroup(undefined);
+        setNewUserDob(null);
+        setSameAsCurrentAddress(false);
         toast.success("User created successfully!");
       } else {
         toast.error(response.message || "Failed to create user");
@@ -296,7 +355,18 @@ const ServiceBookingForm = () => {
 
     setCreatingUser(true);
     createUser(
-      { name: newUserName, contact1: newUserContact },
+      {
+        name: newUserName,
+        surname: newUserSurname || undefined,
+        fatherName: newUserFatherName || undefined,
+        email: newUserEmail || undefined,
+        contact1: newUserContact,
+        contact2: newUserContact2 || undefined,
+        address: newUserAddress || undefined,
+        permanentAddress: newUserPermanentAddress || undefined,
+        bloodGroup: newUserBloodGroup,
+        dob: newUserDob ? newUserDob.toDate() : undefined,
+      },
       {
         onSettled: () => {
           setCreatingUser(false);
@@ -902,6 +972,7 @@ const ServiceBookingForm = () => {
                   title=""
                   placeholder="Any special requirements or notes..."
                   required={false}
+                  uppercase={true}
                 />
               </div>
             </div>
@@ -1217,7 +1288,16 @@ const ServiceBookingForm = () => {
         onClose={() => {
           setShowCreateUserDrawer(false);
           setNewUserName("");
+          setNewUserSurname("");
+          setNewUserFatherName("");
+          setNewUserEmail("");
           setNewUserContact("");
+          setNewUserContact2("");
+          setNewUserAddress("");
+          setNewUserPermanentAddress("");
+          setNewUserBloodGroup(undefined);
+          setNewUserDob(null);
+          setSameAsCurrentAddress(false);
         }}
         open={showCreateUserDrawer}
         footer={
@@ -1228,7 +1308,16 @@ const ServiceBookingForm = () => {
               onClick={() => {
                 setShowCreateUserDrawer(false);
                 setNewUserName("");
+                setNewUserSurname("");
+                setNewUserFatherName("");
+                setNewUserEmail("");
                 setNewUserContact("");
+                setNewUserContact2("");
+                setNewUserAddress("");
+                setNewUserPermanentAddress("");
+                setNewUserBloodGroup(undefined);
+                setNewUserDob(null);
+                setSameAsCurrentAddress(false);
               }}
             >
               Cancel
@@ -1253,38 +1342,220 @@ const ServiceBookingForm = () => {
             </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Full Name <span className="text-red-500">*</span>
-            </label>
-            <Input
-              size="large"
-              placeholder="Enter full name"
-              value={newUserName}
-              onChange={(e) => setNewUserName(e.target.value)}
-              maxLength={100}
-            />
+          {/* Personal Information */}
+          <div className="border-b pb-4">
+            <h4 className="font-semibold text-gray-900 mb-3">
+              Personal Information
+            </h4>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  size="large"
+                  placeholder="Enter full name"
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value.toUpperCase())}
+                  maxLength={100}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Surname (Optional)
+                </label>
+                <Input
+                  size="large"
+                  placeholder="Enter surname"
+                  value={newUserSurname}
+                  onChange={(e) =>
+                    setNewUserSurname(e.target.value.toUpperCase())
+                  }
+                  maxLength={100}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Father&apos;s Name (Optional)
+                </label>
+                <Input
+                  size="large"
+                  placeholder="Enter father's name"
+                  value={newUserFatherName}
+                  onChange={(e) =>
+                    setNewUserFatherName(e.target.value.toUpperCase())
+                  }
+                  maxLength={100}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email (Optional)
+                </label>
+                <Input
+                  size="large"
+                  type="email"
+                  placeholder="Enter email address"
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  maxLength={100}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date of Birth (Optional)
+                </label>
+                <DatePicker
+                  size="large"
+                  className="w-full"
+                  placeholder="Select date of birth"
+                  format="DD-MM-YYYY"
+                  value={newUserDob}
+                  onChange={(date) => setNewUserDob(date)}
+                  maxDate={dayjs()}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Blood Group (Optional)
+                </label>
+                <Select
+                  size="large"
+                  className="w-full"
+                  placeholder="Select blood group"
+                  value={newUserBloodGroup}
+                  onChange={(value) => setNewUserBloodGroup(value)}
+                  allowClear
+                  options={[
+                    { label: "A+", value: "A+" },
+                    { label: "A-", value: "A-" },
+                    { label: "B+", value: "B+" },
+                    { label: "B-", value: "B-" },
+                    { label: "AB+", value: "AB+" },
+                    { label: "AB-", value: "AB-" },
+                    { label: "O+", value: "O+" },
+                    { label: "O-", value: "O-" },
+                    {
+                      label: "Unknown",
+                      value: "Unknown",
+                    },
+                  ]}
+                />
+              </div>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Contact Number <span className="text-red-500">*</span>
-            </label>
-            <Input
-              size="large"
-              placeholder="Enter 10-digit mobile number"
-              value={newUserContact}
-              onChange={(e) => {
-                const value = e.target.value.replace(/\D/g, "");
-                setNewUserContact(value);
-              }}
-              maxLength={10}
-              disabled
-            />
+          {/* Contact Information */}
+          <div className="border-b pb-4">
+            <h4 className="font-semibold text-gray-900 mb-3">
+              Contact Information
+            </h4>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Primary Contact <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  size="large"
+                  placeholder="Enter 10-digit mobile number"
+                  value={newUserContact}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, "");
+                    setNewUserContact(value);
+                  }}
+                  maxLength={10}
+                  disabled
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Secondary Contact (Optional)
+                </label>
+                <Input
+                  size="large"
+                  placeholder="Enter 10-digit alternate mobile number"
+                  value={newUserContact2}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, "");
+                    setNewUserContact2(value);
+                  }}
+                  maxLength={10}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Address Information */}
+          <div className="border-b pb-4">
+            <h4 className="font-semibold text-gray-900 mb-3">
+              Address Information
+            </h4>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Current Address (Optional)
+                </label>
+                <TextArea
+                  rows={3}
+                  placeholder="Enter current address"
+                  value={newUserAddress}
+                  onChange={(e) => {
+                    setNewUserAddress(e.target.value.toUpperCase());
+                    if (sameAsCurrentAddress) {
+                      setNewUserPermanentAddress(e.target.value.toUpperCase());
+                    }
+                  }}
+                  maxLength={500}
+                />
+              </div>
+
+              <div>
+                <Checkbox
+                  checked={sameAsCurrentAddress}
+                  onChange={(e) => {
+                    setSameAsCurrentAddress(e.target.checked);
+                    if (e.target.checked) {
+                      setNewUserPermanentAddress(newUserAddress.toUpperCase());
+                    } else {
+                      setNewUserPermanentAddress("");
+                    }
+                  }}
+                >
+                  <span className="text-sm text-gray-700">
+                    Same as Current Address
+                  </span>
+                </Checkbox>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Permanent Address (Optional)
+                </label>
+                <TextArea
+                  rows={3}
+                  placeholder="Enter permanent address"
+                  value={newUserPermanentAddress}
+                  onChange={(e) => setNewUserPermanentAddress(e.target.value.toUpperCase())}
+                  maxLength={500}
+                  disabled={sameAsCurrentAddress}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-semibold text-blue-900 mb-2">User Details</h4>
+            <h4 className="font-semibold text-blue-900 mb-2">
+              Account Details
+            </h4>
             <ul className="text-sm text-blue-800 space-y-1">
               <li>
                 • <strong>Role:</strong> USER

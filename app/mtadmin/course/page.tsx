@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { Card, Table, Input, Button, Tag, Space, Select } from "antd";
-import type { ColumnsType } from "antd/es/table";
+import { useState, useMemo } from "react";
+import { Card, Input, Button, Tag, Space, Select } from "antd";
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  type ColumnDef,
+  type SortingState,
+} from "@tanstack/react-table";
 import {
   AntDesignEyeOutlined,
   FluentMdl2Search,
@@ -39,6 +45,7 @@ const CourseManagementPage = () => {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [sorting, setSorting] = useState<SortingState>([]);
   const pageSize = 10;
 
   // Fetch courses from API
@@ -55,13 +62,22 @@ const CourseManagementPage = () => {
       searchText,
       filterStatus,
       filterType,
+      JSON.stringify(sorting),
     ],
-    queryFn: () =>
-      getPaginatedCourses({
+    queryFn: () => {
+      // Convert TanStack sorting to backend orderBy format
+      const orderBy = sorting.map((sort) => ({
+        field: sort.id,
+        direction: sort.desc ? ("desc" as const) : ("asc" as const),
+      }));
+
+      return getPaginatedCourses({
         searchPaginationInput: {
           skip: (currentPage - 1) * pageSize,
           take: pageSize,
           search: searchText,
+          filters: ["courseName", "courseId", "description"],
+          orderBy: orderBy.length > 0 ? orderBy : undefined,
         },
         whereSearchInput: {
           schoolId: schoolId,
@@ -70,8 +86,11 @@ const CourseManagementPage = () => {
           courseType:
             filterType == "all" ? undefined : filterType.toUpperCase(),
         },
-      }),
+      });
+    },
     enabled: schoolId > 0,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   const courses: CourseData[] =
@@ -140,142 +159,141 @@ const CourseManagementPage = () => {
     return texts[type] || type;
   };
 
-  const columns: ColumnsType<CourseData> = [
-    {
-      title: "Course ID",
-      dataIndex: "courseId",
-      key: "courseId",
-      width: 120,
-      sorter: (a, b) => a.courseId.localeCompare(b.courseId),
-    },
-    {
-      title: "Course Name",
-      key: "courseName",
-      width: 220,
-      render: (_, record) => (
-        <div>
-          <div className="font-semibold text-gray-900">{record.courseName}</div>
-          <div className="text-xs text-gray-500 mt-1">
-            {record.courseDays} days • {record.minsPerDay} min/day
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: "Type",
-      dataIndex: "courseType",
-      key: "courseType",
-      width: 130,
-      filters: [
-        { text: "Beginner", value: "beginner" },
-        { text: "Intermediate", value: "intermediate" },
-        { text: "Advanced", value: "advanced" },
-        { text: "Refresher", value: "refresher" },
-      ],
-      onFilter: (value, record) => record.courseType == value,
-      render: (type) => (
-        <Tag
-          color={getTypeColor(type)}
-          className="!text-sm !px-3 !py-1 !font-medium"
-        >
-          {getTypeText(type)}
-        </Tag>
-      ),
-    },
-    {
-      title: "Hours/Day",
-      dataIndex: "minsPerDay",
-      key: "minsPerDay",
-      width: 110,
-      render: (hours) => `${hours} min`,
-    },
-    {
-      title: "Price",
-      key: "price",
-      width: 160,
-      align: "right",
-      sorter: (a, b) => a.price - b.price,
-      render: (_, record) => (
-        <div className="text-right">
-          <div className="font-semibold text-gray-900">
-            ₹{record.price.toLocaleString("en-IN")}
-          </div>
-          {record.automaticPrice && (
-            <div className="text-xs text-blue-600 mt-1">
-              Auto: ₹{record.automaticPrice.toLocaleString("en-IN")}
+  // Define columns using TanStack Table
+  const columns = useMemo<ColumnDef<CourseData>[]>(
+    () => [
+      {
+        accessorKey: "courseId",
+        header: "Course ID",
+        cell: (info) => (
+          <span className="font-medium">{info.getValue() as string}</span>
+        ),
+        enableSorting: true,
+      },
+      {
+        id: "courseName",
+        header: "Course Name",
+        cell: (info) => (
+          <div>
+            <div className="font-semibold text-gray-900">
+              {info.row.original.courseName}
             </div>
-          )}
-        </div>
-      ),
+            <div className="text-xs text-gray-500 mt-1">
+              {info.row.original.courseDays} days • {info.row.original.minsPerDay} min/day
+            </div>
+          </div>
+        ),
+        enableSorting: false,
+      },
+      {
+        accessorKey: "courseType",
+        header: "Type",
+        cell: (info) => {
+          const type = info.getValue() as string;
+          return (
+            <Tag
+              color={getTypeColor(type)}
+              className="!text-sm !px-3 !py-1 !font-medium"
+            >
+              {getTypeText(type)}
+            </Tag>
+          );
+        },
+        enableSorting: true,
+      },
+      {
+        accessorKey: "minsPerDay",
+        header: "Hours/Day",
+        cell: (info) => `${info.getValue() as number} min`,
+        enableSorting: true,
+      },
+      {
+        accessorKey: "price",
+        header: "Price",
+        cell: (info) => (
+          <div className="text-right">
+            <div className="font-semibold text-gray-900">
+              ₹{(info.getValue() as number).toLocaleString("en-IN")}
+            </div>
+            {info.row.original.automaticPrice && (
+              <div className="text-xs text-blue-600 mt-1">
+                Auto: ₹{info.row.original.automaticPrice.toLocaleString("en-IN")}
+              </div>
+            )}
+          </div>
+        ),
+        enableSorting: true,
+      },
+      {
+        accessorKey: "enrolledStudents",
+        header: "Enrollment",
+        cell: (info) => (
+          <div className="flex items-center justify-center gap-2">
+            <MaterialSymbolsPersonRounded className="text-gray-600" />
+            <span className="font-medium">{info.getValue() as number}</span>
+          </div>
+        ),
+        enableSorting: true,
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: (info) => {
+          const status = info.getValue() as string;
+          return (
+            <Tag
+              color={getStatusColor(status)}
+              className="!text-sm !px-3 !py-1 !font-medium"
+            >
+              {getStatusText(status)}
+            </Tag>
+          );
+        },
+        enableSorting: false,
+      },
+      {
+        id: "action",
+        header: "Action",
+        cell: (info) => (
+          <Button
+            type="primary"
+            icon={<AntDesignEyeOutlined />}
+            onClick={() => router.push(`/mtadmin/course/${info.row.original.id}`)}
+            className="!bg-blue-600"
+          >
+            View Details
+          </Button>
+        ),
+        enableSorting: false,
+      },
+    ],
+    [router]
+  );
+
+  // Initialize TanStack Table
+  const table = useReactTable({
+    data: courses,
+    columns,
+    state: {
+      sorting,
     },
-    {
-      title: "Enrollment",
-      key: "enrollment",
-      width: 120,
-      align: "center",
-      sorter: (a, b) => a.enrolledStudents - b.enrolledStudents,
-      render: (_, record) => (
-        <div className="flex items-center justify-center gap-2">
-          <MaterialSymbolsPersonRounded className="text-gray-600" />
-          <span className="font-medium">{record.enrolledStudents}</span>
-        </div>
-      ),
-    },
-    {
-      title: "Instructor",
-      dataIndex: "instructor",
-      key: "instructor",
-      width: 150,
-      render: (instructor) => (
-        <span className="text-gray-900">{instructor}</span>
-      ),
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      width: 120,
-      align: "center",
-      filters: [
-        { text: "Active", value: "active" },
-        { text: "Inactive", value: "inactive" },
-        { text: "Upcoming", value: "upcoming" },
-        { text: "Archived", value: "archived" },
-      ],
-      onFilter: (value, record) => record.status == value,
-      render: (status: string) => (
-        <Tag
-          color={getStatusColor(status)}
-          className="!text-sm !px-3 !py-1 !font-medium"
-        >
-          {getStatusText(status)}
-        </Tag>
-      ),
-    },
-    {
-      title: "Action",
-      key: "action",
-      width: 140,
-      fixed: "right",
-      render: (_, record) => (
-        <Button
-          type="primary"
-          icon={<AntDesignEyeOutlined />}
-          onClick={() => router.push(`/mtadmin/course/${record.id}`)}
-          className="!bg-blue-600"
-        >
-          View Details
-        </Button>
-      ),
-    },
-  ];
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    manualPagination: true, // Backend handles pagination
+    manualSorting: true, // Backend handles sorting
+    pageCount: Math.ceil(totalCourses / pageSize),
+  });
 
   const stats = {
-    total: courses.length,
-    active: courses.filter((c) => c.status == "active").length,
-    upcoming: courses.filter((c) => c.status == "upcoming").length,
+    total: totalCourses,
+    active: courses.filter((c) => c.status === "active").length,
+    upcoming: courses.filter((c) => c.status === "upcoming").length,
     totalStudents: courses.reduce((sum, c) => sum + c.enrolledStudents, 0),
   };
+
+  // Calculate pagination info for display
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalCourses);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -429,22 +447,118 @@ const CourseManagementPage = () => {
 
         {/* Courses Table */}
         <Card className="shadow-sm">
-          <Table
-            columns={columns}
-            dataSource={courses}
-            loading={isLoading}
-            pagination={{
-              current: currentPage,
-              pageSize: pageSize,
-              total: totalCourses,
-              onChange: (page) => setCurrentPage(page),
-              showTotal: (total, range) =>
-                `${range[0]}-${range[1]} of ${total} courses`,
-              showSizeChanger: false,
-            }}
-            scroll={{ x: 1400 }}
-            size="middle"
-          />
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <tr key={headerGroup.id} className="border-b border-gray-200">
+                    {headerGroup.headers.map((header) => (
+                      <th
+                        key={header.id}
+                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        {header.isPlaceholder ? null : (
+                          <div
+                            className={
+                              header.column.getCanSort()
+                                ? "cursor-pointer select-none flex items-center gap-2"
+                                : ""
+                            }
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                            {header.column.getCanSort() && (
+                              <span className="text-xs">
+                                {{
+                                  asc: "↑",
+                                  desc: "↓",
+                                }[header.column.getIsSorted() as string] ?? "↕"}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td
+                      colSpan={columns.length}
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
+                      Loading...
+                    </td>
+                  </tr>
+                ) : table.getRowModel().rows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={columns.length}
+                      className="px-4 py-8 text-center text-gray-500"
+                    >
+                      No courses found
+                    </td>
+                  </tr>
+                ) : (
+                  table.getRowModel().rows.map((row) => (
+                    <tr
+                      key={row.original.id}
+                      className="border-b border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className="px-4 py-3 text-sm">
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between px-4 py-4 border-t border-gray-200 bg-white">
+            <div className="text-sm text-gray-700">
+              {courses.length > 0 ? (
+                <>
+                  Showing {startIndex + 1} to {Math.min(endIndex, totalCourses)}{" "}
+                  of {totalCourses} courses
+                </>
+              ) : (
+                <>No courses to display</>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <span className="px-4 py-2 text-sm">
+                Page {currentPage} of {Math.ceil(totalCourses / pageSize)}
+              </span>
+              <Button
+                onClick={() =>
+                  setCurrentPage((prev) =>
+                    Math.min(Math.ceil(totalCourses / pageSize), prev + 1)
+                  )
+                }
+                disabled={currentPage >= Math.ceil(totalCourses / pageSize)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         </Card>
       </div>
     </div>

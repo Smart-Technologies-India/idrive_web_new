@@ -1073,7 +1073,6 @@ const BookingForm = () => {
     toast.info("Checking date availability...");
     const availableDates = await calculateAvailableDates();
 
-
     if (availableDates.length == 0) {
       toast.error(
         "No available dates found. Please try a different slot or start date."
@@ -1087,7 +1086,6 @@ const BookingForm = () => {
       calculatedDates: availableDates,
       paymentMethod: paymentMethod,
     };
-
 
     setPendingData(dataWithDates);
     setShowConfirmModal(true);
@@ -1324,7 +1322,7 @@ const BookingForm = () => {
 
   return (
     <FormProvider {...methods}>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
+      <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 p-6">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-8">
@@ -2117,31 +2115,40 @@ const BookingForm = () => {
                         Payment Method <span className="text-red-500">*</span>
                       </label>
                       <div className="flex flex-wrap gap-2">
-                        {["CASH", "CARD", "UPI", "BANK_TRANSFER"].map((method) => (
-                          <Tag.CheckableTag
-                            key={method}
-                            checked={paymentMethod === method}
-                            onChange={() => setPaymentMethod(method)}
-                            style={{
-                              padding: "6px 16px",
-                              fontSize: "14px",
-                              border: paymentMethod === method
-                                ? "2px solid #1890ff"
-                                : "2px solid #d9d9d9",
-                              borderRadius: "20px",
-                              backgroundColor: paymentMethod === method
-                                ? "#e6f7ff"
-                                : "#ffffff",
-                              color: paymentMethod === method
-                                ? "#1890ff"
-                                : "#666666",
-                              cursor: "pointer",
-                              fontWeight: paymentMethod === method ? 600 : 400,
-                            }}
-                          >
-                            {method === "BANK_TRANSFER" ? "Bank Transfer" : method.charAt(0) + method.slice(1).toLowerCase()}
-                          </Tag.CheckableTag>
-                        ))}
+                        {["CASH", "CARD", "UPI", "BANK_TRANSFER"].map(
+                          (method) => (
+                            <Tag.CheckableTag
+                              key={method}
+                              checked={paymentMethod === method}
+                              onChange={() => setPaymentMethod(method)}
+                              style={{
+                                padding: "6px 16px",
+                                fontSize: "14px",
+                                border:
+                                  paymentMethod === method
+                                    ? "2px solid #1890ff"
+                                    : "2px solid #d9d9d9",
+                                borderRadius: "20px",
+                                backgroundColor:
+                                  paymentMethod === method
+                                    ? "#e6f7ff"
+                                    : "#ffffff",
+                                color:
+                                  paymentMethod === method
+                                    ? "#1890ff"
+                                    : "#666666",
+                                cursor: "pointer",
+                                fontWeight:
+                                  paymentMethod === method ? 600 : 400,
+                              }}
+                            >
+                              {method === "BANK_TRANSFER"
+                                ? "Bank Transfer"
+                                : method.charAt(0) +
+                                  method.slice(1).toLowerCase()}
+                            </Tag.CheckableTag>
+                          )
+                        )}
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
                         Select how the advance payment was received
@@ -2161,7 +2168,13 @@ const BookingForm = () => {
                         ).toLocaleString("en-IN")}
                       </p>
                       <p className="text-xs text-blue-700">
-                        • Payment Method: <strong>{paymentMethod === "BANK_TRANSFER" ? "Bank Transfer" : paymentMethod.charAt(0) + paymentMethod.slice(1).toLowerCase()}</strong>
+                        • Payment Method:{" "}
+                        <strong>
+                          {paymentMethod === "BANK_TRANSFER"
+                            ? "Bank Transfer"
+                            : paymentMethod.charAt(0) +
+                              paymentMethod.slice(1).toLowerCase()}
+                        </strong>
                       </p>
                     </div>
                   )}
@@ -2178,6 +2191,7 @@ const BookingForm = () => {
                   title=""
                   placeholder="Any special requirements or notes..."
                   required={false}
+                  uppercase={true}
                 />
               </div>
             </div>
@@ -2337,7 +2351,7 @@ const BookingForm = () => {
                   )}
 
                   {/* Total */}
-                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border-2 border-blue-200">
+                  <div className="bg-linear-to-r from-blue-50 to-purple-50 rounded-lg p-4 border-2 border-blue-200">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-lg font-bold text-gray-900">
                         Total Amount
@@ -2774,7 +2788,7 @@ const BookingForm = () => {
                   size="large"
                   placeholder="Enter full name"
                   value={newUserName}
-                  onChange={(e) => setNewUserName(e.target.value)}
+                  onChange={(e) => setNewUserName(e.target.value.toUpperCase())}
                   maxLength={100}
                 />
               </div>
@@ -2787,7 +2801,9 @@ const BookingForm = () => {
                   size="large"
                   placeholder="Enter surname"
                   value={newUserSurname}
-                  onChange={(e) => setNewUserSurname(e.target.value)}
+                  onChange={(e) =>
+                    setNewUserSurname(e.target.value.toUpperCase())
+                  }
                   maxLength={100}
                 />
               </div>
@@ -2800,7 +2816,9 @@ const BookingForm = () => {
                   size="large"
                   placeholder="Enter father's name"
                   value={newUserFatherName}
-                  onChange={(e) => setNewUserFatherName(e.target.value)}
+                  onChange={(e) =>
+                    setNewUserFatherName(e.target.value.toUpperCase())
+                  }
                   maxLength={100}
                 />
               </div>
@@ -2827,7 +2845,7 @@ const BookingForm = () => {
                   size="large"
                   className="w-full"
                   placeholder="Select date of birth"
-                  format="DD/MM/YYYY"
+                  format="DD-MM-YYYY"
                   value={newUserDob}
                   onChange={(date) => setNewUserDob(date)}
                   maxDate={dayjs()}
@@ -2922,9 +2940,9 @@ const BookingForm = () => {
                   placeholder="Enter current address"
                   value={newUserAddress}
                   onChange={(e) => {
-                    setNewUserAddress(e.target.value);
+                    setNewUserAddress(e.target.value.toUpperCase());
                     if (sameAsCurrentAddress) {
-                      setNewUserPermanentAddress(e.target.value);
+                      setNewUserPermanentAddress(e.target.value.toUpperCase());
                     }
                   }}
                   maxLength={500}
@@ -2937,7 +2955,7 @@ const BookingForm = () => {
                   onChange={(e) => {
                     setSameAsCurrentAddress(e.target.checked);
                     if (e.target.checked) {
-                      setNewUserPermanentAddress(newUserAddress);
+                      setNewUserPermanentAddress(newUserAddress.toUpperCase());
                     } else {
                       setNewUserPermanentAddress("");
                     }
@@ -2957,7 +2975,7 @@ const BookingForm = () => {
                   rows={3}
                   placeholder="Enter permanent address"
                   value={newUserPermanentAddress}
-                  onChange={(e) => setNewUserPermanentAddress(e.target.value)}
+                  onChange={(e) => setNewUserPermanentAddress(e.target.value.toUpperCase())}
                   maxLength={500}
                   disabled={sameAsCurrentAddress}
                 />

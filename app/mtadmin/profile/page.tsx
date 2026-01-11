@@ -9,6 +9,7 @@ import {
 import { useRouter } from "next/navigation";
 import { getSchoolById, School } from "@/services/school.api";
 import { getCookie } from "cookies-next";
+import { formatDate } from "@/utils/date-format";
 
 const SchoolProfilePage = () => {
   const router = useRouter();
@@ -355,7 +356,7 @@ const SchoolProfilePage = () => {
               {schoolData.rtoLicenseExpiry ? (
                 <Tag color="green" className="!text-sm !px-3 !py-1">
                   Valid till{" "}
-                  {new Date(schoolData.rtoLicenseExpiry).toLocaleDateString("en-IN")}
+                  {formatDate(schoolData.rtoLicenseExpiry)}
                 </Tag>
               ) : (
                 <span className="text-gray-400 italic">N/A</span>
@@ -376,7 +377,7 @@ const SchoolProfilePage = () => {
             <Descriptions.Item label="Insurance Expiry">
               {schoolData.insuranceExpiry ? (
                 <Tag color="orange" className="!text-sm !px-3 !py-1">
-                  {new Date(schoolData.insuranceExpiry).toLocaleDateString("en-IN")}
+                  {formatDate(schoolData.insuranceExpiry)}
                 </Tag>
               ) : (
                 <span className="text-gray-400 italic">N/A</span>

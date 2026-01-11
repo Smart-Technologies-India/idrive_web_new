@@ -30,6 +30,7 @@ import { toast } from "react-toastify";
 import { useQuery } from "@tanstack/react-query";
 import { getUserById } from "@/services/user.api";
 import { convertSlotTo12Hour } from "@/utils/time-format";
+import { formatDate } from "@/utils/date-format";
 
 const { TextArea } = Input;
 
@@ -339,7 +340,7 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
       title: "Date",
       dataIndex: "date",
       key: "date",
-      render: (date) => new Date(date).toLocaleDateString("en-IN"),
+      render: (date) => formatDate(date),
     },
     {
       title: "Balance",
@@ -526,11 +527,7 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
             </Descriptions.Item>
             {userData.dob && (
               <Descriptions.Item label="Date of Birth">
-                {new Date(userData.dob).toLocaleDateString("en-IN", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
+                {formatDate(userData.dob)}
               </Descriptions.Item>
             )}
             <Descriptions.Item label="Current Address" span={3}>
@@ -542,11 +539,7 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
               </Descriptions.Item>
             )}
             <Descriptions.Item label="Joined Date">
-              {new Date(userData.joinedDate).toLocaleDateString("en-IN", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
+              {formatDate(userData.joinedDate)}
             </Descriptions.Item>
             <Descriptions.Item label="Status">
               <Tag

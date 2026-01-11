@@ -234,6 +234,7 @@ const AddDriverPage = () => {
                       title="Full Name"
                       placeholder="Enter full name"
                       required
+                      capitalize
                     />
                   </div>
                   <div>

@@ -265,7 +265,7 @@ const EditDriverPage = ({
                     size="large"
                     className="w-full"
                     placeholder="Select date of birth"
-                    format="DD/MM/YYYY"
+                    format="DD-MM-YYYY"
                     maxDate={dayjs().subtract(18, "years")}
                   />
                 </Form.Item>
@@ -337,7 +337,7 @@ const EditDriverPage = ({
                     size="large"
                     className="w-full"
                     placeholder="Select issue date"
-                    format="DD/MM/YYYY"
+                    format="DD-MM-YYYY"
                     maxDate={dayjs()}
                   />
                 </Form.Item>
@@ -350,7 +350,7 @@ const EditDriverPage = ({
                     size="large"
                     className="w-full"
                     placeholder="Select expiry date"
-                    format="DD/MM/YYYY"
+                    format="DD-MM-YYYY"
                     minDate={dayjs()}
                   />
                 </Form.Item>
@@ -397,7 +397,7 @@ const EditDriverPage = ({
                     size="large"
                     className="w-full"
                     placeholder="Select joining date"
-                    format="DD/MM/YYYY"
+                    format="DD-MM-YYYY"
                   />
                 </Form.Item>
 

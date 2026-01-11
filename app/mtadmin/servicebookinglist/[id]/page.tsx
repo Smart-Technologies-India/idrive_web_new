@@ -23,6 +23,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { getBookingServiceById } from "@/services/service.booking.api";
 import type { BookingService } from "@/services/service.booking.api";
+import { formatDate, formatDateTime } from "@/utils/date-format";
 import {
   updateLicenseApplication,
   createLicenseApplication,
@@ -749,9 +750,7 @@ const ServiceBookingViewPage = () => {
                         </Descriptions.Item>
                         <Descriptions.Item label="Issue Date">
                           {licenseApp.issuedDate
-                            ? new Date(
-                                licenseApp.issuedDate
-                              ).toLocaleDateString("en-IN")
+                            ? formatDate(licenseApp.issuedDate)
                             : "Not provided"}
                         </Descriptions.Item>
                         <Descriptions.Item label="DL Application Number">
@@ -759,9 +758,7 @@ const ServiceBookingViewPage = () => {
                         </Descriptions.Item>
                         <Descriptions.Item label="Test Date">
                           {licenseApp.testDate
-                            ? new Date(licenseApp.testDate).toLocaleDateString(
-                                "en-IN"
-                              )
+                            ? formatDate(licenseApp.testDate)
                             : "Not scheduled"}
                         </Descriptions.Item>
                       </Descriptions>
@@ -842,8 +839,7 @@ const ServiceBookingViewPage = () => {
                     dataIndex: "paymentDate",
                     key: "paymentDate",
                     width: 130,
-                    render: (date) =>
-                      new Date(date).toLocaleDateString("en-IN"),
+                    render: (date) => formatDate(date),
                   },
                   {
                     title: "Amount",
@@ -922,16 +918,10 @@ const ServiceBookingViewPage = () => {
         <Card title="Booking Timeline" className="shadow-sm">
           <Descriptions bordered column={{ xs: 1, sm: 2, md: 2 }}>
             <Descriptions.Item label="Booked On">
-              {new Date(bookingService.createdAt).toLocaleString("en-IN", {
-                dateStyle: "full",
-                timeStyle: "short",
-              })}
+              {formatDateTime(bookingService.createdAt)}
             </Descriptions.Item>
             <Descriptions.Item label="Last Updated">
-              {new Date(bookingService.updatedAt).toLocaleString("en-IN", {
-                dateStyle: "full",
-                timeStyle: "short",
-              })}
+              {formatDateTime(bookingService.updatedAt)}
             </Descriptions.Item>
           </Descriptions>
         </Card>
@@ -1007,7 +997,7 @@ const ServiceBookingViewPage = () => {
               <DatePicker
                 style={{ width: "100%" }}
                 size="large"
-                format="DD/MM/YYYY"
+                format="DD-MM-YYYY"
                 placeholder="Select issue date"
               />
             </Form.Item>
@@ -1066,7 +1056,7 @@ const ServiceBookingViewPage = () => {
               <DatePicker
                 style={{ width: "100%" }}
                 size="large"
-                format="DD/MM/YYYY"
+                format="DD-MM-YYYY"
                 placeholder="Select test date"
               />
             </Form.Item>
@@ -1127,7 +1117,7 @@ const ServiceBookingViewPage = () => {
                 <DatePicker
                   style={{ width: "100%" }}
                   size="large"
-                  format="DD/MM/YYYY"
+                  format="DD-MM-YYYY"
                   placeholder="Select new test date"
                   disabledDate={(current) => {
                     return current && current < dayjs().startOf("day");

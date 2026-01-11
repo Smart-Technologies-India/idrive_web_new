@@ -2232,8 +2232,10 @@ const LicenseApplicationsReport = ({
   dateRange: [Dayjs, Dayjs] | null;
   schoolId: number;
 }) => {
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery({
-    queryKey: ["license-applications-report", dateRange, schoolId],
+    queryKey: ["license-applications-report", dateRange, schoolId, statusFilter],
     queryFn: async () => {
       const response = await ApiCall({
         query: `query GetAllLicenseApplication($whereSearchInput: WhereLicenseApplicationSearchInput!) {
@@ -2266,8 +2268,11 @@ const LicenseApplicationsReport = ({
       const applications: LicenseApplication[] =
         (response?.data as { getAllLicenseApplication: LicenseApplication[] })?.getAllLicenseApplication || [];
 
+      let filteredApplications = applications;
+
+      // Apply date range filter
       if (dateRange) {
-        return applications.filter((app: LicenseApplication) => {
+        filteredApplications = filteredApplications.filter((app: LicenseApplication) => {
           const appDate = dayjs(app.testDate || app.issuedDate);
           return (
             appDate &&
@@ -2276,7 +2281,15 @@ const LicenseApplicationsReport = ({
           );
         });
       }
-      return applications;
+
+      // Apply status filter
+      if (statusFilter) {
+        filteredApplications = filteredApplications.filter((app: LicenseApplication) => {
+          return app.status === statusFilter;
+        });
+      }
+
+      return filteredApplications;
     },
     enabled: schoolId > 0,
   });
@@ -2380,6 +2393,22 @@ const LicenseApplicationsReport = ({
 
   return (
     <div>
+      <div className="mb-4">
+        <Select
+          placeholder="Filter by Status"
+          allowClear
+          style={{ width: 200 }}
+          onChange={(value) => setStatusFilter(value || null)}
+          value={statusFilter}
+          options={[
+            { label: "Pending", value: "PENDING" },
+            { label: "Closed", value: "CLOSED" },
+            { label: "LL Applied", value: "LL_APPLIED" },
+            { label: "DL Pending", value: "DL_PENDING" },
+            { label: "DL Applied", value: "DL_APPLIED" },
+          ]}
+        />
+      </div>
       <Row gutter={16} className="mb-6">
         <Col span={6}>
           <div className="bg-gradient-to-br from-violet-500 to-violet-600 text-white p-4 rounded-lg">

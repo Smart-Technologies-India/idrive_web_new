@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, Row, Col, Statistic, Table, Tag, Button, Alert } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { formatDate } from "@/utils/date-format";
 import {
   AntDesignCheckOutlined,
   Fa6RegularClock,
@@ -24,6 +25,7 @@ import { convertSlotTo12Hour } from "@/utils/time-format";
 import { useQuery } from "@tanstack/react-query";
 import { SetupWizard } from "@/components/setup-wizard";
 import { useSetupProgress } from "@/utils/use-setup-progress";
+import { encryptURLData } from "@/utils/methods";
 
 interface BookingData {
   key: string;
@@ -52,9 +54,10 @@ const Dashboard = () => {
   const [checkingProfile, setCheckingProfile] = useState(true);
 
   const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
-  
+
   // Get setup progress
-  const { progress: setupProgress, isLoading: setupLoading } = useSetupProgress();
+  const { progress: setupProgress, isLoading: setupLoading } =
+    useSetupProgress();
 
   // Fetch dashboard statistics
   const {
@@ -81,7 +84,14 @@ const Dashboard = () => {
       const response = await getAllBookings({
         schoolId,
       });
-      return response.data?.getAllBooking?.slice(0, 5) || [];
+      const allBookings = response.data?.getAllBooking || [];
+      // Sort by date descending (most recent first) and take last 5
+      return allBookings
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+        .slice(0, 5);
     },
     enabled: schoolId > 0,
   });
@@ -155,7 +165,7 @@ const Dashboard = () => {
       customerName: booking.customerName || "N/A",
       mobile: booking.customerMobile,
       course: booking.courseName,
-      date: new Date(booking.bookingDate).toLocaleDateString(),
+      date: formatDate(booking.bookingDate),
       slot: booking.slot,
       carName: booking.carName,
       status: booking.status.toLowerCase() as
@@ -164,28 +174,6 @@ const Dashboard = () => {
         | "cancelled",
       amount: booking.totalAmount,
     })) || [];
-
-  // Mock data for alerts
-  const alerts: AlertData[] = [
-    {
-      key: "1",
-      type: "warning",
-      message: "Car DL01AB1234 needs maintenance - scheduled for tomorrow",
-      timestamp: "2 hours ago",
-    },
-    {
-      key: "2",
-      type: "error",
-      message: "Customer Rajesh Kumar (9876543210) requested date change",
-      timestamp: "3 hours ago",
-    },
-    {
-      key: "3",
-      type: "info",
-      message: "5 new bookings received today",
-      timestamp: "5 hours ago",
-    },
-  ];
 
   const columns: ColumnsType<BookingData> = [
     {
@@ -216,7 +204,9 @@ const Dashboard = () => {
       render: (_, record) => (
         <div>
           <div>{record.date}</div>
-          <div className="text-xs text-gray-500">{convertSlotTo12Hour(record.slot)}</div>
+          <div className="text-xs text-gray-500">
+            {convertSlotTo12Hour(record.slot)}
+          </div>
         </div>
       ),
     },
@@ -259,7 +249,7 @@ const Dashboard = () => {
           <Tag
             color={color}
             icon={icon}
-            className="!text-sm !px-3 !py-1 !flex !items-center !gap-1"
+            className="text-sm! px-3! py-1! flex! items-center! gap-1!"
           >
             {text}
           </Tag>
@@ -269,13 +259,13 @@ const Dashboard = () => {
     {
       title: "Action",
       key: "action",
-      render: () => (
+      render: (_, record) => (
         <Button
           type="link"
           size="small"
           icon={<AntDesignEyeOutlined />}
           onClick={() => {
-            // Navigate to booking details
+            router.push(`/mtadmin/bookinglist/${encryptURLData(record.key)}`);
           }}
         >
           View
@@ -301,7 +291,7 @@ const Dashboard = () => {
             size="large"
             onClick={handleRefresh}
             loading={statsLoading || bookingsLoading}
-            className="!bg-gradient-to-r from-blue-600 to-purple-600 border-0 shadow-md"
+            className="bg-linear-to-r! from-blue-600 to-purple-600 border-0 shadow-md"
           >
             Refresh
           </Button>
@@ -340,7 +330,7 @@ const Dashboard = () => {
                 size="small"
                 type="primary"
                 onClick={() => router.push("/mtadmin/profile/edit")}
-                className="!bg-orange-500 !border-orange-500"
+                className="bg-orange-500! border-orange-500!"
               >
                 Complete Profile
               </Button>

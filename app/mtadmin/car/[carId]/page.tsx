@@ -25,6 +25,9 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getCarById } from "@/services/car.api";
 import { getAllCarCourses, type CarCourse } from "@/services/carcourse.api";
+import { getPaginatedBookings, type Booking } from "@/services/booking.api";
+import { getCookie } from "cookies-next";
+import { formatDate } from "@/utils/date-format";
 
 interface BookingRecord {
   key: string;
@@ -36,20 +39,11 @@ interface BookingRecord {
   duration: string;
 }
 
-interface MaintenanceRecord {
-  key: string;
-  serviceId: string;
-  date: string;
-  type: string;
-  description: string;
-  cost: number;
-  status: "completed" | "pending" | "scheduled";
-}
-
 const CarDetailPage = ({ params }: { params: Promise<{ carId: string }> }) => {
   const router = useRouter();
   const { carId } = use(params);
   const numericCarId = parseInt(carId);
+  const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
 
   // Fetch car data
   const {
@@ -70,102 +64,45 @@ const CarDetailPage = ({ params }: { params: Promise<{ carId: string }> }) => {
 
   const carData = carResponse?.data?.getCarById;
 
-  // Mock data for bookings and maintenance (to be replaced with API calls later)
-  const bookingHistory: BookingRecord[] = [
-    {
-      key: "1",
-      bookingId: "BKG-1245",
-      studentName: "Priya Sharma",
-      date: "2024-11-15",
-      time: "09:00 AM - 11:00 AM",
-      status: "completed",
-      duration: "2 hours",
-    },
-    {
-      key: "2",
-      bookingId: "BKG-1298",
-      studentName: "Rahul Verma",
-      date: "2024-11-16",
-      time: "02:00 PM - 04:00 PM",
-      status: "completed",
-      duration: "2 hours",
-    },
-    {
-      key: "3",
-      bookingId: "BKG-1304",
-      studentName: "Anjali Gupta",
-      date: "2024-11-17",
-      time: "10:00 AM - 12:00 PM",
-      status: "upcoming",
-      duration: "2 hours",
-    },
-    {
-      key: "4",
-      bookingId: "BKG-1289",
-      studentName: "Karan Singh",
-      date: "2024-11-14",
-      time: "03:00 PM - 05:00 PM",
-      status: "cancelled",
-      duration: "2 hours",
-    },
-    {
-      key: "5",
-      bookingId: "BKG-1312",
-      studentName: "Sneha Patel",
-      date: "2024-11-18",
-      time: "11:00 AM - 01:00 PM",
-      status: "upcoming",
-      duration: "2 hours",
-    },
-  ];
+  // Fetch bookings for this car
+  const { data: bookingsResponse, isLoading: isLoadingBookings } = useQuery({
+    queryKey: ["bookings", numericCarId, schoolId],
+    queryFn: () => getPaginatedBookings({
+      searchPaginationInput: {
+        skip: 0,
+        take: 100, // Get all bookings for this car
+      },
+      whereSearchInput: {
+        schoolId: schoolId,
+        carId: numericCarId,
+      },
+    }),
+    enabled: !isNaN(numericCarId) && schoolId > 0,
+  });
 
-  const maintenanceHistory: MaintenanceRecord[] = [
-    {
-      key: "1",
-      serviceId: "SRV-1001",
-      date: "2024-10-15",
-      type: "Regular Service",
-      description: "Oil change, filter replacement, general checkup",
-      cost: 3500,
-      status: "completed",
-    },
-    {
-      key: "2",
-      serviceId: "SRV-0987",
-      date: "2024-08-20",
-      type: "Tire Replacement",
-      description: "Replaced front tires",
-      cost: 8000,
-      status: "completed",
-    },
-    {
-      key: "3",
-      serviceId: "SRV-1045",
-      date: "2024-12-15",
-      type: "Regular Service",
-      description: "Scheduled service",
-      cost: 0,
-      status: "scheduled",
-    },
-    {
-      key: "4",
-      serviceId: "SRV-0956",
-      date: "2024-06-10",
-      type: "AC Service",
-      description: "AC gas refill and cleaning",
-      cost: 2500,
-      status: "completed",
-    },
-    {
-      key: "5",
-      serviceId: "SRV-0912",
-      date: "2024-04-05",
-      type: "Regular Service",
-      description: "Oil change, filter replacement",
-      cost: 3200,
-      status: "completed",
-    },
-  ];
+  const bookingHistory: BookingRecord[] = useMemo(() => {
+    const bookings = bookingsResponse?.data?.getPaginatedBooking?.data || [];
+    return bookings.map((booking: Booking) => {
+      // Map status from backend to frontend format
+      const statusMap: Record<string, "completed" | "cancelled" | "upcoming"> = {
+        "COMPLETED": "completed",
+        "CANCELLED": "cancelled",
+        "NO_SHOW": "cancelled",
+        "PENDING": "upcoming",
+        "CONFIRMED": "upcoming",
+      };
+
+      return {
+        key: booking.id.toString(),
+        bookingId: booking.bookingId,
+        studentName: booking.customerName || booking.customer?.name || "N/A",
+        date: booking.bookingDate,
+        time: booking.slot || "N/A",
+        status: statusMap[booking.status] || "upcoming",
+        duration: "-", // Duration not directly available in booking
+      };
+    });
+  }, [bookingsResponse]);
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -205,7 +142,7 @@ const CarDetailPage = ({ params }: { params: Promise<{ carId: string }> }) => {
       dataIndex: "date",
       key: "date",
       width: 120,
-      render: (date) => new Date(date).toLocaleDateString("en-IN"),
+      render: (date) => formatDate(date),
       sorter: (a, b) => a.date.localeCompare(b.date),
     },
     {
@@ -255,65 +192,6 @@ const CarDetailPage = ({ params }: { params: Promise<{ carId: string }> }) => {
     },
   ];
 
-  const maintenanceColumns: ColumnsType<MaintenanceRecord> = [
-    {
-      title: "Service ID",
-      dataIndex: "serviceId",
-      key: "serviceId",
-      width: 120,
-    },
-    {
-      title: "Date",
-      dataIndex: "date",
-      key: "date",
-      width: 120,
-      render: (date) => new Date(date).toLocaleDateString("en-IN"),
-      sorter: (a, b) => a.date.localeCompare(b.date),
-    },
-    {
-      title: "Type",
-      dataIndex: "type",
-      key: "type",
-      width: 150,
-    },
-    {
-      title: "Description",
-      dataIndex: "description",
-      key: "description",
-      width: 250,
-    },
-    {
-      title: "Cost",
-      dataIndex: "cost",
-      key: "cost",
-      width: 120,
-      render: (cost: number) =>
-        cost > 0 ? `₹${cost.toLocaleString("en-IN")}` : "-",
-      sorter: (a, b) => a.cost - b.cost,
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      width: 120,
-      render: (status: string) => {
-        const colors: Record<string, string> = {
-          completed: "green",
-          pending: "orange",
-          scheduled: "blue",
-        };
-        return (
-          <Tag
-            color={colors[status]}
-            className="!text-sm !px-3 !py-1 !font-medium"
-          >
-            {status.charAt(0).toUpperCase() + status.slice(1)}
-          </Tag>
-        );
-      },
-    },
-  ];
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -350,7 +228,9 @@ const CarDetailPage = ({ params }: { params: Promise<{ carId: string }> }) => {
               />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {carData.carAdmin ? `${carData.carAdmin.name} - ${carData.carAdmin.manufacturer}` : `${carData.carName} - ${carData.model}`}
+                  {carData.carAdmin
+                    ? `${carData.carAdmin.name} - ${carData.carAdmin.manufacturer}`
+                    : `${carData.carName} - ${carData.model}`}
                 </h1>
                 <p className="text-gray-600 mt-1 text-sm">
                   {carData.registrationNumber} • {carData.carId}
@@ -379,8 +259,9 @@ const CarDetailPage = ({ params }: { params: Promise<{ carId: string }> }) => {
           {carData.carAdminId && (
             <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
               <p className="text-sm text-blue-800">
-                <strong>ℹ️ Master Data:</strong> This car is linked to standardized master data. 
-                Car details are managed centrally to ensure consistency.
+                <strong>ℹ️ Master Data:</strong> This car is linked to
+                standardized master data. Car details are managed centrally to
+                ensure consistency.
               </p>
             </div>
           )}
@@ -404,7 +285,9 @@ const CarDetailPage = ({ params }: { params: Promise<{ carId: string }> }) => {
                 <Descriptions.Item label="Car Name">
                   {carData.carName}
                 </Descriptions.Item>
-                <Descriptions.Item label="Model">{carData.model}</Descriptions.Item>
+                <Descriptions.Item label="Model">
+                  {carData.model}
+                </Descriptions.Item>
               </>
             )}
             <Descriptions.Item label="Registration">
@@ -443,9 +326,7 @@ const CarDetailPage = ({ params }: { params: Promise<{ carId: string }> }) => {
               {carData.currentMileage.toLocaleString("en-IN")} km
             </Descriptions.Item>
             <Descriptions.Item label="Purchase Date">
-              {carData.purchaseDate
-                ? new Date(carData.purchaseDate).toLocaleDateString("en-IN")
-                : "N/A"}
+              {formatDate(carData.purchaseDate)}
             </Descriptions.Item>
             <Descriptions.Item label="Purchase Cost">
               ₹{carData.purchaseCost?.toLocaleString("en-IN") || "N/A"}
@@ -514,11 +395,7 @@ const CarDetailPage = ({ params }: { params: Promise<{ carId: string }> }) => {
                     : ""
                 }
               >
-                {carData.insuranceExpiry
-                  ? new Date(carData.insuranceExpiry).toLocaleDateString(
-                      "en-IN"
-                    )
-                  : "N/A"}
+                {formatDate(carData.insuranceExpiry)}
               </span>
             </Descriptions.Item>
             <Descriptions.Item label="PUC Expiry">
@@ -529,28 +406,18 @@ const CarDetailPage = ({ params }: { params: Promise<{ carId: string }> }) => {
                     : ""
                 }
               >
-                {carData.pucExpiry
-                  ? new Date(carData.pucExpiry).toLocaleDateString("en-IN")
-                  : "N/A"}
+                {formatDate(carData.pucExpiry)}
               </span>
             </Descriptions.Item>
             <Descriptions.Item label="Fitness Expiry">
-              {carData.fitnessExpiry
-                ? new Date(carData.fitnessExpiry).toLocaleDateString("en-IN")
-                : "N/A"}
+              {formatDate(carData.fitnessExpiry)}
             </Descriptions.Item>
             <Descriptions.Item label="Last Service">
-              {carData.lastServiceDate
-                ? new Date(carData.lastServiceDate).toLocaleDateString("en-IN")
-                : "N/A"}
+              {formatDate(carData.lastServiceDate)}
             </Descriptions.Item>
             <Descriptions.Item label="Next Service">
               <span className="font-semibold text-orange-600">
-                {carData.nextServiceDate
-                  ? new Date(carData.nextServiceDate).toLocaleDateString(
-                      "en-IN"
-                    )
-                  : "N/A"}
+                {formatDate(carData.nextServiceDate)}
               </span>
             </Descriptions.Item>
           </Descriptions>
@@ -559,17 +426,6 @@ const CarDetailPage = ({ params }: { params: Promise<{ carId: string }> }) => {
         <div></div>
         {/* Connected Courses Section */}
         <ConnectedCoursesSection carId={numericCarId} />
-        <div></div>
-
-        {/* Maintenance History */}
-        <Card title="Maintenance History" className="shadow-sm">
-          <Table
-            columns={maintenanceColumns}
-            dataSource={maintenanceHistory}
-            pagination={{ pageSize: 5 }}
-            scroll={{ x: 900 }}
-          />
-        </Card>
         <div></div>
 
         {/* Booking History */}
@@ -585,7 +441,8 @@ const CarDetailPage = ({ params }: { params: Promise<{ carId: string }> }) => {
           <Table
             columns={bookingColumns}
             dataSource={bookingHistory}
-            pagination={{ pageSize: 5 }}
+            loading={isLoadingBookings}
+            pagination={{ pageSize: 10 }}
             scroll={{ x: 900 }}
           />
         </Card>

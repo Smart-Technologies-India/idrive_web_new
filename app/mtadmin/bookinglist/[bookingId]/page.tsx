@@ -37,7 +37,7 @@ import { PaymentSchema, type PaymentFormData } from "@/schema/payment";
 import { getCookie } from "cookies-next";
 import { toast } from "react-toastify";
 import { convertSlotTo12Hour } from "@/utils/time-format";
-import { decryptURLData } from "@/utils/methods";
+import { decryptURLData, encryptURLData } from "@/utils/methods";
 
 const BookingDetailsPage = () => {
   const router = useRouter();
@@ -389,6 +389,25 @@ const BookingDetailsPage = () => {
                   key: "confirmationNumber",
                   width: 150,
                   render: (num) => num || "-",
+                },
+                {
+                  title: "Action",
+                  key: "action",
+                  width: 100,
+                  render: (_, record) => (
+                    <Button
+                      type="primary"
+                      size="small"
+                      onClick={() => {
+                        const encodedId = encryptURLData(
+                          record.id.toString()
+                        );
+                        router.push(`/mtadmin/servicebookinglist/${encodedId}`);
+                      }}
+                    >
+                      View
+                    </Button>
+                  ),
                 },
               ]}
               dataSource={booking.bookingServices}

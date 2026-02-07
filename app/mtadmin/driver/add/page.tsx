@@ -135,7 +135,7 @@ const AddDriverPage = () => {
     },
     onError: (error: Error) => {
       toast.error(
-        error.message || "Failed to create driver. Please try again."
+        error.message || "Failed to create driver. Please try again.",
       );
     },
   });
@@ -286,10 +286,13 @@ const AddDriverPage = () => {
                         { label: "B+", value: "B+" },
                         { label: "B-", value: "B-" },
                         { label: "AB+", value: "AB+" },
-                        { label: "AB-", value: "AB-" },
+                        {
+                          label: "Unknown",
+                          value: "Unknown",
+                        },
                         { label: "O+", value: "O+" },
                         { label: "O-", value: "O-" },
-                        { label: "Unknown", value: "Unknown" },
+                        { label: "AB-", value: "AB-" },
                       ]}
                     />
                   </div>

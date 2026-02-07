@@ -35,6 +35,7 @@ export default function DriverLayout({
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -43,6 +44,9 @@ export default function DriverLayout({
 
   const handleMenuClick: MenuProps["onClick"] = (e) => {
     router.push(e.key);
+    if (isMobile) {
+      setCollapsed(true);
+    }
   };
 
   const userMenuItems: MenuProps["items"] = [
@@ -81,7 +85,15 @@ export default function DriverLayout({
         onCollapse={(value) => setCollapsed(value)}
         trigger={null}
         width={260}
-        className="!bg-white shadow-lg border-r border-gray-200"
+        collapsedWidth={0}
+        breakpoint="md"
+        onBreakpoint={(broken) => {
+          setIsMobile(broken);
+          if (broken) {
+            setCollapsed(true);
+          }
+        }}
+        className="bg-white! shadow-lg border-r border-gray-200"
         style={{
           overflow: "auto",
           height: "100vh",
@@ -89,11 +101,12 @@ export default function DriverLayout({
           left: 0,
           top: 0,
           bottom: 0,
+          zIndex: 60,
         }}
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="h-16 flex items-center justify-center border-b border-gray-200 bg-gradient-to-r from-green-600 to-blue-600">
+          <div className="h-16 flex items-center justify-center border-b border-gray-200 bg-linear-to-r from-green-600 to-blue-600">
             {!collapsed ? (
               <h1 className="text-white text-xl font-bold tracking-wider">
                 iDrive Driver
@@ -108,7 +121,7 @@ export default function DriverLayout({
             mode="inline"
             selectedKeys={[pathname]}
             onClick={handleMenuClick}
-            className="!bg-white border-0 flex-1 py-4"
+            className="bg-white! border-0 flex-1 py-4"
             items={menuItems}
             style={{
               fontSize: "15px",
@@ -127,7 +140,7 @@ export default function DriverLayout({
                 )
               }
               onClick={() => setCollapsed(!collapsed)}
-              className="w-full !text-gray-600 hover:!bg-gray-100 flex items-center justify-center"
+              className="w-full text-gray-600! hover:bg-gray-100! flex items-center justify-center"
             >
               {!collapsed && <span className="ml-2">Collapse</span>}
             </Button>
@@ -144,7 +157,7 @@ export default function DriverLayout({
                 <Avatar
                   size={collapsed ? 32 : 40}
                   icon={<IcBaselineAccountCircle />}
-                  className="bg-gradient-to-r from-green-600 to-blue-600"
+                  className="bg-linear-to-r from-green-600 to-blue-600"
                 />
                 {!collapsed && (
                   <div className="flex-1 min-w-0">
@@ -164,11 +177,22 @@ export default function DriverLayout({
 
       <Layout
         style={{
-          marginLeft: collapsed ? 80 : 260,
+          marginLeft: isMobile ? 0 : collapsed ? 80 : 260,
           transition: "margin-left 0.2s",
         }}
       >
-        <Content className="min-h-screen bg-gray-100">{children}</Content>
+        <Content className="min-h-screen bg-gray-100 relative">
+          {isMobile && (
+            <Button
+              type="primary"
+              onClick={() => setCollapsed((prev) => !prev)}
+              className="absolute top-4 left-4 z-50 bg-blue-600! hover:bg-blue-700! shadow-lg"
+            >
+              Menu
+            </Button>
+          )}
+          {children}
+        </Content>
       </Layout>
     </Layout>
   );

@@ -36,6 +36,7 @@ import {
   type Booking,
   type BookingSession,
 } from "@/services/booking.api";
+import { getTotalPaidAmount } from "@/services/payment.api";
 import { getCookie } from "cookies-next";
 
 const { TextArea } = Input;
@@ -44,13 +45,18 @@ interface BookingSlot {
   key: string;
   sessionId: number;
   bookingId: string;
+  bookingDbId: number;
   customerName: string;
-  mobile: string;
+  contact1: string;
+  contact2?: string;
   address: string;
   course: string;
   slot: string;
   date: string; // Format: YYYY-MM-DD
   carName: string;
+  totalAmount: number;
+  totalPaid: number;
+  remainingDue: number;
   status: "pending" | "completed" | "cancelled";
   attendanceMarked: boolean;
   attendanceNotes?: string;
@@ -86,34 +92,65 @@ const DriverPage = () => {
 
   // Transform backend data to BookingSlot format
   // Filter sessions where the driver's userId matches the logged-in user's ID
+  const rawBookings = bookingsResponse?.data?.getAllBooking || [];
+
+  const bookingIds = Array.from(new Set(rawBookings.map((b: Booking) => b.id)));
+
+  const { data: paymentTotals } = useQuery({
+    queryKey: ["driver-booking-payment-totals", bookingIds],
+    queryFn: async () => {
+      if (bookingIds.length === 0) return {} as Record<number, number>;
+      const results = await Promise.all(
+        bookingIds.map(async (id) => {
+          const response = await getTotalPaidAmount(id);
+          const total = response.data?.getTotalPaidAmount || 0;
+          return [id, total] as const;
+        })
+      );
+      return Object.fromEntries(results) as Record<number, number>;
+    },
+    enabled: bookingIds.length > 0,
+  });
+
   const allBookings: BookingSlot[] =
-    bookingsResponse?.data?.getAllBooking?.flatMap((booking: Booking) =>
+    rawBookings.flatMap((booking: Booking) =>
       (booking.sessions || [])
         .filter((session: BookingSession) => session.driver?.userId == userId)
-        .map((session: BookingSession) => ({
-          key: `${booking.id}-${session.id}`,
-          sessionId: session.id,
-          bookingId: booking.bookingId,
-          customerName:
-            booking.customer?.name || booking.customerName || "Unknown",
-          mobile: booking.customer?.contact1 || booking.customerMobile,
-          address: booking.customer?.address || "Address not provided",
-          course: booking.course?.courseName || booking.courseName,
-          slot: session.slot,
-          date: dayjs(session.sessionDate).format("YYYY-MM-DD"),
-          carName: `${booking.car?.carName || booking.carName} - ${
-            booking.car?.registrationNumber || ""
-          }`,
-          status: session.status.toLowerCase() as
-            | "pending"
-            | "completed"
-            | "cancelled",
-          attendanceMarked:
-            session.attended ||
-            session.status == "COMPLETED" ||
-            session.status == "NO_SHOW",
-          attendanceNotes: session.instructorNotes || "",
-        }))
+        .map((session: BookingSession) => {
+          const totalPaid = paymentTotals?.[booking.id] || 0;
+          const totalAmount = booking.totalAmount || 0;
+          const remainingDue = Math.max(totalAmount - totalPaid, 0);
+
+          return {
+            key: `${booking.id}-${session.id}`,
+            sessionId: session.id,
+            bookingId: booking.bookingId,
+            bookingDbId: booking.id,
+            customerName:
+              booking.customer?.name || booking.customerName || "Unknown",
+            contact1: booking.customer?.contact1 || booking.customerMobile,
+            contact2: booking.customer?.contact2,
+            address: booking.customer?.address || "Address not provided",
+            course: booking.course?.courseName || booking.courseName,
+            slot: session.slot,
+            date: dayjs(session.sessionDate).format("YYYY-MM-DD"),
+            carName: `${booking.car?.carName || booking.carName} - ${
+              booking.car?.registrationNumber || ""
+            }`,
+            totalAmount,
+            totalPaid,
+            remainingDue,
+            status: session.status.toLowerCase() as
+              | "pending"
+              | "completed"
+              | "cancelled",
+            attendanceMarked:
+              session.attended ||
+              session.status == "COMPLETED" ||
+              session.status == "NO_SHOW",
+            attendanceNotes: session.instructorNotes || "",
+          };
+        })
     ) || [];
 
   // Update booking session mutation
@@ -258,7 +295,7 @@ const DriverPage = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       {/* Page Header */}
       <Card className="shadow-sm">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -270,13 +307,13 @@ const DriverPage = () => {
               Manage your driving sessions and mark attendance
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <DatePicker
               value={selectedDate}
               onChange={(date) => date && setSelectedDate(date)}
               format="DD MMM, YYYY"
               size="large"
-              className="!w-48"
+              className="w-full! sm:w-48!"
               disabledDate={(current) => {
                 const today = dayjs();
                 return (
@@ -291,6 +328,7 @@ const DriverPage = () => {
               icon={<IcBaselineRefresh className="text-lg" />}
               size="large"
               onClick={() => refetch()}
+              className="w-full sm:w-auto"
             >
               Refresh
             </Button>
@@ -368,13 +406,14 @@ const DriverPage = () => {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-gray-700 font-medium">Filter:</span>
-            <Space.Compact>
+            <div className="flex flex-wrap gap-2">
               <Button
                 type={filterStatus == "all" ? "primary" : "default"}
                 onClick={() => {
                   setFilterStatus("all");
                   setCurrentPage(1);
                 }}
+                className="w-full sm:w-auto"
               >
                 All ({dateFilteredBookings.length})
               </Button>
@@ -384,6 +423,7 @@ const DriverPage = () => {
                   setFilterStatus("pending");
                   setCurrentPage(1);
                 }}
+                className="w-full sm:w-auto"
               >
                 Pending ({stats.pending})
               </Button>
@@ -393,6 +433,7 @@ const DriverPage = () => {
                   setFilterStatus("completed");
                   setCurrentPage(1);
                 }}
+                className="w-full sm:w-auto"
               >
                 Completed ({stats.completed})
               </Button>
@@ -402,17 +443,18 @@ const DriverPage = () => {
                   setFilterStatus("cancelled");
                   setCurrentPage(1);
                 }}
+                className="w-full sm:w-auto"
               >
                 Cancelled ({stats.cancelled})
               </Button>
-            </Space.Compact>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 w-full md:w-auto">
             <span className="text-gray-700 font-medium">Sort:</span>
             <Select
               value={sortBy}
               onChange={setSortBy}
-              style={{ width: 150 }}
+              className="w-full md:w-[150px]"
               options={[
                 { label: "By Time", value: "time" },
                 { label: "By Status", value: "status" },
@@ -450,15 +492,14 @@ const DriverPage = () => {
             <Card className="shadow-sm hover:shadow transition-all">
               <div className="flex flex-col lg:flex-row gap-6">
                 {/* Left Section - Time */}
-                <div className="flex-shrink-0">
-                  <div className="bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-xl p-5 text-center min-w-[140px]">
+                <div className="flex-shrink-0 w-full sm:w-auto">
+                  <div className="bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-xl p-5 text-center w-full sm:min-w-[140px]">
                     <div className="text-xs font-medium opacity-90 mb-2">
                       Time Slot
                     </div>
                     <div className="text-xl font-bold">
                       {booking.slot.split(" - ")[0]}
                     </div>
-                    <div className="text-xs opacity-75 my-1">to</div>
                     <div className="text-xl font-bold">
                       {booking.slot.split(" - ")[1]}
                     </div>
@@ -483,6 +524,14 @@ const DriverPage = () => {
                           <span className="font-medium text-gray-900">ID:</span>{" "}
                           {booking.bookingId}
                         </span>
+                        <span className="text-gray-600">
+                          <span className="font-medium text-gray-900">
+                            Remaining Due:
+                          </span>{" "}
+                          <span className="font-semibold text-red-600">
+                            ₹{booking.remainingDue.toLocaleString("en-IN")}
+                          </span>
+                        </span>
                       </div>
                     </div>
                     <div>{getStatusTag(booking.status)}</div>
@@ -493,15 +542,28 @@ const DriverPage = () => {
                       <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
                         <MaterialSymbolsCall className="text-green-600 text-base" />
                       </div>
-                      <a
-                        href={`tel:${booking.mobile}`}
-                        className="text-gray-900 hover:text-blue-600 font-medium"
-                      >
-                        {booking.mobile}
-                      </a>
+                      <div className="text-gray-900 font-medium flex items-center gap-1 flex-wrap">
+                        <a
+                          href={`tel:${booking.contact1}`}
+                          className="text-gray-900 hover:text-blue-600"
+                        >
+                          {booking.contact1}
+                        </a>
+                        {booking.contact2 && (
+                          <>
+                            <span className="text-gray-400">/</span>
+                            <a
+                              href={`tel:${booking.contact2}`}
+                              className="text-gray-900 hover:text-blue-600"
+                            >
+                              {booking.contact2}
+                            </a>
+                          </>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center shrink-0">
                         <MaterialSymbolsLocationOn className="text-red-600 text-base" />
                       </div>
                       <span className="text-gray-700 leading-relaxed">
@@ -523,7 +585,7 @@ const DriverPage = () => {
                 </div>
 
                 {/* Right Section - Action Button */}
-                <div className="flex-shrink-0 flex items-start">
+                <div className="flex-shrink-0 flex items-start w-full sm:w-auto">
                   {booking.status == "pending" &&
                     !booking.attendanceMarked && (
                       <Button
@@ -535,14 +597,14 @@ const DriverPage = () => {
                             booking as BookingSlot & { sessionId: number }
                           )
                         }
-                        className="!bg-blue-600 hover:!bg-blue-700"
+                        className="!bg-blue-600 hover:!bg-blue-700 w-full sm:w-auto"
                       >
                         Mark Attendance
                       </Button>
                     )}
                   {booking.attendanceMarked && (
-                    <div className="px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
-                      <span className="text-green-700 font-semibold text-sm flex items-center gap-2">
+                    <div className="px-4 py-2 bg-green-50 border border-green-200 rounded-lg w-full sm:w-auto text-center">
+                      <span className="text-green-700 font-semibold text-sm flex items-center gap-2 justify-center">
                         <AntDesignCheckOutlined />
                         Attendance Marked
                       </span>
@@ -574,7 +636,7 @@ const DriverPage = () => {
       {/* Attendance Modal */}
       <Modal
         title={
-          <div className="flex items-center gap-3 pb-4 border-b">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 pb-4 border-b">
             <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
               <AntDesignCheckOutlined className="text-blue-600 text-lg" />
             </div>
@@ -600,6 +662,7 @@ const DriverPage = () => {
         }}
         cancelButtonProps={{ size: "large", className: "!h-11" }}
         width={650}
+        style={{ maxWidth: "92vw" }}
       >
         {attendanceModal.booking && (
           <div className="space-y-6 py-4">
@@ -607,7 +670,7 @@ const DriverPage = () => {
               <h4 className="font-bold text-gray-900 mb-4 text-base">
                 Customer Information
               </h4>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-600 block mb-1">Name</span>
                   <span className="font-semibold text-gray-900">
@@ -616,9 +679,27 @@ const DriverPage = () => {
                 </div>
                 <div>
                   <span className="text-gray-600 block mb-1">Mobile</span>
-                  <span className="font-semibold text-gray-900">
-                    {attendanceModal.booking?.mobile}
-                  </span>
+                  <div className="font-semibold text-gray-900 flex items-center gap-1 flex-wrap">
+                    {attendanceModal.booking?.contact1 && (
+                      <a
+                        href={`tel:${attendanceModal.booking.contact1}`}
+                        className="text-gray-900 hover:text-blue-600"
+                      >
+                        {attendanceModal.booking.contact1}
+                      </a>
+                    )}
+                    {attendanceModal.booking?.contact2 && (
+                      <>
+                        <span className="text-gray-400">/</span>
+                        <a
+                          href={`tel:${attendanceModal.booking.contact2}`}
+                          className="text-gray-900 hover:text-blue-600"
+                        >
+                          {attendanceModal.booking.contact2}
+                        </a>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <span className="text-gray-600 block mb-1">Time Slot</span>
@@ -639,7 +720,7 @@ const DriverPage = () => {
               <label className="block text-sm font-semibold text-gray-900 mb-3">
                 Attendance Status
               </label>
-              <Space size="middle">
+              <Space size="middle" className="flex flex-col sm:flex-row">
                 <Button
                   type={
                     attendanceModal.status == "completed"

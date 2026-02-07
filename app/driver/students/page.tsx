@@ -186,7 +186,7 @@ const StudentsPage = () => {
           <div className="flex items-center gap-3">
             <Avatar
               size={40}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 flex-shrink-0"
+              className="bg-linear-to-r from-blue-600 to-purple-600 shrink-0"
             >
               {row.original.name.charAt(0).toUpperCase()}
             </Avatar>
@@ -386,10 +386,10 @@ const StudentsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">My Students</h1>
             <p className="text-gray-600 mt-1">
@@ -401,13 +401,14 @@ const StudentsPage = () => {
             size="large"
             icon={<ReloadOutlined />}
             onClick={() => refetch()}
+            className="w-full sm:w-auto"
           >
             Refresh
           </Button>
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="shadow-sm">
             <div className="text-center">
               <p className="text-gray-600 text-sm mb-2">Total Students</p>
@@ -445,19 +446,19 @@ const StudentsPage = () => {
         {/* Filters and Search */}
         <Card className="shadow-sm">
           <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
-            <Space size="middle" wrap>
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <Search
                 placeholder="Search students..."
                 allowClear
                 size="large"
-                style={{ width: 300 }}
+                className="w-full sm:w-[300px]"
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
                 prefix={<SearchOutlined />}
               />
               <Select
                 size="large"
-                style={{ width: 150 }}
+                className="w-full sm:w-[150px]"
                 value={statusFilter}
                 onChange={setStatusFilter}
                 options={[
@@ -467,7 +468,7 @@ const StudentsPage = () => {
                   { label: "Inactive", value: "inactive" },
                 ]}
               />
-            </Space>
+            </div>
             <div className="text-sm text-gray-600">
               Showing {table.getRowModel().rows.length} of{" "}
               {filteredStudents.length} students
@@ -544,21 +545,23 @@ const StudentsPage = () => {
 
           {/* Pagination */}
           {table.getPageCount() > 1 && (
-            <div className="flex items-center justify-between px-4 py-4 border-t border-gray-200">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-4 border-t border-gray-200">
               <div className="text-sm text-gray-600">
                 Page {table.getState().pagination.pageIndex + 1} of{" "}
                 {table.getPageCount()}
               </div>
-              <Space size="middle">
+              <Space size="middle" className="w-full sm:w-auto justify-end">
                 <Button
                   onClick={() => table.previousPage()}
                   disabled={!table.getCanPreviousPage()}
+                  className="w-full sm:w-auto"
                 >
                   Previous
                 </Button>
                 <Button
                   onClick={() => table.nextPage()}
                   disabled={!table.getCanNextPage()}
+                  className="w-full sm:w-auto"
                 >
                   Next
                 </Button>
@@ -583,15 +586,20 @@ const StudentsPage = () => {
         }}
         footer={null}
         width={800}
+        style={{ maxWidth: "95vw" }}
         className="booking-details-modal"
       >
         {selectedBooking && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Customer & Booking Info */}
-            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
-              <Descriptions column={2} bordered size="small">
+            <Card className="bg-linear-to-r from-blue-50 to-purple-50 border-blue-200">
+              <Descriptions
+                column={{ xs: 1, sm: 2 }}
+                bordered
+                size="small"
+              >
                 <Descriptions.Item label="Booking ID" span={2}>
-                  <Tag color="blue" className="!text-sm !font-semibold">
+                  <Tag color="blue" className="text-sm! font-semibold!">
                     {selectedBooking.bookingId}
                   </Tag>
                 </Descriptions.Item>
@@ -613,15 +621,19 @@ const StudentsPage = () => {
             </Card>
 
             {/* Course & Car Info */}
-            <Card className="bg-gradient-to-r from-green-50 to-teal-50 border-green-200">
-              <Descriptions column={2} bordered size="small">
+            <Card className="bg-linear-to-r from-green-50 to-teal-50 border-green-200">
+              <Descriptions
+                column={{ xs: 1, sm: 2 }}
+                bordered
+                size="small"
+              >
                 <Descriptions.Item label="Course">
-                  <Tag color="green" className="!text-sm">
+                  <Tag color="green" className="text-sm!">
                     {selectedBooking.course?.courseName || selectedBooking.courseName}
                   </Tag>
                 </Descriptions.Item>
                 <Descriptions.Item label="Car">
-                  <Tag color="purple" className="!text-sm">
+                  <Tag color="purple" className="text-sm!">
                     <CarOutlined /> {selectedBooking.car?.carName || selectedBooking.carName}
                   </Tag>
                 </Descriptions.Item>
@@ -636,7 +648,7 @@ const StudentsPage = () => {
 
             {/* Sessions Timeline */}
             <div>
-              <Divider orientation="left" className="!text-base !font-semibold">
+              <Divider orientation="left" className="text-base! font-semibold!">
                 <CalendarOutlined /> Session Timeline
               </Divider>
               <div className="max-h-96 overflow-y-auto">
@@ -690,7 +702,7 @@ const StudentsPage = () => {
                               <span className="font-semibold text-gray-900">
                                 Day {session.dayNumber} - {dayjs(session.sessionDate).format("DD MMM YYYY")}
                               </span>
-                              <Tag color={config.color} className="!text-sm">
+                              <Tag color={config.color} className="text-sm!">
                                 {config.label}
                               </Tag>
                             </div>
@@ -721,7 +733,7 @@ const StudentsPage = () => {
             {/* Services (if any) */}
             {selectedBooking.bookingServices && selectedBooking.bookingServices.length > 0 && (
               <div>
-                <Divider orientation="left" className="!text-base !font-semibold">
+                <Divider orientation="left" className="text-base! font-semibold!">
                   Additional Services
                 </Divider>
                 <div className="grid grid-cols-1 gap-2">

@@ -311,10 +311,10 @@ const Reports = () => {
       // Extract rows
       const rows: string[][] = [];
       // If exportAll is true, get all rows including those not visible
-      const bodyRows = exportAll 
-        ? tableElement.querySelectorAll("tbody tr.ant-table-row") 
+      const bodyRows = exportAll
+        ? tableElement.querySelectorAll("tbody tr.ant-table-row")
         : tableElement.querySelectorAll("tbody tr");
-      
+
       bodyRows.forEach((row) => {
         const rowData: string[] = [];
         const cells = row.querySelectorAll("td");
@@ -332,7 +332,7 @@ const Reports = () => {
       const csvContent = [
         headers.join(","),
         ...rows.map((row) =>
-          row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(",")
+          row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","),
         ),
       ].join("\n");
 
@@ -343,8 +343,8 @@ const Reports = () => {
 
       const reportName = getModalTitle().replace(/\s+/g, "_");
       const dateStr = dayjs().format("YYYY-MM-DD_HH-mm");
-      const fileName = exportAll 
-        ? `${reportName}_ALL_${dateStr}.csv` 
+      const fileName = exportAll
+        ? `${reportName}_ALL_${dateStr}.csv`
         : `${reportName}_${dateStr}.csv`;
       link.setAttribute("href", url);
       link.setAttribute("download", fileName);
@@ -353,7 +353,9 @@ const Reports = () => {
       link.click();
       document.body.removeChild(link);
 
-      message.success(`Report exported successfully! ${exportAll ? '(All records)' : ''}`);
+      message.success(
+        `Report exported successfully! ${exportAll ? "(All records)" : ""}`,
+      );
     } catch (error) {
       console.error("Export error:", error);
       message.error("Failed to export report");
@@ -656,7 +658,7 @@ const StudentJoinReport = ({
     {
       title: "Student Name",
       key: "name",
-      render: (record: User) => `${record.name} ${record.surname}`,
+      render: (record: User) => `${record.name} ${record.surname ?? ""}`,
     },
     {
       title: "Contact",
@@ -702,8 +704,9 @@ const StudentJoinReport = ({
         pagination={{
           defaultPageSize: 10,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          pageSizeOptions: ["10", "25", "50", "100"],
+          showTotal: (total, range) =>
+            `${range[0]}-${range[1]} of ${total} items`,
         }}
         className="shadow-sm"
       />
@@ -813,8 +816,8 @@ const CarTrainingReport = ({
             status === "COMPLETED"
               ? "green"
               : status === "CANCELLED"
-              ? "red"
-              : "blue"
+                ? "red"
+                : "blue"
           }
         >
           {status}
@@ -888,8 +891,9 @@ const CarTrainingReport = ({
         pagination={{
           defaultPageSize: 10,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          pageSizeOptions: ["10", "25", "50", "100"],
+          showTotal: (total, range) =>
+            `${range[0]}-${range[1]} of ${total} items`,
         }}
         className="shadow-sm"
       />
@@ -1019,8 +1023,8 @@ const AttendanceReport = ({
               totalSessions: sessions.length,
               present: sessions.filter((s) => s.attended).length,
               absent: sessions.filter((s) => !s.attended).length,
-            })
-          )
+            }),
+          ),
       )
     : [];
 
@@ -1070,8 +1074,9 @@ const AttendanceReport = ({
         pagination={{
           defaultPageSize: 10,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          pageSizeOptions: ["10", "25", "50", "100"],
+          showTotal: (total, range) =>
+            `${range[0]}-${range[1]} of ${total} items`,
         }}
         className="shadow-sm"
       />
@@ -1166,10 +1171,10 @@ const PaymentCollectionReport = ({
             method === "CASH"
               ? "green"
               : method === "CARD"
-              ? "blue"
-              : method === "UPI"
-              ? "purple"
-              : "orange"
+                ? "blue"
+                : method === "UPI"
+                  ? "purple"
+                  : "orange"
           }
         >
           {method}
@@ -1264,8 +1269,9 @@ const PaymentCollectionReport = ({
         pagination={{
           defaultPageSize: 10,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          pageSizeOptions: ["10", "25", "50", "100"],
+          showTotal: (total, range) =>
+            `${range[0]}-${range[1]} of ${total} items`,
         }}
         className="shadow-sm"
         summary={() => (
@@ -1347,7 +1353,7 @@ const DriverPerformanceReport = ({
             cancelled: number;
           }
         >,
-        session
+        session,
       ) => {
         const driverName = session.driver?.name || "Unassigned";
         if (!acc[driverName]) {
@@ -1365,7 +1371,7 @@ const DriverPerformanceReport = ({
         if (session.status === "CANCELLED") acc[driverName].cancelled++;
         return acc;
       },
-      {}
+      {},
     ) || {};
 
   const tableData = Object.values(driverStats);
@@ -1452,8 +1458,9 @@ const DriverPerformanceReport = ({
         pagination={{
           defaultPageSize: 10,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          pageSizeOptions: ["10", "25", "50", "100"],
+          showTotal: (total, range) =>
+            `${range[0]}-${range[1]} of ${total} items`,
         }}
         className="shadow-sm"
       />
@@ -1581,8 +1588,9 @@ const CourseCompletionReport = ({
         pagination={{
           defaultPageSize: 10,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          pageSizeOptions: ["10", "25", "50", "100"],
+          showTotal: (total, range) =>
+            `${range[0]}-${range[1]} of ${total} items`,
         }}
         className="shadow-sm"
       />
@@ -1664,7 +1672,7 @@ const RevenueAnalysisReport = ({
       amount,
       percentage:
         totalRevenue > 0 ? ((amount / totalRevenue) * 100).toFixed(1) : "0",
-    })
+    }),
   );
 
   const columns = [
@@ -1748,8 +1756,9 @@ const RevenueAnalysisReport = ({
         pagination={{
           defaultPageSize: 10,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          pageSizeOptions: ["10", "25", "50", "100"],
+          showTotal: (total, range) =>
+            `${range[0]}-${range[1]} of ${total} items`,
         }}
         className="shadow-sm"
       />
@@ -1798,7 +1807,7 @@ const PendingPaymentsReport = ({
         const totalPaid =
           booking.payments?.reduce(
             (sum: number, payment: Payment) => sum + (payment.amount || 0),
-            0
+            0,
           ) || 0;
         return totalPaid < booking.totalAmount;
       });
@@ -1851,7 +1860,7 @@ const PendingPaymentsReport = ({
         const totalPaid =
           record.payments?.reduce(
             (sum: number, payment: Payment) => sum + (payment.amount || 0),
-            0
+            0,
           ) || 0;
         return `₹${totalPaid.toLocaleString()}`;
       },
@@ -1863,7 +1872,7 @@ const PendingPaymentsReport = ({
         const totalPaid =
           record.payments?.reduce(
             (sum: number, payment: Payment) => sum + (payment.amount || 0),
-            0
+            0,
           ) || 0;
         const pending = record.totalAmount - totalPaid;
         return <Tag color="red">₹{pending.toLocaleString()}</Tag>;
@@ -1876,7 +1885,7 @@ const PendingPaymentsReport = ({
       const totalPaid =
         booking.payments?.reduce(
           (s: number, payment: Payment) => s + (payment.amount || 0),
-          0
+          0,
         ) || 0;
       return sum + (booking.totalAmount - totalPaid);
     }, 0) || 0;
@@ -1921,8 +1930,9 @@ const PendingPaymentsReport = ({
         pagination={{
           defaultPageSize: 10,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          pageSizeOptions: ["10", "25", "50", "100"],
+          showTotal: (total, range) =>
+            `${range[0]}-${range[1]} of ${total} items`,
         }}
         className="shadow-sm"
       />
@@ -1989,7 +1999,7 @@ const CarUtilizationReport = ({
             cancelled: number;
           }
         >,
-        session
+        session,
       ) => {
         const carName = session.car?.carName || "Unknown";
         const regNo = session.car?.registrationNumber || "N/A";
@@ -2002,7 +2012,7 @@ const CarUtilizationReport = ({
         if (session.status === "CANCELLED") acc[key].cancelled++;
         return acc;
       },
-      {}
+      {},
     ) || {};
 
   const tableData = Object.values(carStats);
@@ -2086,8 +2096,9 @@ const CarUtilizationReport = ({
         pagination={{
           defaultPageSize: 10,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          pageSizeOptions: ["10", "25", "50", "100"],
+          showTotal: (total, range) =>
+            `${range[0]}-${range[1]} of ${total} items`,
         }}
         className="shadow-sm"
       />
@@ -2215,8 +2226,9 @@ const SessionCancellationReport = ({
         pagination={{
           defaultPageSize: 10,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          pageSizeOptions: ["10", "25", "50", "100"],
+          showTotal: (total, range) =>
+            `${range[0]}-${range[1]} of ${total} items`,
         }}
         className="shadow-sm"
       />
@@ -2235,7 +2247,12 @@ const LicenseApplicationsReport = ({
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["license-applications-report", dateRange, schoolId, statusFilter],
+    queryKey: [
+      "license-applications-report",
+      dateRange,
+      schoolId,
+      statusFilter,
+    ],
     queryFn: async () => {
       const response = await ApiCall({
         query: `query GetAllLicenseApplication($whereSearchInput: WhereLicenseApplicationSearchInput!) {
@@ -2266,27 +2283,32 @@ const LicenseApplicationsReport = ({
         },
       });
       const applications: LicenseApplication[] =
-        (response?.data as { getAllLicenseApplication: LicenseApplication[] })?.getAllLicenseApplication || [];
+        (response?.data as { getAllLicenseApplication: LicenseApplication[] })
+          ?.getAllLicenseApplication || [];
 
       let filteredApplications = applications;
 
       // Apply date range filter
       if (dateRange) {
-        filteredApplications = filteredApplications.filter((app: LicenseApplication) => {
-          const appDate = dayjs(app.testDate || app.issuedDate);
-          return (
-            appDate &&
-            appDate.isAfter(dateRange[0].startOf("day")) &&
-            appDate.isBefore(dateRange[1].endOf("day"))
-          );
-        });
+        filteredApplications = filteredApplications.filter(
+          (app: LicenseApplication) => {
+            const appDate = dayjs(app.testDate || app.issuedDate);
+            return (
+              appDate &&
+              appDate.isAfter(dateRange[0].startOf("day")) &&
+              appDate.isBefore(dateRange[1].endOf("day"))
+            );
+          },
+        );
       }
 
       // Apply status filter
       if (statusFilter) {
-        filteredApplications = filteredApplications.filter((app: LicenseApplication) => {
-          return app.status === statusFilter;
-        });
+        filteredApplications = filteredApplications.filter(
+          (app: LicenseApplication) => {
+            return app.status === statusFilter;
+          },
+        );
       }
 
       return filteredApplications;
@@ -2295,12 +2317,15 @@ const LicenseApplicationsReport = ({
   });
 
   const statusCounts =
-    data?.reduce((acc: Record<string, number>, app: LicenseApplication) => {
-      const status = app.status || "PENDING";
-      if (!acc[status]) acc[status] = 0;
-      acc[status]++;
-      return acc;
-    }, {} as Record<string, number>) || {};
+    data?.reduce(
+      (acc: Record<string, number>, app: LicenseApplication) => {
+        const status = app.status || "PENDING";
+        if (!acc[status]) acc[status] = 0;
+        acc[status]++;
+        return acc;
+      },
+      {} as Record<string, number>,
+    ) || {};
 
   const columns = [
     {
@@ -2466,8 +2491,9 @@ const LicenseApplicationsReport = ({
         pagination={{
           defaultPageSize: 10,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          pageSizeOptions: ["10", "25", "50", "100"],
+          showTotal: (total, range) =>
+            `${range[0]}-${range[1]} of ${total} items`,
         }}
         className="shadow-sm"
       />
@@ -2714,8 +2740,9 @@ const StudentProgressReport = ({
       key: "completed",
       render: (record: Booking) => {
         const completed =
-          record.sessions?.filter((s: BookingSession) => s.status === "COMPLETED")
-            .length || 0;
+          record.sessions?.filter(
+            (s: BookingSession) => s.status === "COMPLETED",
+          ).length || 0;
         return <Tag color="green">{completed}</Tag>;
       },
     },
@@ -2724,7 +2751,8 @@ const StudentProgressReport = ({
       key: "attended",
       render: (record: Booking) => {
         const attended =
-          record.sessions?.filter((s: BookingSession) => s.attended).length || 0;
+          record.sessions?.filter((s: BookingSession) => s.attended).length ||
+          0;
         return <Tag color="blue">{attended}</Tag>;
       },
     },
@@ -2734,8 +2762,9 @@ const StudentProgressReport = ({
       render: (record: Booking) => {
         const total = record.sessions?.length || 0;
         const completed =
-          record.sessions?.filter((s: BookingSession) => s.status === "COMPLETED")
-            .length || 0;
+          record.sessions?.filter(
+            (s: BookingSession) => s.status === "COMPLETED",
+          ).length || 0;
         const progress =
           total > 0 ? ((completed / total) * 100).toFixed(0) : "0";
         return `${progress}%`;
@@ -2769,8 +2798,9 @@ const StudentProgressReport = ({
         pagination={{
           defaultPageSize: 10,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          pageSizeOptions: ["10", "25", "50", "100"],
+          showTotal: (total, range) =>
+            `${range[0]}-${range[1]} of ${total} items`,
         }}
         className="shadow-sm"
       />
@@ -2812,7 +2842,7 @@ const MonthlyRevenueReport = ({
   const monthlyData =
     data?.reduce((acc: Record<string, number>, payment) => {
       const month = dayjs(payment.paymentDate || payment.createdAt).format(
-        "MMM YYYY"
+        "MMM YYYY",
       );
       if (!acc[month]) acc[month] = 0;
       acc[month] += payment.amount || 0;
@@ -2824,7 +2854,7 @@ const MonthlyRevenueReport = ({
     .sort(
       (a, b) =>
         dayjs(a.month, "MMM YYYY").valueOf() -
-        dayjs(b.month, "MMM YYYY").valueOf()
+        dayjs(b.month, "MMM YYYY").valueOf(),
     );
 
   const columns = [
@@ -2865,7 +2895,7 @@ const MonthlyRevenueReport = ({
 
   const totalRevenue = Object.values(monthlyData).reduce(
     (sum, val) => sum + val,
-    0
+    0,
   );
   const avgRevenue = tableData.length > 0 ? totalRevenue / tableData.length : 0;
 
@@ -2925,8 +2955,9 @@ const MonthlyRevenueReport = ({
         pagination={{
           defaultPageSize: 12,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '12', '25', '50'],
-          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          pageSizeOptions: ["10", "12", "25", "50"],
+          showTotal: (total, range) =>
+            `${range[0]}-${range[1]} of ${total} items`,
         }}
         className="shadow-sm"
       />
@@ -2985,12 +3016,15 @@ const BookingConversionReport = ({
   });
 
   const statusCounts =
-    data?.reduce((acc: Record<string, number>, booking: Booking) => {
-      const status = booking.status || "PENDING";
-      if (!acc[status]) acc[status] = 0;
-      acc[status]++;
-      return acc;
-    }, {} as Record<string, number>) || {};
+    data?.reduce(
+      (acc: Record<string, number>, booking: Booking) => {
+        const status = booking.status || "PENDING";
+        if (!acc[status]) acc[status] = 0;
+        acc[status]++;
+        return acc;
+      },
+      {} as Record<string, number>,
+    ) || {};
 
   const totalBookings = data?.length || 0;
   const completed = statusCounts.COMPLETED || 0;
@@ -3197,8 +3231,9 @@ const ActiveStudentsReport = ({
       key: "completed",
       render: (record: Booking) => {
         const completed =
-          record.sessions?.filter((s: BookingSession) => s.status === "COMPLETED")
-            .length || 0;
+          record.sessions?.filter(
+            (s: BookingSession) => s.status === "COMPLETED",
+          ).length || 0;
         return <Tag color="green">{completed}</Tag>;
       },
     },
@@ -3235,8 +3270,9 @@ const ActiveStudentsReport = ({
         pagination={{
           defaultPageSize: 10,
           showSizeChanger: true,
-          pageSizeOptions: ['10', '25', '50', '100'],
-          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          pageSizeOptions: ["10", "25", "50", "100"],
+          showTotal: (total, range) =>
+            `${range[0]}-${range[1]} of ${total} items`,
         }}
         className="shadow-sm"
       />

@@ -10,6 +10,7 @@ export interface ServicePayment {
   paymentDate: string;
   paymentMethod?: string;
   transactionId?: string;
+  bankName?: string;
   installmentNumber: number;
   totalInstallments: number;
   notes?: string;
@@ -40,6 +41,7 @@ const GET_ALL_SERVICE_PAYMENTS = `
       paymentDate
       paymentMethod
       transactionId
+      bankName
       installmentNumber
       totalInstallments
       notes
@@ -56,6 +58,7 @@ const CREATE_SERVICE_PAYMENT = `
       id
       paymentNumber
       amount
+      bankName
       installmentNumber
       totalInstallments
       status
@@ -95,6 +98,7 @@ export const createServicePayment = async (inputType: {
   amount: number;
   paymentMethod?: string;
   transactionId?: string;
+  bankName?: string;
   installmentNumber: number;
   totalInstallments: number;
   notes?: string;

@@ -55,7 +55,13 @@ const ServiceBookingListPage = () => {
           skip: (currentPage - 1) * pageSize,
           take: pageSize,
           search: searchText,
-          filters: ["serviceName", "confirmationNumber", "user.name", "user.contact1"],
+          filters: [
+            "serviceName",
+            "confirmationNumber",
+            "user.name",
+            "user.surname",
+            "user.contact1",
+          ],
           orderBy: orderBy.length > 0 ? orderBy : undefined,
         },
         whereSearchInput: {
@@ -120,10 +126,13 @@ const ServiceBookingListPage = () => {
         header: "Customer",
         cell: (info) => {
           const user = info.getValue() as BookingService["user"];
+          const fullName = [user?.name, user?.surname]
+            .filter(Boolean)
+            .join(" ");
           return (
             <div>
               <div className="font-semibold text-gray-900">
-                {user?.name || "N/A"}
+                {fullName || "N/A"}
               </div>
               <div className="text-xs text-gray-500">
                 {user?.contact1 || ""}

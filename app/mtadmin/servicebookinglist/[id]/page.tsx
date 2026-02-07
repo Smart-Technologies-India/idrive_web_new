@@ -196,7 +196,11 @@ const ServiceBookingViewPage = () => {
 
   // Mutation for updating license application
   const { mutate: updateLicense, isPending: isUpdating } = useMutation({
-    mutationFn: async (values: { llNumber: string; issuedDate: string }) => {
+    mutationFn: async (values: {
+      llNumber: string;
+      issuedDate: string;
+      applicationNumber: string;
+    }) => {
       if (!selectedLicenseApp) {
         throw new Error("No license application selected for update");
       }
@@ -204,6 +208,7 @@ const ServiceBookingViewPage = () => {
         id: selectedLicenseApp.id,
         llNumber: values.llNumber,
         issuedDate: values.issuedDate,
+        dlApplicationNumber: values.applicationNumber,
         status: "LL_APPLIED",
       });
     },
@@ -397,11 +402,13 @@ const ServiceBookingViewPage = () => {
     status: string;
     llNumber?: string;
     issuedDate?: string;
+    dlApplicationNumber?: string;
   }) => {
     setSelectedLicenseApp(licenseApp);
     form.setFieldsValue({
       llNumber: licenseApp.llNumber || "",
       issuedDate: licenseApp.issuedDate ? dayjs(licenseApp.issuedDate) : null,
+      applicationNumber: licenseApp.dlApplicationNumber || "",
     });
     setIsEditModalOpen(true);
   };
@@ -424,6 +431,7 @@ const ServiceBookingViewPage = () => {
       updateLicense({
         llNumber: values.llNumber,
         issuedDate: values.issuedDate.toISOString(),
+        applicationNumber: values.applicationNumber,
       });
     });
   };
@@ -589,7 +597,9 @@ const ServiceBookingViewPage = () => {
                 </span>
               </Descriptions.Item>
               <Descriptions.Item label="Contact">
-                {bookingService.user.contact1}
+                {bookingService.user.contact2
+                  ? `${bookingService.user.contact1}/${bookingService.user.contact2}`
+                  : bookingService.user.contact1}
               </Descriptions.Item>
               <Descriptions.Item label="Email" span={2}>
                 {bookingService.user.email || "N/A"}
@@ -677,6 +687,11 @@ const ServiceBookingViewPage = () => {
                       className={index > 0 ? "mt-4" : ""}
                       extra={
                         <Space>
+                          <Tag
+                            color={statusColors[licenseApp.status] || "default"}
+                          >
+                            {licenseApp.status.replace(/_/g, " ")}
+                          </Tag>
                           {licenseApp.status === "PENDING" && (
                             <Button
                               type="primary"
@@ -725,12 +740,10 @@ const ServiceBookingViewPage = () => {
                       }
                     >
                       <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
-                        <Descriptions.Item label="Status">
-                          <Tag
-                            color={statusColors[licenseApp.status] || "default"}
-                          >
-                            {licenseApp.status.replace(/_/g, " ")}
-                          </Tag>
+                        <Descriptions.Item label="Application Number">
+                          {licenseApp.applicationNumber ||
+                            licenseApp.dlApplicationNumber ||
+                            "Not provided"}
                         </Descriptions.Item>
                         <Descriptions.Item label="Test Status">
                           <Tag
@@ -984,6 +997,25 @@ const ServiceBookingViewPage = () => {
             >
               <Input
                 placeholder="Enter Learner's License number"
+                size="large"
+              />
+            </Form.Item>
+            <Form.Item
+              label="Application Number"
+              name="applicationNumber"
+              rules={[
+                {
+                  required: true,
+                  message: "Please enter the application number",
+                },
+                {
+                  min: 5,
+                  message: "Application number must be at least 5 characters",
+                },
+              ]}
+            >
+              <Input
+                placeholder="Enter application number"
                 size="large"
               />
             </Form.Item>

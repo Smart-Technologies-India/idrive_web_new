@@ -262,10 +262,13 @@ const EditUserPage = ({ params }: { params: Promise<{ userId: string }> }) => {
                       { label: "B+", value: "B+" },
                       { label: "B-", value: "B-" },
                       { label: "AB+", value: "AB+" },
-                      { label: "AB-", value: "AB-" },
+                      {
+                        label: "Unknown",
+                        value: "Unknown",
+                      },
                       { label: "O+", value: "O+" },
                       { label: "O-", value: "O-" },
-                      { label: "Unknown", value: "Unknown" },
+                      { label: "AB-", value: "AB-" },
                     ]}
                   />
                 </Form.Item>

@@ -37,7 +37,9 @@ export interface BookingService {
   user?: {
     id: number;
     name: string;
+    surname?: string;
     contact1: string;
+    contact2?: string;
     email?: string;
   };
   school?: {
@@ -48,6 +50,7 @@ export interface BookingService {
     id: number;
     status: "PENDING" | "CLOSED" | "LL_APPLIED" | "DL_PENDING" | "DL_APPLIED";
     llNumber?: string;
+    applicationNumber?: string;
     issuedDate?: string;
     dlApplicationNumber?: string;
     testDate?: string;
@@ -112,7 +115,9 @@ const GET_PAGINATED_BOOKING_SERVICES = `
         user {
           id
           name
+          surname
           contact1
+          contact2
           email
         }
         school {
@@ -123,6 +128,7 @@ const GET_PAGINATED_BOOKING_SERVICES = `
           id
           status
           llNumber
+          applicationNumber
           dlApplicationNumber
           testStatus
         }
@@ -172,7 +178,9 @@ const GET_ALL_BOOKING_SERVICES = `
       user {
         id
         name
+        surname
         contact1
+        contact2
         email
       }
       school {
@@ -184,6 +192,7 @@ const GET_ALL_BOOKING_SERVICES = `
         status
         llNumber
         issuedDate
+        applicationNumber
         dlApplicationNumber
         testDate
         testStatus
@@ -230,7 +239,9 @@ const GET_BOOKING_SERVICE_BY_ID = `
       user {
         id
         name
+        surname
         contact1
+        contact2
         email
       }
       school {
@@ -242,6 +253,7 @@ const GET_BOOKING_SERVICE_BY_ID = `
         status
         llNumber
         issuedDate
+        applicationNumber
         dlApplicationNumber
         testDate
         testStatus

@@ -676,13 +676,13 @@ const CarScheduler = () => {
               {car.carName} - ({car.registrationNumber})
             </span>
           </div>
-          <div className="text-base text-gray-700 font-medium">{car.model}</div>
+          {/* <div className="text-base text-gray-700 font-medium">{car.model}</div>
           {car.assignedDriver && (
             <div className="text-sm text-gray-600">
               <span className="font-medium">Driver:</span>{" "}
               {car.assignedDriver.name}
             </div>
-          )}
+          )} */}
           <div className="mt-1 flex items-center gap-2 flex-wrap">
             <Tooltip
               title={
@@ -811,106 +811,115 @@ const CarScheduler = () => {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Total Cars</p>
-                <p className="text-2xl font-bold text-gray-900">{totalCars}</p>
+        {/* Stats + Filters (single row on large screens) */}
+        <div className="flex flex-col xl:flex-row gap-4 mb-4">
+          {/* Status Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 flex-1">
+            <div className="bg-white rounded-md shadow-sm border border-gray-100 p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-600 mb-1">Total Cars</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {totalCars}
+                  </p>
+                </div>
+                <CarOutlined className="text-2xl text-blue-500" />
               </div>
-              <CarOutlined className="text-4xl text-blue-500" />
+            </div>
+
+            <div className="bg-white rounded-md shadow-sm border border-gray-100 p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-600 mb-1">Available</p>
+                  <p className="text-xl font-bold text-green-600">
+                    {activeCars}
+                  </p>
+                </div>
+                <CheckCircleOutlined className="text-2xl text-green-500" />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-md shadow-sm border border-gray-100 p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-600 mb-1">Total Slots</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {totalSlots}
+                  </p>
+                </div>
+                <CalendarOutlined className="text-2xl text-purple-500" />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-md shadow-sm border border-gray-100 p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-600 mb-1">Booked</p>
+                  <p className="text-xl font-bold text-red-600">
+                    {bookedSlots}
+                  </p>
+                </div>
+                <CloseCircleOutlined className="text-2xl text-red-500" />
+              </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center justify-between">
+          {/* Filters */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-3 xl:w-[520px]">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Available Cars</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {activeCars}
-                </p>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  <CalendarOutlined className="mr-1" />
+                  Current Date
+                </label>
+                <div className="h-9 px-3 py-2 bg-blue-50 border-2 border-blue-300 rounded text-sm font-bold text-blue-900 flex items-center">
+                  {selectedDate.format("DD MMM YYYY")}
+                </div>
               </div>
-              <CheckCircleOutlined className="text-4xl text-green-500" />
-            </div>
-          </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Total Slots</p>
-                <p className="text-2xl font-bold text-gray-900">{totalSlots}</p>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  <CarOutlined className="mr-1" />
+                  Filter by Status
+                </label>
+                <Select
+                  value={statusFilter}
+                  onChange={(value) => {
+                    setStatusFilter(value);
+                    setCurrentPage(1);
+                  }}
+                  size="middle"
+                  className="w-full"
+                  options={[
+                    { value: "all", label: "All Cars" },
+                    { value: "AVAILABLE", label: "Available Only" },
+                    { value: "IN_USE", label: "In Use Only" },
+                    { value: "MAINTENANCE", label: "Maintenance Only" },
+                    { value: "INACTIVE", label: "Inactive Only" },
+                  ]}
+                />
               </div>
-              <CalendarOutlined className="text-4xl text-purple-500" />
-            </div>
-          </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Booked Slots</p>
-                <p className="text-2xl font-bold text-red-600">{bookedSlots}</p>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Results
+                </label>
+                <div className="text-lg font-bold text-blue-600">
+                  {filteredCars.length} Car{filteredCars.length !== 1 ? "s" : ""}
+                </div>
               </div>
-              <CloseCircleOutlined className="text-4xl text-red-500" />
-            </div>
-          </div>
-        </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-3 mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                <CalendarOutlined className="mr-1" />
-                Current Date
-              </label>
-              <div className="h-10 px-3 py-2 bg-blue-50 border-2 border-blue-300 rounded text-base font-bold text-blue-900 flex items-center">
-                {selectedDate.format("DD MMM YYYY")}
+              <div>
+                <Button
+                  type="default"
+                  icon={<InfoCircleOutlined />}
+                  onClick={() => setShowStatusModal(true)}
+                  size="middle"
+                  className="w-full"
+                >
+                  Status Info
+                </Button>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                <CarOutlined className="mr-1" />
-                Filter by Status
-              </label>
-              <Select
-                value={statusFilter}
-                onChange={(value) => {
-                  setStatusFilter(value);
-                  setCurrentPage(1);
-                }}
-                size="large"
-                className="w-full"
-                options={[
-                  { value: "all", label: "All Cars" },
-                  { value: "AVAILABLE", label: "Available Only" },
-                  { value: "IN_USE", label: "In Use Only" },
-                  { value: "MAINTENANCE", label: "Maintenance Only" },
-                  { value: "INACTIVE", label: "Inactive Only" },
-                ]}
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Results
-              </label>
-              <div className="text-xl font-bold text-blue-600">
-                {filteredCars.length} Car{filteredCars.length !== 1 ? "s" : ""}
-              </div>
-            </div>
-
-            <div>
-              <Button
-                type="default"
-                icon={<InfoCircleOutlined />}
-                onClick={() => setShowStatusModal(true)}
-                size="large"
-                className="w-full"
-              >
-                Status Info
-              </Button>
             </div>
           </div>
         </div>

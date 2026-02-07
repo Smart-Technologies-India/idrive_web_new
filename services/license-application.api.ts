@@ -7,6 +7,7 @@ export interface LicenseApplication {
   llNumber?: string;
   issuedDate?: string;
   dlApplicationNumber?: string;
+  applicationNumber?: string;
   testDate?: string;
   testStatus: "NONE" | "PASSED" | "FAILED" | "ABSENT";
   status: "PENDING" | "CLOSED" | "LL_APPLIED" | "DL_PENDING" | "DL_APPLIED";
@@ -107,9 +108,12 @@ export const createLicenseApplication = async (data: {
   llNumber?: string;
   issuedDate?: string;
   dlApplicationNumber?: string;
+  applicationNumber?: string;
   testDate?: string;
   testStatus?: "NONE" | "PASSED" | "FAILED" | "ABSENT";
 }) => {
+  const resolvedApplicationNumber =
+    data.dlApplicationNumber ?? data.applicationNumber;
   return await ApiCall({
     query: CREATE_LICENSE_APPLICATION,
     variables: {
@@ -119,7 +123,7 @@ export const createLicenseApplication = async (data: {
         testStatus: data.testStatus || "NONE",
         llNumber: data.llNumber,
         issuedDate: data.issuedDate,
-        dlApplicationNumber: data.dlApplicationNumber,
+        dlApplicationNumber: resolvedApplicationNumber,
         testDate: data.testDate,
       },
     },
@@ -149,11 +153,18 @@ export const updateLicenseApplication = async (data: {
   llNumber?: string;
   issuedDate?: string;
   dlApplicationNumber?: string;
+  applicationNumber?: string;
   testDate?: string;
   testStatus?: "NONE" | "PASSED" | "FAILED" | "ABSENT";
   status?: "PENDING" | "CLOSED" | "LL_APPLIED" | "DL_PENDING" | "DL_APPLIED";
 }) => {
-  const { id, ...updateType } = data;
+  const { id, applicationNumber, ...updateType } = data;
+  if (
+    applicationNumber !== undefined &&
+    updateType.dlApplicationNumber === undefined
+  ) {
+    updateType.dlApplicationNumber = applicationNumber;
+  }
   return await ApiCall({
     query: UPDATE_LICENSE_APPLICATION,
     variables: {

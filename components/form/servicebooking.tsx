@@ -65,6 +65,8 @@ type ServiceBookingFormData = {
   discount?: number;
   advanceAmount?: number;
   paymentMethod?: string;
+  bankName?: string;
+  transactionId?: string;
   notes: string;
 };
 
@@ -72,14 +74,16 @@ const ServiceBookingForm = () => {
   const router = useRouter();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingData, setPendingData] = useState<ServiceBookingFormData | null>(
-    null
+    null,
   );
   const [selectedService, setSelectedService] = useState<FormService | null>(
-    null
+    null,
   );
   const [discount, setDiscount] = useState<number>(0);
   const [advanceAmount, setAdvanceAmount] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>("CASH");
+  const [bankName, setBankName] = useState<string>("");
+  const [transactionId, setTransactionId] = useState<string>("");
   const [customerData, setCustomerData] = useState<Customer | null>(null);
   const [showCreateUserDrawer, setShowCreateUserDrawer] = useState(false);
   const [newUserName, setNewUserName] = useState("");
@@ -119,7 +123,7 @@ const ServiceBookingForm = () => {
         (ss: SchoolService) =>
           ss.service &&
           (ss.service.category == "NEW_LICENSE" ||
-            ss.service.category == "I_HOLD_LICENSE")
+            ss.service.category == "I_HOLD_LICENSE"),
       ) // Only license-related services
       ?.map((schoolService: SchoolService) => ({
         id: schoolService.service!.id,
@@ -145,6 +149,8 @@ const ServiceBookingForm = () => {
       totalAmount: 0,
       discount: 0,
       advanceAmount: 0,
+      bankName: "",
+      transactionId: "",
       notes: "",
     },
   });
@@ -174,7 +180,7 @@ const ServiceBookingForm = () => {
           });
           const totalAfterDiscount = Math.max(
             0,
-            service.licensePrice - discount
+            service.licensePrice - discount,
           );
           setValue("totalAmount", totalAfterDiscount, {
             shouldValidate: false,
@@ -371,7 +377,7 @@ const ServiceBookingForm = () => {
         onSettled: () => {
           setCreatingUser(false);
         },
-      }
+      },
     );
   };
 
@@ -415,6 +421,26 @@ const ServiceBookingForm = () => {
       errors.push("Advance amount cannot be greater than total amount");
     }
 
+    if (
+      formValues.advanceAmount &&
+      formValues.advanceAmount > 0 &&
+      ["CARD", "UPI", "BANK_TRANSFER"].includes(paymentMethod) &&
+      !bankName.trim()
+    ) {
+      errors.push("Please enter bank name for the selected payment method");
+    }
+
+    if (
+      formValues.advanceAmount &&
+      formValues.advanceAmount > 0 &&
+      ["CARD", "UPI", "BANK_TRANSFER"].includes(paymentMethod) &&
+      !transactionId.trim()
+    ) {
+      errors.push(
+        "Please enter transaction/reference ID for the selected payment method",
+      );
+    }
+
     return {
       isValid: errors.length == 0,
       errors,
@@ -434,6 +460,8 @@ const ServiceBookingForm = () => {
       ...formValues,
       selectedService: selectedService || undefined,
       paymentMethod: paymentMethod,
+      bankName: bankName.trim() || undefined,
+      transactionId: transactionId.trim() || undefined,
     });
     setShowConfirmModal(true);
   };
@@ -443,7 +471,7 @@ const ServiceBookingForm = () => {
     mutationFn: async (data: ServiceBookingFormData) => {
       // Generate confirmation number for service booking
       const confirmationNumber = `SB${Date.now()}${Math.floor(
-        Math.random() * 1000
+        Math.random() * 1000,
       )}`;
 
       // Create the booking service record directly (no need for base booking)
@@ -474,7 +502,7 @@ const ServiceBookingForm = () => {
 
       if (!serviceResponse.status) {
         throw new Error(
-          serviceResponse.message || "Failed to create booking service"
+          serviceResponse.message || "Failed to create booking service",
         );
       }
 
@@ -501,12 +529,12 @@ const ServiceBookingForm = () => {
           if (!licenseAppResponse.status) {
             console.error(
               "Failed to create license application:",
-              licenseAppResponse.message
+              licenseAppResponse.message,
             );
             // Don't throw error here, just log it - booking service was created successfully
           } else {
             console.log(
-              "License application created successfully for NEW_LICENSE service"
+              "License application created successfully for NEW_LICENSE service",
             );
           }
         } catch (error) {
@@ -541,7 +569,8 @@ const ServiceBookingForm = () => {
                 userId: customerData?.id,
                 amount: pendingData.advanceAmount,
                 paymentMethod: pendingData.paymentMethod || "CASH",
-                transactionId: "",
+                transactionId: pendingData.transactionId || "",
+                bankName: pendingData.bankName,
                 installmentNumber: 1,
                 totalInstallments: 1,
                 notes: "Advance payment during service booking",
@@ -551,12 +580,12 @@ const ServiceBookingForm = () => {
           });
 
           toast.success(
-            "Service booking created and advance payment recorded successfully!"
+            "Service booking created and advance payment recorded successfully!",
           );
         } catch (error) {
           console.error("Failed to create service payment:", error);
           toast.warning(
-            "Service booking created, but advance payment recording failed. Please add payment manually."
+            "Service booking created, but advance payment recording failed. Please add payment manually.",
           );
         }
       } else {
@@ -569,7 +598,7 @@ const ServiceBookingForm = () => {
     },
     onError: (error: Error) => {
       toast.error(
-        error.message || "Failed to create service booking. Please try again."
+        error.message || "Failed to create service booking. Please try again.",
       );
     },
   });
@@ -752,9 +781,9 @@ const ServiceBookingForm = () => {
                                 selectedService.serviceType == "NEW_LICENSE"
                                   ? "purple"
                                   : selectedService.serviceType ==
-                                    "I_HOLD_LICENSE"
-                                  ? "blue"
-                                  : "cyan"
+                                      "I_HOLD_LICENSE"
+                                    ? "blue"
+                                    : "cyan"
                               }
                               className="mt-2"
                             >
@@ -766,7 +795,7 @@ const ServiceBookingForm = () => {
                             <p className="text-2xl font-bold text-blue-600">
                               ₹
                               {selectedService.licensePrice.toLocaleString(
-                                "en-IN"
+                                "en-IN",
                               )}
                             </p>
                           </div>
@@ -834,7 +863,7 @@ const ServiceBookingForm = () => {
                         if (selectedService) {
                           const totalAfterDiscount = Math.max(
                             0,
-                            selectedService.licensePrice - value
+                            selectedService.licensePrice - value,
                           );
                           setValue("totalAmount", totalAfterDiscount);
                           setValue("discount", value);
@@ -867,7 +896,7 @@ const ServiceBookingForm = () => {
                         Final Price: ₹
                         {Math.max(
                           0,
-                          selectedService.licensePrice - discount
+                          selectedService.licensePrice - discount,
                         ).toLocaleString("en-IN")}
                       </p>
                     </div>
@@ -911,37 +940,93 @@ const ServiceBookingForm = () => {
                         Payment Method <span className="text-red-500">*</span>
                       </label>
                       <div className="flex flex-wrap gap-2">
-                        {["CASH", "CARD", "UPI", "BANK_TRANSFER"].map((method) => (
-                          <Tag.CheckableTag
-                            key={method}
-                            checked={paymentMethod === method}
-                            onChange={() => setPaymentMethod(method)}
-                            style={{
-                              padding: "6px 16px",
-                              fontSize: "14px",
-                              border: paymentMethod === method
-                                ? "2px solid #1890ff"
-                                : "2px solid #d9d9d9",
-                              borderRadius: "20px",
-                              backgroundColor: paymentMethod === method
-                                ? "#e6f7ff"
-                                : "#ffffff",
-                              color: paymentMethod === method
-                                ? "#1890ff"
-                                : "#666666",
-                              cursor: "pointer",
-                              fontWeight: paymentMethod === method ? 600 : 400,
-                            }}
-                          >
-                            {method === "BANK_TRANSFER" ? "Bank Transfer" : method.charAt(0) + method.slice(1).toLowerCase()}
-                          </Tag.CheckableTag>
-                        ))}
+                        {["CASH", "CARD", "UPI", "BANK_TRANSFER"].map(
+                          (method) => (
+                            <Tag.CheckableTag
+                              key={method}
+                              checked={paymentMethod === method}
+                              onChange={() => {
+                                setPaymentMethod(method);
+                                if (method === "CASH") {
+                                  setBankName("");
+                                  setValue("bankName", "");
+                                  setTransactionId("");
+                                  setValue("transactionId", "");
+                                }
+                              }}
+                              style={{
+                                padding: "6px 16px",
+                                fontSize: "14px",
+                                border:
+                                  paymentMethod === method
+                                    ? "2px solid #1890ff"
+                                    : "2px solid #d9d9d9",
+                                borderRadius: "20px",
+                                backgroundColor:
+                                  paymentMethod === method
+                                    ? "#e6f7ff"
+                                    : "#ffffff",
+                                color:
+                                  paymentMethod === method
+                                    ? "#1890ff"
+                                    : "#666666",
+                                cursor: "pointer",
+                                fontWeight:
+                                  paymentMethod === method ? 600 : 400,
+                              }}
+                            >
+                              {method === "BANK_TRANSFER"
+                                ? "Bank Transfer"
+                                : method.charAt(0) +
+                                  method.slice(1).toLowerCase()}
+                            </Tag.CheckableTag>
+                          ),
+                        )}
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
                         Select how the advance payment was received
                       </p>
                     </div>
                   )}
+
+                  {advanceAmount > 0 &&
+                    ["CARD", "UPI", "BANK_TRANSFER"].includes(
+                      paymentMethod,
+                    ) && (
+                      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Bank Name <span className="text-red-500">*</span>
+                          </label>
+                          <Input
+                            size="large"
+                            placeholder="Enter bank name"
+                            value={bankName}
+                            onChange={(e) => {
+                              setBankName(e.target.value);
+                              setValue("bankName", e.target.value);
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Transaction ID <span className="text-red-500">*</span>
+                          </label>
+                          <Input
+                            size="large"
+                            placeholder="Enter transaction/reference ID"
+                            value={transactionId}
+                            onChange={(e) => {
+                              setTransactionId(e.target.value);
+                              setValue("transactionId", e.target.value);
+                            }}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 md:col-span-2">
+                          Required for Card, UPI, or Bank Transfer payments
+                        </p>
+                      </div>
+                    )}
 
                   {advanceAmount > 0 && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
@@ -955,8 +1040,30 @@ const ServiceBookingForm = () => {
                         ).toLocaleString("en-IN")}
                       </p>
                       <p className="text-xs text-blue-700">
-                        • Payment Method: <strong>{paymentMethod === "BANK_TRANSFER" ? "Bank Transfer" : paymentMethod.charAt(0) + paymentMethod.slice(1).toLowerCase()}</strong>
+                        • Payment Method:{" "}
+                        <strong>
+                          {paymentMethod === "BANK_TRANSFER"
+                            ? "Bank Transfer"
+                            : paymentMethod.charAt(0) +
+                              paymentMethod.slice(1).toLowerCase()}
+                        </strong>
                       </p>
+                      {bankName.trim() &&
+                        ["CARD", "UPI", "BANK_TRANSFER"].includes(
+                          paymentMethod,
+                        ) && (
+                          <p className="text-xs text-blue-700">
+                            • Bank Name: <strong>{bankName}</strong>
+                          </p>
+                        )}
+                      {transactionId.trim() &&
+                        ["CARD", "UPI", "BANK_TRANSFER"].includes(
+                          paymentMethod,
+                        ) && (
+                          <p className="text-xs text-blue-700">
+                            • Transaction ID: <strong>{transactionId}</strong>
+                          </p>
+                        )}
                     </div>
                   )}
                 </div>
@@ -1174,9 +1281,9 @@ const ServiceBookingForm = () => {
                             "NEW_LICENSE"
                               ? "purple"
                               : pendingData.selectedService.serviceType ==
-                                "I_HOLD_LICENSE"
-                              ? "blue"
-                              : "cyan"
+                                  "I_HOLD_LICENSE"
+                                ? "blue"
+                                : "cyan"
                           }
                         >
                           {pendingData.selectedService.serviceType}
@@ -1438,13 +1545,13 @@ const ServiceBookingForm = () => {
                     { label: "B+", value: "B+" },
                     { label: "B-", value: "B-" },
                     { label: "AB+", value: "AB+" },
-                    { label: "AB-", value: "AB-" },
-                    { label: "O+", value: "O+" },
-                    { label: "O-", value: "O-" },
                     {
                       label: "Unknown",
                       value: "Unknown",
                     },
+                    { label: "O+", value: "O+" },
+                    { label: "O-", value: "O-" },
+                    { label: "AB-", value: "AB-" },
                   ]}
                 />
               </div>
@@ -1544,7 +1651,9 @@ const ServiceBookingForm = () => {
                   rows={3}
                   placeholder="Enter permanent address"
                   value={newUserPermanentAddress}
-                  onChange={(e) => setNewUserPermanentAddress(e.target.value.toUpperCase())}
+                  onChange={(e) =>
+                    setNewUserPermanentAddress(e.target.value.toUpperCase())
+                  }
                   maxLength={500}
                   disabled={sameAsCurrentAddress}
                 />

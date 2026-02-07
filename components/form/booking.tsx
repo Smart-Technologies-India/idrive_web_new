@@ -56,6 +56,8 @@ dayjs.extend(utc);
 type ExtendedBookingFormData = BookingFormData & {
   calculatedDates?: string[];
   paymentMethod?: string;
+  bankName?: string;
+  transactionId?: string;
 };
 
 // Types for form data
@@ -123,7 +125,7 @@ const generateTimeSlots = (
   startTime: string,
   endTime: string,
   lunchStart?: string,
-  lunchEnd?: string
+  lunchEnd?: string,
 ): string[] => {
   const slots: string[] = [];
 
@@ -190,9 +192,11 @@ const BookingForm = () => {
   const [serviceDiscount, setServiceDiscount] = useState<number>(0);
   const [advanceAmount, setAdvanceAmount] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>("CASH");
+  const [bankName, setBankName] = useState<string>("");
+  const [transactionId, setTransactionId] = useState<string>("");
   const [customerData, setCustomerData] = useState<Customer | null>(null);
   const [bookingDate, setBookingDate] = useState<Dayjs | null>(
-    dateFromUrl ? dayjs(dateFromUrl) : dayjs()
+    dateFromUrl ? dayjs(dateFromUrl) : dayjs(),
   );
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [showCreateUserDrawer, setShowCreateUserDrawer] = useState(false);
@@ -447,7 +451,7 @@ const BookingForm = () => {
   useEffect(() => {
     if (watchedCarId && availableCars.length > 0 && !carIdFromUrl) {
       const car = availableCars.find(
-        (c) => c.id.toString() == watchedCarId.toString()
+        (c) => c.id.toString() == watchedCarId.toString(),
       );
       if (car) {
         setValue("carName", car.carName, { shouldValidate: false });
@@ -493,7 +497,7 @@ const BookingForm = () => {
             priceToUse,
             selectedServices,
             bookingDiscount,
-            serviceDiscount
+            serviceDiscount,
           );
         }
       }
@@ -526,7 +530,7 @@ const BookingForm = () => {
           priceToUse,
           selectedServices,
           bookingDiscount,
-          serviceDiscount
+          serviceDiscount,
         );
       }
     }
@@ -541,7 +545,7 @@ const BookingForm = () => {
         schoolData.dayStartTime,
         schoolData.dayEndTime,
         schoolData.lunchStartTime || undefined,
-        schoolData.lunchEndTime || undefined
+        schoolData.lunchEndTime || undefined,
       );
 
       // Filter out booked and holiday slots to prevent double booking
@@ -576,7 +580,7 @@ const BookingForm = () => {
             (sessionsResponse?.data as GetAllBookingSessionResponse)
               ?.getAllBookingSession || [];
           const bookingSessions = allSessions.filter(
-            (session: BookingSession) => session.booking?.schoolId == schoolId
+            (session: BookingSession) => session.booking?.schoolId == schoolId,
           );
 
           // Filter out booked slots for the selected car
@@ -586,13 +590,13 @@ const BookingForm = () => {
               (session: BookingSession) =>
                 session.booking?.carId == selectedCarId &&
                 !["CANCELLED", "NO_SHOW", "HOLD", "EDITED"].includes(
-                  session.status
-                )
+                  session.status,
+                ),
             )
             .map((session: BookingSession) => session.slot);
 
           let availableSlots = allSlots.filter(
-            (slot) => !bookedSlots.includes(slot)
+            (slot) => !bookedSlots.includes(slot),
           );
 
           // If selected date is today, filter out past time slots
@@ -714,7 +718,7 @@ const BookingForm = () => {
       onError: () => {
         toast.error("Failed to load car details");
       },
-    }
+    },
   );
 
   // Mutation for creating new user
@@ -828,7 +832,7 @@ const BookingForm = () => {
         onSettled: () => {
           setCreatingUser(false);
         },
-      }
+      },
     );
   };
 
@@ -841,11 +845,11 @@ const BookingForm = () => {
     setSelectedServices(newSelectedServices);
     setValue(
       "services",
-      newSelectedServices.map((id) => id.toString())
+      newSelectedServices.map((id) => id.toString()),
     );
 
     const servicesData = services.filter((s) =>
-      newSelectedServices.includes(s.id)
+      newSelectedServices.includes(s.id),
     );
     setValue("selectedServices", servicesData);
 
@@ -854,7 +858,7 @@ const BookingForm = () => {
       formValues.coursePrice || 0,
       newSelectedServices,
       bookingDiscount,
-      serviceDiscount
+      serviceDiscount,
     );
   };
 
@@ -863,7 +867,7 @@ const BookingForm = () => {
     coursePrice: number,
     serviceIds: number[],
     bookingDisc: number = 0,
-    serviceDisc: number = 0
+    serviceDisc: number = 0,
   ) => {
     const servicesTotal = services
       .filter((s) => serviceIds.includes(s.id))
@@ -924,7 +928,7 @@ const BookingForm = () => {
       const minDate = dayjs().add(1, "day");
       if (selectedDate.isBefore(minDate, "day")) {
         errors.push(
-          `Booking date must be from ${minDate.format("DD MMM YYYY")} onwards`
+          `Booking date must be from ${minDate.format("DD MMM YYYY")} onwards`,
         );
       }
     }
@@ -952,6 +956,26 @@ const BookingForm = () => {
       errors.push("Advance amount cannot be more than the total amount");
     }
 
+    if (
+      formValues.advanceAmount &&
+      formValues.advanceAmount > 0 &&
+      ["CARD", "UPI", "BANK_TRANSFER"].includes(paymentMethod) &&
+      !bankName.trim()
+    ) {
+      errors.push("Please enter bank name for the selected payment method");
+    }
+
+    if (
+      formValues.advanceAmount &&
+      formValues.advanceAmount > 0 &&
+      ["CARD", "UPI", "BANK_TRANSFER"].includes(paymentMethod) &&
+      !transactionId.trim()
+    ) {
+      errors.push(
+        "Please enter transaction/reference ID for the selected payment method",
+      );
+    }
+
     return {
       isValid: errors.length == 0,
       errors,
@@ -962,7 +986,7 @@ const BookingForm = () => {
   const isDateSlotAvailable = async (
     date: string,
     slot: string,
-    carId: number
+    carId: number,
   ) => {
     try {
       const response = await ApiCall<GetAllBookingSessionResponse>({
@@ -993,7 +1017,7 @@ const BookingForm = () => {
       // Only count SCHEDULED and COMPLETED sessions as unavailable
       const activeSessions = sessions.filter(
         (session: BookingSession) =>
-          !["CANCELLED", "NO_SHOW", "HOLD", "EDITED"].includes(session.status)
+          !["CANCELLED", "NO_SHOW", "HOLD", "EDITED"].includes(session.status),
       );
       // Slot is available if there are no active sessions
       return activeSessions.length == 0;
@@ -1046,7 +1070,7 @@ const BookingForm = () => {
       const isAvailable = await isDateSlotAvailable(
         currentDate.format("YYYY-MM-DD"),
         formValues.slot,
-        carId
+        carId,
       );
 
       if (isAvailable) {
@@ -1075,7 +1099,7 @@ const BookingForm = () => {
 
     if (availableDates.length == 0) {
       toast.error(
-        "No available dates found. Please try a different slot or start date."
+        "No available dates found. Please try a different slot or start date.",
       );
       return;
     }
@@ -1085,6 +1109,8 @@ const BookingForm = () => {
       ...formValues,
       calculatedDates: availableDates,
       paymentMethod: paymentMethod,
+      bankName: bankName.trim() || undefined,
+      transactionId: transactionId.trim() || undefined,
     };
 
     setPendingData(dataWithDates);
@@ -1189,17 +1215,17 @@ const BookingForm = () => {
                 if (!licenseAppResponse.status) {
                   console.error(
                     `Failed to create license application for service ${service.name}:`,
-                    licenseAppResponse.message
+                    licenseAppResponse.message,
                   );
                 } else {
                   console.log(
-                    `License application created successfully for service: ${service.name}`
+                    `License application created successfully for service: ${service.name}`,
                   );
                 }
               } catch (error) {
                 console.error(
                   `Error creating license application for service ${service.name}:`,
-                  error
+                  error,
                 );
               }
             }
@@ -1277,7 +1303,8 @@ const BookingForm = () => {
                 userId: userId,
                 amount: pendingData.advanceAmount,
                 paymentMethod: pendingData.paymentMethod || "CASH",
-                transactionId: "",
+                transactionId: pendingData.transactionId || "",
+                bankName: pendingData.bankName,
                 installmentNumber: 1,
                 totalInstallments: 1,
                 notes: "Advance payment during booking",
@@ -1287,12 +1314,12 @@ const BookingForm = () => {
           });
 
           toast.success(
-            "Booking created and advance payment recorded successfully!"
+            "Booking created and advance payment recorded successfully!",
           );
         } catch (error) {
           console.error("Failed to create payment:", error);
           toast.warning(
-            "Booking created, but advance payment recording failed. Please add payment manually."
+            "Booking created, but advance payment recording failed. Please add payment manually.",
           );
         }
       } else {
@@ -1306,7 +1333,7 @@ const BookingForm = () => {
     },
     onError: (error: Error) => {
       toast.error(
-        error.message || "Failed to create booking. Please try again."
+        error.message || "Failed to create booking. Please try again.",
       );
     },
   });
@@ -1462,8 +1489,8 @@ const BookingForm = () => {
                                 selectedCarData.status == "AVAILABLE"
                                   ? "green"
                                   : selectedCarData.status == "MAINTENANCE"
-                                  ? "orange"
-                                  : "red"
+                                    ? "orange"
+                                    : "red"
                               }
                               className="text-xs"
                             >
@@ -1561,7 +1588,7 @@ const BookingForm = () => {
                         setBookingDate(date);
                         setValue(
                           "bookingDate",
-                          date ? date.format("YYYY-MM-DD") : ""
+                          date ? date.format("YYYY-MM-DD") : "",
                         );
                       }}
                       format="DD MMM YYYY"
@@ -1642,8 +1669,8 @@ const BookingForm = () => {
                             !bookingDate
                               ? "Select date first"
                               : availableTimeSlots.length == 0
-                              ? "No slots available"
-                              : "Select time slot"
+                                ? "No slots available"
+                                : "Select time slot"
                           }
                           required={true}
                           options={availableTimeSlots.map((slot) => ({
@@ -1786,10 +1813,10 @@ const BookingForm = () => {
                                 selectedCourse.courseType == "BEGINNER"
                                   ? "green"
                                   : selectedCourse.courseType == "INTERMEDIATE"
-                                  ? "blue"
-                                  : selectedCourse.courseType == "ADVANCED"
-                                  ? "purple"
-                                  : "orange"
+                                    ? "blue"
+                                    : selectedCourse.courseType == "ADVANCED"
+                                      ? "purple"
+                                      : "orange"
                               }
                               className="mt-2"
                             >
@@ -1985,7 +2012,7 @@ const BookingForm = () => {
                           formValues.coursePrice || 0,
                           selectedServices,
                           value,
-                          serviceDiscount
+                          serviceDiscount,
                         );
                       }}
                       prefix="₹"
@@ -2012,7 +2039,7 @@ const BookingForm = () => {
                           formValues.coursePrice || 0,
                           selectedServices,
                           bookingDiscount,
-                          value
+                          value,
                         );
                       }}
                       prefix="₹"
@@ -2036,7 +2063,7 @@ const BookingForm = () => {
                       <p className="text-sm font-semibold text-green-800 mb-1">
                         Total Discount: ₹
                         {(bookingDiscount + serviceDiscount).toLocaleString(
-                          "en-IN"
+                          "en-IN",
                         )}
                       </p>
                       {bookingDiscount > 0 && (
@@ -2049,7 +2076,7 @@ const BookingForm = () => {
                           • Services: ₹{serviceDiscount.toLocaleString("en-IN")}{" "}
                           (₹
                           {(serviceDiscount / selectedServices.length).toFixed(
-                            2
+                            2,
                           )}{" "}
                           each)
                         </p>
@@ -2088,7 +2115,7 @@ const BookingForm = () => {
                           setValue("advanceAmount", value);
                         } else {
                           toast.error(
-                            "Advance amount cannot exceed total amount"
+                            "Advance amount cannot exceed total amount",
                           );
                         }
                       }}
@@ -2120,7 +2147,13 @@ const BookingForm = () => {
                             <Tag.CheckableTag
                               key={method}
                               checked={paymentMethod === method}
-                              onChange={() => setPaymentMethod(method)}
+                              onChange={() => {
+                                setPaymentMethod(method);
+                                if (method === "CASH") {
+                                  setBankName("");
+                                  setTransactionId("");
+                                }
+                              }}
                               style={{
                                 padding: "6px 16px",
                                 fontSize: "14px",
@@ -2147,7 +2180,7 @@ const BookingForm = () => {
                                 : method.charAt(0) +
                                   method.slice(1).toLowerCase()}
                             </Tag.CheckableTag>
-                          )
+                          ),
                         )}
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
@@ -2155,6 +2188,39 @@ const BookingForm = () => {
                       </p>
                     </div>
                   )}
+
+                  {advanceAmount > 0 &&
+                    ["CARD", "UPI", "BANK_TRANSFER"].includes(
+                      paymentMethod,
+                    ) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Bank Name <span className="text-red-500">*</span>
+                          </label>
+                          <Input
+                            size="large"
+                            placeholder="Enter bank name"
+                            value={bankName}
+                            onChange={(e) => setBankName(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Transaction ID <span className="text-red-500">*</span>
+                          </label>
+                          <Input
+                            size="large"
+                            placeholder="Enter transaction/reference ID"
+                            value={transactionId}
+                            onChange={(e) => setTransactionId(e.target.value)}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 md:col-span-2">
+                          Required for Card, UPI, or Bank Transfer payments
+                        </p>
+                      </div>
+                    )}
 
                   {advanceAmount > 0 && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -2176,6 +2242,22 @@ const BookingForm = () => {
                               paymentMethod.slice(1).toLowerCase()}
                         </strong>
                       </p>
+                      {bankName.trim() &&
+                        ["CARD", "UPI", "BANK_TRANSFER"].includes(
+                          paymentMethod,
+                        ) && (
+                          <p className="text-xs text-blue-700">
+                            • Bank Name: <strong>{bankName}</strong>
+                          </p>
+                        )}
+                      {transactionId.trim() &&
+                        ["CARD", "UPI", "BANK_TRANSFER"].includes(
+                          paymentMethod,
+                        ) && (
+                          <p className="text-xs text-blue-700">
+                            • Transaction ID: <strong>{transactionId}</strong>
+                          </p>
+                        )}
                     </div>
                   )}
                 </div>
@@ -2576,7 +2658,7 @@ const BookingForm = () => {
                           <span className="text-green-600 font-semibold">
                             -₹
                             {pendingData.serviceDiscount.toLocaleString(
-                              "en-IN"
+                              "en-IN",
                             )}
                           </span>
                         </div>
@@ -2634,7 +2716,7 @@ const BookingForm = () => {
                             {dayjs(date).format("DD MMM YYYY")}
                           </span>
                         </div>
-                      )
+                      ),
                     )}
                   </div>
                 </div>
@@ -2869,13 +2951,13 @@ const BookingForm = () => {
                     { label: "B+", value: "B+" },
                     { label: "B-", value: "B-" },
                     { label: "AB+", value: "AB+" },
-                    { label: "AB-", value: "AB-" },
-                    { label: "O+", value: "O+" },
-                    { label: "O-", value: "O-" },
                     {
                       label: "Unknown",
                       value: "Unknown",
                     },
+                    { label: "O+", value: "O+" },
+                    { label: "O-", value: "O-" },
+                    { label: "AB-", value: "AB-" },
                   ]}
                 />
               </div>
@@ -2975,7 +3057,9 @@ const BookingForm = () => {
                   rows={3}
                   placeholder="Enter permanent address"
                   value={newUserPermanentAddress}
-                  onChange={(e) => setNewUserPermanentAddress(e.target.value.toUpperCase())}
+                  onChange={(e) =>
+                    setNewUserPermanentAddress(e.target.value.toUpperCase())
+                  }
                   maxLength={500}
                   disabled={sameAsCurrentAddress}
                 />

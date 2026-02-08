@@ -10,6 +10,7 @@ export interface BookingService {
   serviceName: string;
   serviceType: "LICENSE" | "ADDON";
   price: number;
+  discount?: number;
   description?: string;
   confirmationNumber?: string;
   createdAt: string;
@@ -17,7 +18,7 @@ export interface BookingService {
   deletedAt?: string;
   booking?: {
     id: number;
-    bookingId: string;
+    bookingId?: string;
     customerName?: string;
     customerMobile: string;
     customerEmail?: string;
@@ -48,7 +49,7 @@ export interface BookingService {
   };
   licenseApplications?: Array<{
     id: number;
-    status: "PENDING" | "CLOSED" | "LL_APPLIED" | "DL_PENDING" | "DL_APPLIED";
+    status: "PENDING" | "CLOSED" | "LL_APPLIED" | "DL_PENDING" | "DL_APPLIED" | "SUBMIT";
     llNumber?: string;
     applicationNumber?: string;
     issuedDate?: string;
@@ -88,8 +89,8 @@ const GET_PAGINATED_BOOKING_SERVICES = `
         serviceName
         serviceType
         price
+        discount
         description
-        confirmationNumber
         createdAt
         updatedAt
         deletedAt
@@ -151,8 +152,8 @@ const GET_ALL_BOOKING_SERVICES = `
       serviceName
       serviceType
       price
+      discount
       description
-      confirmationNumber
       createdAt
       updatedAt
       deletedAt
@@ -212,8 +213,8 @@ const GET_BOOKING_SERVICE_BY_ID = `
       serviceName
       serviceType
       price
+      discount
       description
-      confirmationNumber
       createdAt
       updatedAt
       deletedAt

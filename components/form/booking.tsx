@@ -777,9 +777,12 @@ const BookingForm = () => {
       if (response.status && data.createUser) {
         const newUser = data.createUser;
 
+        const fullName = `${newUser.name}${newUser.surname ? ` ${newUser.surname}` : ""}`;
+
         const customerData: Customer = {
           id: newUser.id,
           name: newUser.name,
+          surname: newUser.surname,
           contact1: newUser.contact1,
           contact2: "",
           email: newUser.email || "",
@@ -789,7 +792,7 @@ const BookingForm = () => {
         };
 
         setCustomerData(customerData);
-        setValue("customerName", newUser.name);
+        setValue("customerName", fullName);
         setValue("customerEmail", newUser.email || "");
         setShowCreateUserDrawer(false);
         setNewUserName("");
@@ -827,7 +830,18 @@ const BookingForm = () => {
 
     setCreatingUser(true);
     createUser(
-      { name: newUserName, contact1: newUserContact },
+      {
+        name: newUserName,
+        surname: newUserSurname || undefined,
+        fatherName: newUserFatherName || undefined,
+        email: newUserEmail || undefined,
+        contact1: newUserContact,
+        contact2: newUserContact2 || undefined,
+        address: newUserAddress || undefined,
+        permanentAddress: newUserPermanentAddress || undefined,
+        bloodGroup: newUserBloodGroup,
+        dob: newUserDob ? newUserDob.toDate() : undefined,
+      },
       {
         onSettled: () => {
           setCreatingUser(false);
@@ -1728,7 +1742,7 @@ const BookingForm = () => {
                         <div>
                           <span className="text-gray-600">Name:</span>
                           <p className="font-semibold text-gray-900">
-                            {customerData.name}
+                            {customerData.name} - {customerData.surname}
                           </p>
                         </div>
                         <div>
@@ -2315,7 +2329,7 @@ const BookingForm = () => {
                       <div className="flex items-center justify-between text-sm mb-2">
                         <span className="text-gray-600">Customer:</span>
                         <span className="font-semibold text-gray-900">
-                          {customerData.name}
+                          {customerData.name} {customerData.surname}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm">

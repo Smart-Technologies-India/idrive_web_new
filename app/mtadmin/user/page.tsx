@@ -27,6 +27,7 @@ interface UserData {
   key: string;
   userId: string;
   name: string;
+  surname?: string;
   email: string;
   mobile: string;
   status: "ACTIVE" | "INACTIVE";
@@ -87,6 +88,7 @@ function UserManagementPage() {
   interface BackendUser {
     id: number;
     name: string;
+    surname?: string;
     email?: string;
     contact1: string;
     status: "ACTIVE" | "INACTIVE";
@@ -100,6 +102,7 @@ function UserManagementPage() {
     key: u.id.toString(),
     userId: `USR-${u.id.toString().padStart(3, "0")}`,
     name: u.name,
+    surname: u.surname,
     email: u.email || "",
     mobile: u.contact1,
     status: u.status,
@@ -120,7 +123,12 @@ function UserManagementPage() {
         accessorKey: "name",
         header: "Name",
         cell: (info) => (
-          <span className="font-semibold text-gray-900">{info.getValue() as string}</span>
+          <span className="font-semibold text-gray-900">
+            {info.row.original.name}
+            {info.row.original.surname
+              ? ` ${info.row.original.surname}`
+              : ""}
+          </span>
         ),
         enableSorting: true,
       },

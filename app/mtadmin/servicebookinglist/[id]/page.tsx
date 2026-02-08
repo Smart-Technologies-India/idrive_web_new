@@ -57,13 +57,15 @@ const ServiceBookingViewPage = () => {
   const params = useParams();
   const encServiceBookingId: string = params.id as string;
   const bookingServiceId = parseInt(
-    decryptURLData(encServiceBookingId, router)
+    decryptURLData(encServiceBookingId, router),
   );
 
   const queryClient = useQueryClient();
   const userId = parseInt(getCookie("id")?.toString() || "0");
   // const [bookingServiceId, setBookingServiceId] = useState<number | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [isFullUpdateModalOpen, setIsFullUpdateModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isDLModalOpen, setIsDLModalOpen] = useState(false);
   const [isResultModalOpen, setIsResultModalOpen] = useState(false);
@@ -72,11 +74,15 @@ const ServiceBookingViewPage = () => {
     status: string;
     llNumber?: string;
     issuedDate?: string;
+    applicationNumber?: string;
     dlApplicationNumber?: string;
     testDate?: string;
+    testStatus?: string;
     bookingServiceId?: number;
   } | null>(null);
   const [form] = Form.useForm();
+  const [submitForm] = Form.useForm();
+  const [fullUpdateForm] = Form.useForm();
   const [dlForm] = Form.useForm();
   const [resultForm] = Form.useForm();
   const [paymentForm] = Form.useForm();
@@ -127,7 +133,7 @@ const ServiceBookingViewPage = () => {
   const totalPaidService =
     totalPaidServiceData?.data?.getTotalPaidServiceAmount || 0;
   const remainingServiceAmount = bookingService
-    ? bookingService.price - totalPaidService
+    ? bookingService.price - (bookingService.discount || 0) - totalPaidService
     : 0;
 
   // Create payment mutation
@@ -200,6 +206,7 @@ const ServiceBookingViewPage = () => {
       llNumber: string;
       issuedDate: string;
       applicationNumber: string;
+      dlApplicationNumber?: string;
     }) => {
       if (!selectedLicenseApp) {
         throw new Error("No license application selected for update");
@@ -208,7 +215,8 @@ const ServiceBookingViewPage = () => {
         id: selectedLicenseApp.id,
         llNumber: values.llNumber,
         issuedDate: values.issuedDate,
-        dlApplicationNumber: values.applicationNumber,
+        applicationNumber: values.applicationNumber,
+        dlApplicationNumber: values.dlApplicationNumber,
         status: "LL_APPLIED",
       });
     },
@@ -228,6 +236,102 @@ const ServiceBookingViewPage = () => {
     },
   });
 
+  // Mutation for full license application update
+  const { mutate: updateLicenseDetails, isPending: isUpdatingFull } =
+    useMutation({
+      mutationFn: async (values: {
+        llNumber?: string;
+        issuedDate?: string;
+        applicationNumber?: string;
+        dlApplicationNumber?: string;
+        testStatus?: string;
+      }) => {
+        if (!selectedLicenseApp) {
+          throw new Error("No license application selected for update");
+        }
+        return await updateLicenseApplication({
+          id: selectedLicenseApp.id,
+          llNumber: values.llNumber,
+          issuedDate: values.issuedDate,
+          applicationNumber: values.applicationNumber,
+          dlApplicationNumber: values.dlApplicationNumber,
+          testStatus: values.testStatus as
+            | "PASSED"
+            | "FAILED"
+            | "ABSENT"
+            | "NONE"
+            | undefined,
+        });
+      },
+      onSuccess: (response) => {
+        if (response.status) {
+          toast.success("License application updated successfully!");
+          setIsFullUpdateModalOpen(false);
+          fullUpdateForm.resetFields();
+          setSelectedLicenseApp(null);
+          refetch();
+        } else {
+          toast.error(
+            response.message || "Failed to update license application",
+          );
+        }
+      },
+      onError: (error: Error) => {
+        toast.error(error.message || "Failed to update license application");
+      },
+    });
+
+  // Mutation for updating application number (I_HOLD_LICENSE)
+  const { mutate: updateApplicationNumber, isPending: isUpdatingSubmit } =
+    useMutation({
+      mutationFn: async (values: { applicationNumber: string }) => {
+        if (!selectedLicenseApp) {
+          throw new Error("No license application selected for update");
+        }
+        return await updateLicenseApplication({
+          id: selectedLicenseApp.id,
+          applicationNumber: values.applicationNumber,
+          status: "SUBMIT",
+        });
+      },
+      onSuccess: (response) => {
+        if (response.status) {
+          toast.success("Application number updated successfully!");
+          setIsSubmitModalOpen(false);
+          submitForm.resetFields();
+          setSelectedLicenseApp(null);
+          refetch();
+        } else {
+          toast.error(response.message || "Failed to update application");
+        }
+      },
+      onError: (error: Error) => {
+        toast.error(error.message || "Failed to update application");
+      },
+    });
+
+  // Mutation for closing application (SUBMIT -> CLOSED)
+  const { mutate: closeApplication, isPending: isClosingApplication } =
+    useMutation({
+      mutationFn: async (licenseAppId: number) => {
+        return await updateLicenseApplication({
+          id: licenseAppId,
+          status: "CLOSED",
+        });
+      },
+      onSuccess: (response) => {
+        if (response.status) {
+          toast.success("Application closed successfully!");
+          refetch();
+        } else {
+          toast.error(response.message || "Failed to close application");
+        }
+      },
+      onError: (error: Error) => {
+        toast.error(error.message || "Failed to close application");
+      },
+    });
+
   // Mutation for updating to DL_PENDING
   const { mutate: updateToDLPending, isPending: isUpdatingDLPending } =
     useMutation({
@@ -243,7 +347,7 @@ const ServiceBookingViewPage = () => {
           refetch();
         } else {
           toast.error(
-            response.message || "Failed to update license application"
+            response.message || "Failed to update license application",
           );
         }
       },
@@ -272,7 +376,7 @@ const ServiceBookingViewPage = () => {
       onSuccess: (response) => {
         if (response.status) {
           toast.success(
-            "License application updated to DL APPLIED successfully!"
+            "License application updated to DL APPLIED successfully!",
           );
           setIsDLModalOpen(false);
           dlForm.resetFields();
@@ -280,7 +384,7 @@ const ServiceBookingViewPage = () => {
           refetch();
         } else {
           toast.error(
-            response.message || "Failed to update license application"
+            response.message || "Failed to update license application",
           );
         }
       },
@@ -355,7 +459,7 @@ const ServiceBookingViewPage = () => {
       onSuccess: (response) => {
         if (response.status) {
           toast.success(
-            "Previous application closed. New application created for retry!"
+            "Previous application closed. New application created for retry!",
           );
           setIsResultModalOpen(false);
           resultForm.resetFields();
@@ -377,7 +481,7 @@ const ServiceBookingViewPage = () => {
     const issued = new Date(issuedDate);
     const server = new Date(serverDateTime);
     const daysDiff = Math.floor(
-      (server.getTime() - issued.getTime()) / (1000 * 60 * 60 * 24)
+      (server.getTime() - issued.getTime()) / (1000 * 60 * 60 * 24),
     );
     return daysDiff >= 30;
   };
@@ -396,21 +500,71 @@ const ServiceBookingViewPage = () => {
     });
   };
 
+  // Handle close application (SUBMIT -> CLOSED)
+  const handleCloseApplication = (licenseAppId: number) => {
+    Modal.confirm({
+      title: "Close Application?",
+      content: "Are you sure you want to close this license application?",
+      okText: "Yes, Close",
+      cancelText: "Cancel",
+      onOk: () => {
+        closeApplication(licenseAppId);
+      },
+    });
+  };
+
   // Handle edit license application
   const handleEditLicenseApp = (licenseApp: {
     id: number;
     status: string;
     llNumber?: string;
     issuedDate?: string;
+    applicationNumber?: string;
     dlApplicationNumber?: string;
   }) => {
     setSelectedLicenseApp(licenseApp);
     form.setFieldsValue({
       llNumber: licenseApp.llNumber || "",
       issuedDate: licenseApp.issuedDate ? dayjs(licenseApp.issuedDate) : null,
-      applicationNumber: licenseApp.dlApplicationNumber || "",
+      applicationNumber: licenseApp.applicationNumber || "",
     });
     setIsEditModalOpen(true);
+  };
+
+  // Handle full update modal open
+  const handleFullUpdateOpen = (licenseApp: {
+    id: number;
+    status: string;
+    llNumber?: string;
+    issuedDate?: string;
+    applicationNumber?: string;
+    dlApplicationNumber?: string;
+    testStatus?: string;
+  }) => {
+    setSelectedLicenseApp(licenseApp);
+    fullUpdateForm.setFieldsValue({
+      llNumber: licenseApp.llNumber || "",
+      issuedDate: licenseApp.issuedDate ? dayjs(licenseApp.issuedDate) : null,
+      applicationNumber: licenseApp.applicationNumber || "",
+      dlApplicationNumber: licenseApp.dlApplicationNumber || "",
+      testStatus: licenseApp.testStatus || "NONE",
+    });
+    setIsFullUpdateModalOpen(true);
+  };
+
+  // Handle submit application number modal open (I_HOLD_LICENSE)
+  const handleSubmitApplicationOpen = (licenseApp: {
+    id: number;
+    status: string;
+    applicationNumber?: string;
+    dlApplicationNumber?: string;
+  }) => {
+    setSelectedLicenseApp(licenseApp);
+    submitForm.setFieldsValue({
+      applicationNumber:
+        licenseApp.applicationNumber || licenseApp.dlApplicationNumber || "",
+    });
+    setIsSubmitModalOpen(true);
   };
 
   // Handle DL applied modal open
@@ -431,6 +585,30 @@ const ServiceBookingViewPage = () => {
       updateLicense({
         llNumber: values.llNumber,
         issuedDate: values.issuedDate.toISOString(),
+        applicationNumber: values.applicationNumber,
+        dlApplicationNumber: values.dlApplicationNumber,
+      });
+    });
+  };
+
+  const handleFullUpdateSubmit = () => {
+    fullUpdateForm.validateFields().then((values) => {
+      updateLicenseDetails({
+        llNumber: values.llNumber || undefined,
+        issuedDate: values.issuedDate
+          ? values.issuedDate.toISOString()
+          : undefined,
+        applicationNumber: values.applicationNumber || undefined,
+        dlApplicationNumber: values.dlApplicationNumber || undefined,
+        testStatus: values.testStatus || undefined,
+      });
+    });
+  };
+
+  // Handle submit application number form submit
+  const handleSubmitApplication = () => {
+    submitForm.validateFields().then((values) => {
+      updateApplicationNumber({
         applicationNumber: values.applicationNumber,
       });
     });
@@ -673,6 +851,7 @@ const ServiceBookingViewPage = () => {
               {bookingService.licenseApplications.map((licenseApp, index) => {
                 const statusColors: Record<string, string> = {
                   PENDING: "orange",
+                  SUBMIT: "blue",
                   LL_APPLIED: "blue",
                   DL_PENDING: "purple",
                   DL_APPLIED: "cyan",
@@ -692,15 +871,34 @@ const ServiceBookingViewPage = () => {
                           >
                             {licenseApp.status.replace(/_/g, " ")}
                           </Tag>
-                          {licenseApp.status === "PENDING" && (
-                            <Button
-                              type="primary"
-                              icon={<EditOutlined />}
-                              onClick={() => handleEditLicenseApp(licenseApp)}
-                            >
-                              Update LL Details
-                            </Button>
-                          )}
+                          <Button
+                            type="default"
+                            icon={<EditOutlined />}
+                            onClick={() => handleFullUpdateOpen(licenseApp)}
+                          >
+                            Update
+                          </Button>
+                          {licenseApp.status === "PENDING" &&
+                            (bookingService.schoolService?.service?.category ===
+                            "I_HOLD_LICENSE" ? (
+                              <Button
+                                type="primary"
+                                icon={<EditOutlined />}
+                                onClick={() =>
+                                  handleSubmitApplicationOpen(licenseApp)
+                                }
+                              >
+                                Update Application Number
+                              </Button>
+                            ) : (
+                              <Button
+                                type="primary"
+                                icon={<EditOutlined />}
+                                onClick={() => handleEditLicenseApp(licenseApp)}
+                              >
+                                Update LL Details
+                              </Button>
+                            ))}
                           {licenseApp.status === "LL_APPLIED" &&
                             canApplyForDL(licenseApp.issuedDate) && (
                               <Button
@@ -715,6 +913,19 @@ const ServiceBookingViewPage = () => {
                                 DL PENDING
                               </Button>
                             )}
+                          {licenseApp.status === "SUBMIT" && (
+                            <Button
+                              type="primary"
+                              icon={<CheckCircleOutlined />}
+                              onClick={() =>
+                                handleCloseApplication(licenseApp.id)
+                              }
+                              loading={isClosingApplication}
+                              style={{ backgroundColor: "#52c41a" }}
+                            >
+                              Close Application
+                            </Button>
+                          )}
                           {licenseApp.status === "DL_PENDING" && (
                             <Button
                               type="primary"
@@ -741,9 +952,7 @@ const ServiceBookingViewPage = () => {
                     >
                       <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
                         <Descriptions.Item label="Application Number">
-                          {licenseApp.applicationNumber ||
-                            licenseApp.dlApplicationNumber ||
-                            "Not provided"}
+                          {licenseApp.applicationNumber || "Not provided"}
                         </Descriptions.Item>
                         <Descriptions.Item label="Test Status">
                           <Tag
@@ -751,8 +960,8 @@ const ServiceBookingViewPage = () => {
                               licenseApp.testStatus === "PASSED"
                                 ? "green"
                                 : licenseApp.testStatus === "FAILED"
-                                ? "red"
-                                : "default"
+                                  ? "red"
+                                  : "default"
                             }
                           >
                             {licenseApp.testStatus}
@@ -807,7 +1016,10 @@ const ServiceBookingViewPage = () => {
                   <Card bordered={false} className="bg-blue-50">
                     <Statistic
                       title="Total Amount"
-                      value={bookingService.price}
+                      value={Math.max(
+                        bookingService.price - (bookingService.discount || 0),
+                        0,
+                      )}
                       prefix="₹"
                       valueStyle={{ color: "#1890ff" }}
                       suffix={<DollarOutlined />}
@@ -893,12 +1105,12 @@ const ServiceBookingViewPage = () => {
                           status == "COMPLETED"
                             ? "green"
                             : status == "PENDING"
-                            ? "orange"
-                            : status == "FAILED"
-                            ? "red"
-                            : status == "REFUNDED"
-                            ? "purple"
-                            : "default"
+                              ? "orange"
+                              : status == "FAILED"
+                                ? "red"
+                                : status == "REFUNDED"
+                                  ? "purple"
+                                  : "default"
                         }
                       >
                         {status}
@@ -954,7 +1166,7 @@ const ServiceBookingViewPage = () => {
                 onClick={() => {
                   if (bookingService.booking == null) return;
                   const encodedId = encryptURLData(
-                    bookingService.booking.id.toString()
+                    bookingService.booking.id.toString(),
                   );
                   router.push(`/mtadmin/bookinglist/${encodedId}`);
                 }}
@@ -1014,10 +1226,7 @@ const ServiceBookingViewPage = () => {
                 },
               ]}
             >
-              <Input
-                placeholder="Enter application number"
-                size="large"
-              />
+              <Input placeholder="Enter application number" size="large" />
             </Form.Item>
             <Form.Item
               label="Issue Date"
@@ -1032,6 +1241,93 @@ const ServiceBookingViewPage = () => {
                 format="DD-MM-YYYY"
                 placeholder="Select issue date"
               />
+            </Form.Item>
+          </Form>
+        </div>
+      </Modal>
+
+      {/* Full Update License Application Modal */}
+      <Modal
+        title="Update License Application"
+        open={isFullUpdateModalOpen}
+        onCancel={() => {
+          setIsFullUpdateModalOpen(false);
+          fullUpdateForm.resetFields();
+          setSelectedLicenseApp(null);
+        }}
+        onOk={handleFullUpdateSubmit}
+        confirmLoading={isUpdatingFull}
+        okText="Update"
+        cancelText="Cancel"
+        width={650}
+      >
+        <div className="py-4">
+          <Form form={fullUpdateForm} layout="vertical">
+            <Form.Item label="LL Number" name="llNumber">
+              <Input placeholder="Enter LL number" size="large" />
+            </Form.Item>
+            <Form.Item label="Issue Date" name="issuedDate">
+              <DatePicker
+                style={{ width: "100%" }}
+                size="large"
+                format="DD-MM-YYYY"
+                placeholder="Select issue date"
+              />
+            </Form.Item>
+            <Form.Item label="Application Number" name="applicationNumber">
+              <Input placeholder="Enter application number" size="large" />
+            </Form.Item>
+            <Form.Item label="DL Application Number" name="dlApplicationNumber">
+              <Input placeholder="Enter DL application number" size="large" />
+            </Form.Item>
+            <Form.Item label="Test Status" name="testStatus">
+              <Select placeholder="Select test status" size="large">
+                <Select.Option value="NONE">None</Select.Option>
+                <Select.Option value="PASSED">Pass</Select.Option>
+                <Select.Option value="FAILED">Fail</Select.Option>
+                <Select.Option value="ABSENT">Absent</Select.Option>
+              </Select>
+            </Form.Item>
+          </Form>
+        </div>
+      </Modal>
+
+      {/* Submit Application Number Modal (I_HOLD_LICENSE) */}
+      <Modal
+        title="Update Application Number"
+        open={isSubmitModalOpen}
+        onCancel={() => {
+          setIsSubmitModalOpen(false);
+          submitForm.resetFields();
+          setSelectedLicenseApp(null);
+        }}
+        onOk={handleSubmitApplication}
+        confirmLoading={isUpdatingSubmit}
+        okText="Submit"
+        cancelText="Cancel"
+        width={500}
+      >
+        <div className="py-4">
+          <p className="text-gray-600 mb-4">
+            Please enter the application number to submit the license
+            application.
+          </p>
+          <Form form={submitForm} layout="vertical">
+            <Form.Item
+              label="Application Number"
+              name="applicationNumber"
+              rules={[
+                {
+                  required: true,
+                  message: "Please enter the application number",
+                },
+                {
+                  min: 5,
+                  message: "Application number must be at least 5 characters",
+                },
+              ]}
+            >
+              <Input placeholder="Enter application number" size="large" />
             </Form.Item>
           </Form>
         </div>
@@ -1212,8 +1508,8 @@ const ServiceBookingViewPage = () => {
                     ? Promise.resolve()
                     : Promise.reject(
                         new Error(
-                          `Amount cannot exceed remaining due (₹${remainingServiceAmount})`
-                        )
+                          `Amount cannot exceed remaining due (₹${remainingServiceAmount})`,
+                        ),
                       ),
               },
             ]}

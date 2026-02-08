@@ -15,7 +15,6 @@ import {
 import {
   useReactTable,
   getCoreRowModel,
-  getSortedRowModel,
   flexRender,
   createColumnHelper,
   SortingState,
@@ -262,7 +261,7 @@ const BookingListPage = () => {
         cell: (info) => info.getValue(),
         enableSorting: true,
       }),
-      columnHelper.accessor("bookingDate", {
+      columnHelper.accessor("createdAt", {
         header: "Date",
         cell: (info) => formatDate(info.getValue()),
         enableSorting: true,

@@ -156,15 +156,9 @@ export const updateLicenseApplication = async (data: {
   applicationNumber?: string;
   testDate?: string;
   testStatus?: "NONE" | "PASSED" | "FAILED" | "ABSENT";
-  status?: "PENDING" | "CLOSED" | "LL_APPLIED" | "DL_PENDING" | "DL_APPLIED";
+  status?: "PENDING" | "CLOSED" | "LL_APPLIED" | "DL_PENDING" | "DL_APPLIED" | "SUBMIT";
 }) => {
-  const { id, applicationNumber, ...updateType } = data;
-  if (
-    applicationNumber !== undefined &&
-    updateType.dlApplicationNumber === undefined
-  ) {
-    updateType.dlApplicationNumber = applicationNumber;
-  }
+  const { id, ...updateType } = data;
   return await ApiCall({
     query: UPDATE_LICENSE_APPLICATION,
     variables: {

@@ -217,10 +217,13 @@ const ServiceBookingForm = () => {
           address: user.address,
           role: user.role,
           status: user.status,
+          surname: user.surname,
         };
 
+        const fullName = `${user.name}${user.surname ? ` ${user.surname}` : ""}`;
+
         setCustomerData(customerData);
-        setValue("customerName", user.name);
+        setValue("customerName", fullName);
         setValue("customerEmail", user.email || "");
         toast.success("Customer details loaded successfully!");
       } else {
@@ -311,9 +314,12 @@ const ServiceBookingForm = () => {
       if (response.status && data.createUser) {
         const newUser = data.createUser;
 
+        const fullName = `${newUser.name} ${newUser.surname ? ` ${newUser.surname}` : ""}`;
+
         const customerData: Customer = {
           id: newUser.id,
           name: newUser.name,
+          surname: newUser.surname,
           contact1: newUser.contact1,
           contact2: "",
           email: newUser.email || "",
@@ -323,7 +329,7 @@ const ServiceBookingForm = () => {
         };
 
         setCustomerData(customerData);
-        setValue("customerName", newUser.name);
+        setValue("customerName", fullName);
         setValue("customerEmail", newUser.email || "");
         setShowCreateUserDrawer(false);
         setNewUserName("");
@@ -515,9 +521,9 @@ const ServiceBookingForm = () => {
         throw new Error("Failed to get booking service ID from response");
       }
 
-      // Create license application for NEW_LICENSE service type
+      // Create license application for NEW_LICENSE and I_HOLD_LICENSE service types
       if (
-        data.selectedService?.serviceType === "NEW_LICENSE" &&
+        ["NEW_LICENSE", "I_HOLD_LICENSE"].includes(data.selectedService?.serviceType || "") &&
         bookingServiceId
       ) {
         try {
@@ -534,7 +540,7 @@ const ServiceBookingForm = () => {
             // Don't throw error here, just log it - booking service was created successfully
           } else {
             console.log(
-              "License application created successfully for NEW_LICENSE service",
+              "License application created successfully for NEW_LICENSE or I_HOLD_LICENSE service",
             );
           }
         } catch (error) {
@@ -684,7 +690,7 @@ const ServiceBookingForm = () => {
                   </div>
 
                   {customerData && (
-                    <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-4 border-2 border-green-200 animate-fadeIn">
+                    <div className="bg-linear-to-r from-green-50 to-blue-50 rounded-lg p-4 border-2 border-green-200 animate-fadeIn">
                       <div className="flex items-center gap-2 mb-3">
                         <CheckCircleOutlined className="text-green-600 text-xl" />
                         <span className="font-bold text-green-700">
@@ -695,7 +701,7 @@ const ServiceBookingForm = () => {
                         <div>
                           <span className="text-gray-600">Name:</span>
                           <p className="font-semibold text-gray-900">
-                            {customerData.name}
+                            {customerData.name} {customerData.surname}
                           </p>
                         </div>
                         <div>
@@ -1010,7 +1016,8 @@ const ServiceBookingForm = () => {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Transaction ID <span className="text-red-500">*</span>
+                            Transaction ID{" "}
+                            <span className="text-red-500">*</span>
                           </label>
                           <Input
                             size="large"
@@ -1099,7 +1106,7 @@ const ServiceBookingForm = () => {
                       <div className="flex items-center justify-between text-sm mb-2">
                         <span className="text-gray-600">Customer:</span>
                         <span className="font-semibold text-gray-900">
-                          {customerData.name}
+                          {customerData.name} {customerData.surname}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
@@ -1138,7 +1145,7 @@ const ServiceBookingForm = () => {
                   )}
 
                   {/* Total */}
-                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border-2 border-blue-200">
+                  <div className="bg-linear-to-r from-blue-50 to-purple-50 rounded-lg p-4 border-2 border-blue-200">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-lg font-bold text-gray-900">
                         Total Amount

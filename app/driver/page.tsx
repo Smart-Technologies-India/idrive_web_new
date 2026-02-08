@@ -314,14 +314,14 @@ const DriverPage = () => {
               format="DD MMM, YYYY"
               size="large"
               className="w-full! sm:w-48!"
-              disabledDate={(current) => {
-                const today = dayjs();
-                return (
-                  current &&
-                  (current.isBefore(today, "day") ||
-                    current.isAfter(today.add(7, "day"), "day"))
-                );
-              }}
+              // disabledDate={(current) => {
+              //   const today = dayjs();
+              //   return (
+              //     current &&
+              //     (current.isBefore(today, "day") ||
+              //       current.isAfter(today.add(7, "day"), "day"))
+              //   );
+              // }}
             />
             <Button
               type="default"

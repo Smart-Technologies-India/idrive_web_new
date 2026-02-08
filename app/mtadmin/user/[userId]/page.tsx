@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, use } from "react";
+import { useState, use, useMemo } from "react";
 import {
   Card,
   Button,
   Tag,
   Table,
   Input,
-  Modal,
   Form,
-  InputNumber,
   Avatar,
   Descriptions,
   Spin,
@@ -17,7 +15,6 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import {
   IcBaselineArrowBack,
-  RiMoneyRupeeCircleLine,
   MaterialSymbolsPersonRounded,
   AntDesignCheckOutlined,
   MaterialSymbolsFreeCancellation,
@@ -26,23 +23,31 @@ import {
   AntDesignEditOutlined,
 } from "@/components/icons";
 import { useRouter } from "next/navigation";
-import { toast } from "react-toastify";
 import { useQuery } from "@tanstack/react-query";
 import { getUserById } from "@/services/user.api";
-import { convertSlotTo12Hour } from "@/utils/time-format";
+import { getAllPayments, type Payment } from "@/services/payment.api";
+import {
+  getAllServicePayments,
+  type ServicePayment,
+} from "@/services/service-payment.api";
+import { getAllBookings, type Booking } from "@/services/booking.api";
+import {
+  getAllBookingServices,
+  type BookingService,
+} from "@/services/service.booking.api";
 import { formatDate } from "@/utils/date-format";
 
 const { TextArea } = Input;
 
 interface ServiceData {
   key: string;
-  bookingId: string;
-  courseName: string;
-  date: string;
-  slot: string;
-  instructor: string;
-  status: "completed" | "cancelled" | "pending" | "ongoing";
-  amount: number;
+  confirmationNumber: string;
+  serviceName: string;
+  serviceType: string;
+  price: number;
+  discount: number;
+  createdAt: string;
+  status: string;
 }
 
 interface WalletTransaction {
@@ -52,10 +57,24 @@ interface WalletTransaction {
   amount: number;
   description: string;
   date: string;
-  balance: number;
+  remainingDue: number;
 }
 
-const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => {
+interface BookingRow {
+  key: string;
+  bookingId: string;
+  courseName: string;
+  totalAmount: number;
+  bookingDate: string;
+  slot: string;
+  status: string;
+}
+
+const UserDetailPage = ({
+  params,
+}: {
+  params: Promise<{ userId: string }>;
+}) => {
   const router = useRouter();
   const [refundModalVisible, setRefundModalVisible] = useState(false);
   const [form] = Form.useForm();
@@ -105,180 +124,315 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
       }
     : null;
 
-  // Mock active services
-  const [activeServices] = useState<ServiceData[]>([
-    {
-      key: "1",
-      bookingId: "BK-2024-101",
-      courseName: "Basic Driving",
-      date: "2024-11-15",
-      slot: "09:00 AM - 10:00 AM",
-      instructor: "Ramesh Kumar",
-      status: "ongoing",
-      amount: 2500,
-    },
-    {
-      key: "2",
-      bookingId: "BK-2024-102",
-      courseName: "Highway Driving",
-      date: "2024-11-20",
-      slot: "10:00 AM - 11:00 AM",
-      instructor: "Suresh Sharma",
-      status: "pending",
-      amount: 4500,
-    },
+  const { data: paymentsResponse, isLoading: loadingPayments } = useQuery({
+    queryKey: ["user-payments", numericUserId],
+    queryFn: () => getAllPayments({ userId: numericUserId }),
+    enabled: !isNaN(numericUserId),
+  });
+
+  const { data: servicePaymentsResponse, isLoading: loadingServicePayments } =
+    useQuery({
+      queryKey: ["user-service-payments", numericUserId],
+      queryFn: () => getAllServicePayments({ userId: numericUserId }),
+      enabled: !isNaN(numericUserId),
+    });
+
+  const { data: bookingsResponse } = useQuery({
+    queryKey: ["user-bookings", numericUserId],
+    queryFn: () => getAllBookings({ customerId: numericUserId }),
+    enabled: !isNaN(numericUserId),
+  });
+
+  const { data: bookingServicesResponse } = useQuery({
+    queryKey: ["user-booking-services", numericUserId],
+    queryFn: () => getAllBookingServices({ userId: numericUserId }),
+    enabled: !isNaN(numericUserId),
+  });
+
+  const serviceBookings = useMemo<ServiceData[]>(() => {
+    const bookingServices =
+      bookingServicesResponse?.data?.getAllBookingService || [];
+
+    return bookingServices.map((s: BookingService) => {
+      const latestStatus = s.licenseApplications?.[0]?.status || "PENDING";
+
+      return {
+        key: s.id.toString(),
+        confirmationNumber: s.confirmationNumber || `SVC-${s.id}`,
+        serviceName: s.serviceName,
+        serviceType: s.serviceType,
+        price: s.price || 0,
+        discount: s.discount || 0,
+        createdAt: s.createdAt,
+        status: latestStatus,
+      };
+    });
+  }, [bookingServicesResponse]);
+
+  const bookingRows = useMemo<BookingRow[]>(() => {
+    const bookings = bookingsResponse?.data?.getAllBooking || [];
+
+    return bookings.map((b: Booking) => ({
+      key: b.id.toString(),
+      bookingId: b.bookingId,
+      courseName: b.courseName,
+      totalAmount: b.totalAmount || 0,
+      bookingDate: b.bookingDate,
+      slot: b.slot,
+      status: b.status,
+    }));
+  }, [bookingsResponse]);
+
+  const walletTransactions = useMemo<WalletTransaction[]>(() => {
+    const payments = paymentsResponse?.data?.getAllPayment || [];
+    const servicePayments =
+      servicePaymentsResponse?.data?.getAllServicePayment || [];
+    const bookings = bookingsResponse?.data?.getAllBooking || [];
+    const bookingServices =
+      bookingServicesResponse?.data?.getAllBookingService || [];
+
+    const bookingTotalMap = new Map<number, number>();
+    bookings.forEach((b: Booking) => {
+      bookingTotalMap.set(b.id, b.totalAmount || 0);
+    });
+
+    const serviceTotalMap = new Map<number, number>();
+    bookingServices.forEach((s: BookingService) => {
+      const discount = s.discount || 0;
+      serviceTotalMap.set(s.id, Math.max((s.price || 0) - discount, 0));
+    });
+
+    const paidBookingMap = new Map<number, number>();
+    payments
+      .filter((p: Payment) => p.status?.toLowerCase() === "completed")
+      .forEach((p: Payment) => {
+        const current = paidBookingMap.get(p.bookingId) || 0;
+        paidBookingMap.set(p.bookingId, current + p.amount);
+      });
+
+    const paidServiceMap = new Map<number, number>();
+    servicePayments
+      .filter((p: ServicePayment) => p.status?.toLowerCase() === "completed")
+      .forEach((p: ServicePayment) => {
+        const current = paidServiceMap.get(p.bookingServiceId) || 0;
+        paidServiceMap.set(p.bookingServiceId, current + p.amount);
+      });
+
+    type CombinedPayment = {
+      id: number;
+      amount: number;
+      paymentNumber: string;
+      paymentDate?: string;
+      createdAt?: string;
+      status?: string;
+      notes?: string;
+      source: "BOOKING" | "SERVICE";
+      bookingId?: number;
+      bookingServiceId?: number;
+    };
+
+    const combined: CombinedPayment[] = [
+      ...payments.map((p: Payment) => ({
+        id: p.id,
+        amount: p.amount,
+        paymentNumber: p.paymentNumber,
+        paymentDate: p.paymentDate,
+        createdAt: p.createdAt,
+        status: p.status,
+        notes: p.notes,
+        bookingId: p.bookingId,
+        source: "BOOKING" as const,
+      })),
+      ...servicePayments.map((p: ServicePayment) => ({
+        id: p.id,
+        amount: p.amount,
+        paymentNumber: p.paymentNumber,
+        paymentDate: p.paymentDate,
+        createdAt: p.createdAt,
+        status: p.status,
+        notes: p.notes,
+        bookingServiceId: p.bookingServiceId,
+        source: "SERVICE" as const,
+      })),
+    ];
+
+    const toType = (
+      status?: string,
+      notes?: string,
+    ): WalletTransaction["type"] => {
+      const normalizedStatus = status?.toLowerCase() || "";
+      const normalizedNotes = notes?.toLowerCase() || "";
+      if (
+        normalizedStatus.includes("refund") ||
+        normalizedNotes.includes("refund")
+      ) {
+        return "refund";
+      }
+      return "debit";
+    };
+
+    const getRemainingDue = (item: CombinedPayment) => {
+      if (item.source === "SERVICE" && item.bookingServiceId) {
+        const total = serviceTotalMap.get(item.bookingServiceId) || 0;
+        const paid = paidServiceMap.get(item.bookingServiceId) || 0;
+        return Math.max(total - paid, 0);
+      }
+      if (item.source === "BOOKING" && item.bookingId) {
+        const total = bookingTotalMap.get(item.bookingId) || 0;
+        const paid = paidBookingMap.get(item.bookingId) || 0;
+        return Math.max(total - paid, 0);
+      }
+      return 0;
+    };
+
+    const sorted = [...combined].sort((a, b) => {
+      const aDate = new Date(a.paymentDate || a.createdAt || 0).getTime();
+      const bDate = new Date(b.paymentDate || b.createdAt || 0).getTime();
+      return bDate - aDate;
+    });
+
+    return sorted.map((item) => {
+      const type = toType(item.status, item.notes);
+      const description =
+        item.source === "SERVICE"
+          ? `Service Payment - ${item.paymentNumber}`
+          : `Booking Payment - ${item.paymentNumber}`;
+
+      return {
+        key: `${item.source}-${item.id}`,
+        transactionId: item.paymentNumber,
+        type,
+        amount: item.amount,
+        description,
+        date: item.paymentDate || item.createdAt || "",
+        remainingDue: getRemainingDue(item),
+      };
+    });
+  }, [
+    paymentsResponse,
+    servicePaymentsResponse,
+    bookingsResponse,
+    bookingServicesResponse,
   ]);
 
-  // Mock previous services
-  const [previousServices] = useState<ServiceData[]>([
-    {
-      key: "1",
-      bookingId: "BK-2024-050",
-      courseName: "Basic Driving",
-      date: "2024-10-15",
-      slot: "09:00 AM - 10:00 AM",
-      instructor: "Ramesh Kumar",
-      status: "completed",
-      amount: 2500,
-    },
-    {
-      key: "2",
-      bookingId: "BK-2024-051",
-      courseName: "Parking Practice",
-      date: "2024-10-18",
-      slot: "11:00 AM - 12:00 PM",
-      instructor: "Suresh Sharma",
-      status: "completed",
-      amount: 1800,
-    },
-    {
-      key: "3",
-      bookingId: "BK-2024-052",
-      courseName: "Advanced Driving",
-      date: "2024-10-22",
-      slot: "02:00 PM - 03:00 PM",
-      instructor: "Ramesh Kumar",
-      status: "cancelled",
-      amount: 3500,
-    },
-    {
-      key: "4",
-      bookingId: "BK-2024-053",
-      courseName: "Highway Driving",
-      date: "2024-10-25",
-      slot: "10:00 AM - 11:00 AM",
-      instructor: "Vikram Singh",
-      status: "completed",
-      amount: 4500,
-    },
-  ]);
+  const currentWalletBalance = useMemo(() => {
+    const payments = paymentsResponse?.data?.getAllPayment || [];
+    const servicePayments =
+      servicePaymentsResponse?.data?.getAllServicePayment || [];
 
-  // Mock wallet transactions
-  const [walletTransactions] = useState<WalletTransaction[]>([
-    {
-      key: "1",
-      transactionId: "TXN-001",
-      type: "credit",
-      amount: 10000,
-      description: "Wallet top-up",
-      date: "2024-01-15",
-      balance: 10000,
-    },
-    {
-      key: "2",
-      transactionId: "TXN-002",
-      type: "debit",
-      amount: 2500,
-      description: "Booking payment - BK-2024-050",
-      date: "2024-10-15",
-      balance: 7500,
-    },
-    {
-      key: "3",
-      transactionId: "TXN-003",
-      type: "debit",
-      amount: 1800,
-      description: "Booking payment - BK-2024-051",
-      date: "2024-10-18",
-      balance: 5700,
-    },
-    {
-      key: "4",
-      transactionId: "TXN-004",
-      type: "refund",
-      amount: 3500,
-      description: "Refund for cancelled booking - BK-2024-052",
-      date: "2024-10-23",
-      balance: 9200,
-    },
-  ]);
+    const toType = (status?: string, notes?: string) => {
+      const normalizedStatus = status?.toLowerCase() || "";
+      const normalizedNotes = notes?.toLowerCase() || "";
+      if (
+        normalizedStatus.includes("refund") ||
+        normalizedNotes.includes("refund")
+      ) {
+        return "refund" as const;
+      }
+      return "debit" as const;
+    };
+
+    const all = [
+      ...payments.map((p: Payment) => ({
+        amount: p.amount,
+        status: p.status,
+        notes: p.notes,
+      })),
+      ...servicePayments.map((p: ServicePayment) => ({
+        amount: p.amount,
+        status: p.status,
+        notes: p.notes,
+      })),
+    ];
+
+    return all.reduce((total, item) => {
+      const type = toType(item.status, item.notes);
+      return type === "refund" ? total + item.amount : total - item.amount;
+    }, 0);
+  }, [paymentsResponse, servicePaymentsResponse]);
 
   const serviceColumns: ColumnsType<ServiceData> = [
     {
-      title: "Booking ID",
-      dataIndex: "bookingId",
-      key: "bookingId",
-      width: 140,
+      title: "Confirmation No",
+      dataIndex: "confirmationNumber",
+      key: "confirmationNumber",
+      width: 160,
     },
     {
-      title: "Course",
-      dataIndex: "courseName",
-      key: "courseName",
+      title: "Service",
+      dataIndex: "serviceName",
+      key: "serviceName",
     },
     {
-      title: "Date & Slot",
-      key: "dateSlot",
-      render: (_, record) => (
-        <div>
-          <div className="font-medium">{record.date}</div>
-          <div className="text-xs text-gray-500">{convertSlotTo12Hour(record.slot)}</div>
-        </div>
-      ),
+      title: "Type",
+      dataIndex: "serviceType",
+      key: "serviceType",
     },
     {
-      title: "Instructor",
-      dataIndex: "instructor",
-      key: "instructor",
-    },
-    {
-      title: "Amount",
-      dataIndex: "amount",
-      key: "amount",
+      title: "Price",
+      dataIndex: "price",
+      key: "price",
       render: (amount) => (
         <span className="font-semibold">₹{amount.toLocaleString()}</span>
       ),
+    },
+    {
+      title: "Discount",
+      dataIndex: "discount",
+      key: "discount",
+      render: (amount) => (
+        <span className="font-semibold">₹{amount.toLocaleString()}</span>
+      ),
+    },
+    {
+      title: "Created",
+      dataIndex: "createdAt",
+      key: "createdAt",
+      render: (date) => formatDate(date),
     },
     {
       title: "Status",
       dataIndex: "status",
       key: "status",
       render: (status) => {
+        const normalized = status?.toLowerCase?.() || "pending";
         const config: Record<
           string,
           { color: string; icon: React.ReactElement; text: string }
         > = {
-          completed: {
+          closed: {
             color: "green",
             icon: <AntDesignCheckOutlined />,
-            text: "Completed",
+            text: "Closed",
           },
-          cancelled: {
-            color: "red",
-            icon: <MaterialSymbolsFreeCancellation />,
-            text: "Cancelled",
+          dl_applied: {
+            color: "blue",
+            icon: <IcBaselineCalendarMonth />,
+            text: "DL Applied",
+          },
+          dl_pending: {
+            color: "orange",
+            icon: <Fa6RegularClock />,
+            text: "DL Pending",
+          },
+          ll_applied: {
+            color: "purple",
+            icon: <IcBaselineCalendarMonth />,
+            text: "LL Applied",
           },
           pending: {
             color: "orange",
             icon: <Fa6RegularClock />,
             text: "Pending",
           },
-          ongoing: {
-            color: "blue",
-            icon: <IcBaselineCalendarMonth />,
-            text: "Ongoing",
+          cancelled: {
+            color: "red",
+            icon: <MaterialSymbolsFreeCancellation />,
+            text: "Cancelled",
           },
         };
-        const { color, icon, text } = config[status];
+        const { color, icon, text } =
+          config[normalized] || config.pending;
         return (
           <Tag
             color={color}
@@ -343,22 +497,104 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
       render: (date) => formatDate(date),
     },
     {
-      title: "Balance",
-      dataIndex: "balance",
-      key: "balance",
-      render: (balance) => (
-        <span className="font-semibold">₹{balance.toLocaleString()}</span>
+      title: "Remaining Due",
+      dataIndex: "remainingDue",
+      key: "remainingDue",
+      render: (remainingDue) => (
+        <span className="font-semibold">₹{remainingDue.toLocaleString()}</span>
       ),
     },
   ];
 
-  const handleRefund = (values: { amount: number; reason: string }) => {
-    toast.success(
-      `₹${values.amount} has been refunded to ${userData?.name}'s wallet`
-    );
-    setRefundModalVisible(false);
-    form.resetFields();
-  };
+  const bookingColumns: ColumnsType<BookingRow> = [
+    {
+      title: "Booking ID",
+      dataIndex: "bookingId",
+      key: "bookingId",
+      width: 140,
+    },
+    {
+      title: "Course",
+      dataIndex: "courseName",
+      key: "courseName",
+    },
+    {
+      title: "Date",
+      dataIndex: "bookingDate",
+      key: "bookingDate",
+      render: (date) => formatDate(date),
+    },
+    {
+      title: "Slot",
+      dataIndex: "slot",
+      key: "slot",
+    },
+    {
+      title: "Amount",
+      dataIndex: "totalAmount",
+      key: "totalAmount",
+      render: (amount) => (
+        <span className="font-semibold">₹{amount.toLocaleString()}</span>
+      ),
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      render: (status: string) => {
+        const normalized = status?.toLowerCase?.() || "pending";
+        const config: Record<
+          string,
+          { color: string; icon: React.ReactElement; text: string }
+        > = {
+          completed: {
+            color: "green",
+            icon: <AntDesignCheckOutlined />,
+            text: "Completed",
+          },
+          cancelled: {
+            color: "red",
+            icon: <MaterialSymbolsFreeCancellation />,
+            text: "Cancelled",
+          },
+          pending: {
+            color: "orange",
+            icon: <Fa6RegularClock />,
+            text: "Pending",
+          },
+          confirmed: {
+            color: "blue",
+            icon: <IcBaselineCalendarMonth />,
+            text: "Confirmed",
+          },
+          no_show: {
+            color: "red",
+            icon: <MaterialSymbolsFreeCancellation />,
+            text: "No Show",
+          },
+        };
+        const { color, icon, text } =
+          config[normalized] || config.pending;
+        return (
+          <Tag
+            color={color}
+            icon={icon}
+            className="!text-sm !px-3 !py-1 !flex !items-center !gap-1 !w-fit"
+          >
+            {text}
+          </Tag>
+        );
+      },
+    },
+  ];
+
+  // const handleRefund = (values: { amount: number; reason: string }) => {
+  //   toast.success(
+  //     `₹${values.amount} has been refunded to ${userData?.name}'s wallet`,
+  //   );
+  //   setRefundModalVisible(false);
+  //   form.resetFields();
+  // };
 
   if (isLoading) {
     return (
@@ -378,10 +614,7 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
           <p className="text-gray-600 mb-4">
             The user you are looking for does not exist.
           </p>
-          <Button
-            type="primary"
-            onClick={() => router.push("/mtadmin/user")}
-          >
+          <Button type="primary" onClick={() => router.push("/mtadmin/user")}>
             Back to Users
           </Button>
         </Card>
@@ -420,13 +653,13 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
               />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {userData.name}
+                  {userData.name} {userData.surname}
                 </h1>
                 <p className="text-gray-600 mt-1">{userData.email}</p>
                 <div className="flex items-center gap-3 mt-2">
                   <Tag
                     color={userData.status == "active" ? "green" : "red"}
-                    className="!text-sm !px-3 !py-1"
+                    className="text-sm! px-3! py-1!"
                   >
                     {userData.status == "active" ? "Active" : "Inactive"}
                   </Tag>
@@ -441,66 +674,6 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
       </div>
 
       <div className="px-8 py-6 space-y-6">
-        {/* Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
-                <RiMoneyRupeeCircleLine className="text-green-600 text-2xl" />
-              </div>
-              <div>
-                <p className="text-gray-600 text-xs mb-1">Wallet Balance</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  ₹{userData.walletBalance.toLocaleString()}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                <IcBaselineCalendarMonth className="text-blue-600 text-2xl" />
-              </div>
-              <div>
-                <p className="text-gray-600 text-xs mb-1">Total Bookings</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {userData.totalBookings}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
-                <RiMoneyRupeeCircleLine className="text-purple-600 text-2xl" />
-              </div>
-              <div>
-                <p className="text-gray-600 text-xs mb-1">Total Spent</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  ₹{userData.totalSpent.toLocaleString()}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
-                <AntDesignCheckOutlined className="text-orange-600 text-2xl" />
-              </div>
-              <div>
-                <p className="text-gray-600 text-xs mb-1">Completed</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {userData.completedBookings}
-                </p>
-              </div>
-            </div>
-          </Card>
-        </div>
-        <div></div>
-
         {/* User Details */}
         <Card
           title={<span className="text-lg font-semibold">User Details</span>}
@@ -544,7 +717,7 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
             <Descriptions.Item label="Status">
               <Tag
                 color={userData.status == "active" ? "green" : "red"}
-                className="!text-sm"
+                className="text-sm!"
               >
                 {userData.status == "active" ? "Active" : "Inactive"}
               </Tag>
@@ -558,13 +731,13 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
           title={
             <div className="flex items-center justify-between">
               <span className="text-lg font-semibold">Wallet Management</span>
-              <Button
+              {/* <Button
                 type="primary"
                 danger
                 onClick={() => setRefundModalVisible(true)}
               >
                 Refund to Wallet
-              </Button>
+              </Button> */}
             </div>
           }
           className="shadow-sm"
@@ -572,41 +745,43 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
           <Table
             columns={walletColumns}
             dataSource={walletTransactions}
+            loading={loadingPayments || loadingServicePayments}
             pagination={{ pageSize: 5 }}
             scroll={{ x: 1000 }}
           />
         </Card>
         <div></div>
 
-        {/* Active Services */}
+        {/* Service Bookings */}
         <Card
           title={
             <span className="text-lg font-semibold">
-              Active Services ({activeServices.length})
+              Service Bookings ({serviceBookings.length})
             </span>
           }
           className="shadow-sm"
         >
           <Table
             columns={serviceColumns}
-            dataSource={activeServices}
-            pagination={false}
+            dataSource={serviceBookings}
+            pagination={{ pageSize: 5 }}
             scroll={{ x: 1000 }}
           />
         </Card>
         <div></div>
-        {/* Previous Services */}
+
+        {/* Booking History */}
         <Card
           title={
             <span className="text-lg font-semibold">
-              Previous Services ({previousServices.length})
+              Bookings ({bookingRows.length})
             </span>
           }
           className="shadow-sm"
         >
           <Table
-            columns={serviceColumns}
-            dataSource={previousServices}
+            columns={bookingColumns}
+            dataSource={bookingRows}
             pagination={{ pageSize: 5 }}
             scroll={{ x: 1000 }}
           />
@@ -614,7 +789,7 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
       </div>
 
       {/* Refund Modal */}
-      <Modal
+      {/* <Modal
         title={
           <div className="flex items-center gap-3 pb-4 border-b">
             <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
@@ -636,7 +811,7 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
             <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg">
               <p className="text-sm text-gray-700">
                 <span className="font-semibold">Current Wallet Balance:</span> ₹
-                {userData.walletBalance.toLocaleString()}
+                {currentWalletBalance.toLocaleString()}
               </p>
             </div>
 
@@ -696,7 +871,7 @@ const UserDetailPage = ({ params }: { params: Promise<{ userId: string }> }) => 
             </div>
           </div>
         </Form>
-      </Modal>
+      </Modal> */}
     </div>
   );
 };

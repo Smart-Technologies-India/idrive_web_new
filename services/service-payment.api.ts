@@ -74,6 +74,19 @@ export const getServicePaymentsByBookingService = async (bookingServiceId: numbe
   });
 };
 
+export const getAllServicePayments = async (whereSearchInput?: {
+  bookingServiceId?: number;
+  userId?: number;
+  paymentMethod?: string;
+  status?: string;
+  paymentNumber?: string;
+}) => {
+  return await ApiCall<{ getAllServicePayment: ServicePayment[] }>({
+    query: GET_ALL_SERVICE_PAYMENTS,
+    variables: { whereSearchInput: whereSearchInput || {} },
+  });
+};
+
 export const getTotalPaidServiceAmount = async (bookingServiceId: number) => {
   // Calculate total from all completed payments for this service booking
   const response = await ApiCall<{ getAllServicePayment: ServicePayment[] }>({

@@ -73,6 +73,7 @@ export interface Addon {
 export interface Customer {
   id: number;
   name: string;
+  surname?: string;
   contact1: string;
   contact2?: string;
   email?: string;

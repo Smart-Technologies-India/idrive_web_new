@@ -28,6 +28,7 @@ import dayjs, { Dayjs } from "dayjs";
 import { useQuery } from "@tanstack/react-query";
 import { getCookie } from "cookies-next";
 import { ApiCall } from "@/services/api";
+import { useRouter } from "next/navigation";
 
 const { RangePicker } = DatePicker;
 
@@ -63,15 +64,6 @@ interface Car {
   registrationNumber: string;
 }
 
-interface User {
-  id: number;
-  name: string;
-  surname: string;
-  contact1: string;
-  email: string;
-  createdAt: string;
-}
-
 interface Booking {
   id: number;
   bookingId: string;
@@ -80,6 +72,7 @@ interface Booking {
   courseName?: string;
   carName?: string;
   totalAmount: number;
+  createdAt?: string;
   bookingDate?: string;
   status?: string;
   payments?: Payment[];
@@ -135,6 +128,7 @@ interface PaymentByMethod {
 }
 
 const Reports = () => {
+  const router = useRouter();
   const schoolId = parseInt((getCookie("school") as string) || "0");
   const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
   const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
@@ -292,6 +286,10 @@ const Reports = () => {
   const handleExportReport = (exportAll: boolean = false) => {
     if (!selectedReport) return;
 
+    const shouldStripCurrencySymbol =
+      selectedReport === "payment-collection" ||
+      selectedReport === "pending-payments";
+
     try {
       // Get the table element from the modal
       const tableElement = document.querySelector(".ant-modal-body table");
@@ -320,7 +318,10 @@ const Reports = () => {
         const cells = row.querySelectorAll("td");
         cells.forEach((cell) => {
           // Get text content, handling tags and nested elements
-          const text = cell.textContent?.trim().replace(/\s+/g, " ") || "";
+          let text = cell.textContent?.trim().replace(/\s+/g, " ") || "";
+          if (shouldStripCurrencySymbol) {
+            text = text.replace(/₹\s*/g, "");
+          }
           rowData.push(text);
         });
         if (rowData.length > 0) {
@@ -457,16 +458,26 @@ const Reports = () => {
     <div className="p-8 bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-            <div className="bg-blue-500 p-3 rounded-lg">
-              <Fa6RegularFileLines className="text-2xl text-white" />
-            </div>
-            Reports
-          </h1>
-          <p className="text-gray-600 text-lg">
-            Generate and view various reports for your driving school
-          </p>
+        <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+              <div className="bg-blue-500 p-3 rounded-lg">
+                <Fa6RegularFileLines className="text-2xl text-white" />
+              </div>
+              Reports
+            </h1>
+            <p className="text-gray-600 text-lg">
+              Generate and view various reports for your driving school
+            </p>
+          </div>
+          <Button
+            type="primary"
+            size="large"
+            icon={<AntDesignEyeOutlined />}
+            onClick={() => router.push("/mtadmin/reports/students")}
+          >
+            Student Report List
+          </Button>
         </div>
 
         {/* Report Cards Grid */}
@@ -615,41 +626,46 @@ const StudentJoinReport = ({
   dateRange: [Dayjs, Dayjs] | null;
   schoolId: number;
 }) => {
-  const { data, isLoading } = useQuery<User[]>({
+  const { data, isLoading } = useQuery<Booking[]>({
     queryKey: ["student-join-report", dateRange, schoolId],
     queryFn: async () => {
       const response = await ApiCall({
-        query: `query GetAllUser($whereSearchInput: WhereUserSearchInput!) {
-          getAllUser(whereSearchInput: $whereSearchInput) {
+        query: `query GetAllBooking($whereSearchInput: WhereBookingSearchInput!) {
+          getAllBooking(whereSearchInput: $whereSearchInput) {
             id
-            name
-            surname
-            contact1
-            email
+            bookingId
+            customerName
+            customerMobile
+            carName
+            courseName
+            totalAmount
             createdAt
+            payments {
+              id
+              amount
+            }
           }
         }`,
         variables: {
           whereSearchInput: {
             schoolId,
-            role: "USER",
           },
         },
       });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const users = (response?.data as any)?.getAllUser || [];
+      const bookings = (response?.data as any)?.getAllBooking || [];
 
       // Filter by date range if provided
       if (dateRange) {
-        return users.filter((user: User) => {
-          const createdDate = dayjs(user.createdAt);
+        return bookings.filter((booking: Booking) => {
+          const createdDate = dayjs(booking.createdAt);
           return (
             createdDate.isAfter(dateRange[0].startOf("day")) &&
             createdDate.isBefore(dateRange[1].endOf("day"))
           );
         });
       }
-      return users;
+      return bookings;
     },
     enabled: schoolId > 0,
   });
@@ -657,24 +673,55 @@ const StudentJoinReport = ({
   const columns = [
     {
       title: "Student Name",
-      key: "name",
-      render: (record: User) => `${record.name} ${record.surname ?? ""}`,
+      dataIndex: "customerName",
+      key: "customerName",
     },
     {
       title: "Contact",
-      dataIndex: "contact1",
-      key: "contact1",
+      dataIndex: "customerMobile",
+      key: "customerMobile",
     },
     {
-      title: "Email",
-      dataIndex: "email",
-      key: "email",
-    },
-    {
-      title: "Joined Date",
+      title: "Join Date",
       dataIndex: "createdAt",
       key: "createdAt",
-      render: (date: string) => dayjs(date).format("DD MMM YYYY"),
+      render: (date: string) => (date ? dayjs(date).format("DD MMM YYYY") : "-"),
+    },
+    {
+      title: "Ref No",
+      dataIndex: "bookingId",
+      key: "bookingId",
+    },
+    {
+      title: "Car Name",
+      dataIndex: "carName",
+      key: "carName",
+      render: (carName: string) => carName || "-",
+    },
+    {
+      title: "Course",
+      dataIndex: "courseName",
+      key: "courseName",
+      render: (courseName: string) => courseName || "-",
+    },
+    {
+      title: "Amount",
+      dataIndex: "totalAmount",
+      key: "totalAmount",
+      render: (amount: number) => `₹${(amount || 0).toLocaleString()}`,
+    },
+    {
+      title: "Balance",
+      key: "balance",
+      render: (record: Booking) => {
+        const totalPaid =
+          record.payments?.reduce(
+            (sum: number, payment: Payment) => sum + (payment.amount || 0),
+            0,
+          ) || 0;
+        const pending = Math.max((record.totalAmount || 0) - totalPaid, 0);
+        return <Tag color={pending > 0 ? "red" : "green"}>₹{pending.toLocaleString()}</Tag>;
+      },
     },
   ];
 

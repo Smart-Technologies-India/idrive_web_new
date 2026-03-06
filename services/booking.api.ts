@@ -75,15 +75,21 @@ export interface Booking {
   confirmationNumber?: string;
   createdAt: string;
   updatedAt: string;
+  payments?: {
+    id: number;
+    amount: number;
+  }[];
   sessions?: BookingSession[];
   bookingServices?: BookingService[];
   customer?: {
     id: number;
     name: string;
+    surname?: string;
     email?: string;
     contact1: string;
     contact2?: string;
     address?: string;
+    fatherName?: string;
   };
   car?: {
     id: number;
@@ -247,6 +253,10 @@ const GET_ALL_BOOKINGS = `
       confirmationNumber
       createdAt
       updatedAt
+      payments {
+        id
+        amount
+      }
       sessions {
         id
         bookingId
@@ -275,10 +285,12 @@ const GET_ALL_BOOKINGS = `
       customer {
         id
         name
+        surname
         email
         contact1
         contact2
         address
+        fatherName
       }
       car {
         id
@@ -426,7 +438,7 @@ export const getPaginatedBookings = async (variables: {
     take: number;
     search?: string;
     filters?: string[];
-    orderBy?: { field: string; direction: 'asc' | 'desc' }[];
+    orderBy?: { field: string; direction: "asc" | "desc" }[];
   };
   whereSearchInput: {
     schoolId?: number;

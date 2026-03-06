@@ -60,6 +60,12 @@ interface BookingSlot {
   status: "pending" | "completed" | "cancelled";
   attendanceMarked: boolean;
   attendanceNotes?: string;
+  startDate: string;
+  endDate: string;
+  presentDays: number;
+  absentDays: number;
+  remark: string;
+  location: string;
 }
 
 const DriverPage = () => {
@@ -117,9 +123,37 @@ const DriverPage = () => {
       (booking.sessions || [])
         .filter((session: BookingSession) => session.driver?.userId == userId)
         .map((session: BookingSession) => {
+          const driverSessions = (booking.sessions || []).filter(
+            (driverSession: BookingSession) =>
+              driverSession.driver?.userId == userId
+          );
+
+          const sortedSessionDates = driverSessions
+            .map((driverSession: BookingSession) => dayjs(driverSession.sessionDate))
+            .sort((a, b) => a.valueOf() - b.valueOf());
+
+          const startDate =
+            sortedSessionDates.length > 0
+              ? sortedSessionDates[0].format("YYYY-MM-DD")
+              : dayjs(session.sessionDate).format("YYYY-MM-DD");
+          const endDate =
+            sortedSessionDates.length > 0
+              ? sortedSessionDates[sortedSessionDates.length - 1].format("YYYY-MM-DD")
+              : dayjs(session.sessionDate).format("YYYY-MM-DD");
+
+          const presentDays = driverSessions.filter(
+            (driverSession: BookingSession) =>
+              driverSession.attended || driverSession.status == "COMPLETED"
+          ).length;
+
+          const absentDays = driverSessions.filter(
+            (driverSession: BookingSession) => driverSession.status == "NO_SHOW"
+          ).length;
+
           const totalPaid = paymentTotals?.[booking.id] || 0;
           const totalAmount = booking.totalAmount || 0;
           const remainingDue = Math.max(totalAmount - totalPaid, 0);
+          const location = booking.customer?.address || "Address not provided";
 
           return {
             key: `${booking.id}-${session.id}`,
@@ -130,7 +164,7 @@ const DriverPage = () => {
               booking.customer?.name || booking.customerName || "Unknown",
             contact1: booking.customer?.contact1 || booking.customerMobile,
             contact2: booking.customer?.contact2,
-            address: booking.customer?.address || "Address not provided",
+            address: location,
             course: booking.course?.courseName || booking.courseName,
             slot: session.slot,
             date: dayjs(session.sessionDate).format("YYYY-MM-DD"),
@@ -149,6 +183,12 @@ const DriverPage = () => {
               session.status == "COMPLETED" ||
               session.status == "NO_SHOW",
             attendanceNotes: session.instructorNotes || "",
+            startDate,
+            endDate,
+            presentDays,
+            absentDays,
+            remark: booking.notes || session.instructorNotes || "-",
+            location,
           };
         })
     ) || [];
@@ -537,38 +577,83 @@ const DriverPage = () => {
                     <div>{getStatusTag(booking.status)}</div>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                      <div className="rounded-lg border border-gray-200 p-3">
+                        <p className="text-gray-500">Start Date</p>
+                        <p className="font-semibold text-gray-900">
+                          {dayjs(booking.startDate).format("DD MMM YYYY")}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 p-3">
+                        <p className="text-gray-500">End Date</p>
+                        <p className="font-semibold text-gray-900">
+                          {dayjs(booking.endDate).format("DD MMM YYYY")}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 p-3">
+                        <p className="text-gray-500">No of Days Marked Present</p>
+                        <p className="font-semibold text-green-700">
+                          {booking.presentDays}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 p-3">
+                        <p className="text-gray-500">No of Days Marked Absent</p>
+                        <p className="font-semibold text-red-700">
+                          {booking.absentDays}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 p-3 sm:col-span-2 lg:col-span-2">
+                        <p className="text-gray-500">Any Remark</p>
+                        <p className="font-semibold text-gray-900 break-words">
+                          {booking.remark}
+                        </p>
+                      </div>
+                    </div>
+
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
                         <MaterialSymbolsCall className="text-green-600 text-base" />
                       </div>
-                      <div className="text-gray-900 font-medium flex items-center gap-1 flex-wrap">
-                        <a
-                          href={`tel:${booking.contact1}`}
-                          className="text-gray-900 hover:text-blue-600"
-                        >
-                          {booking.contact1}
-                        </a>
-                        {booking.contact2 && (
-                          <>
-                            <span className="text-gray-400">/</span>
+                      <div className="text-gray-900 font-medium flex flex-col gap-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-gray-600 text-sm">Mobile No:</span>
+                          <a
+                            href={`tel:${booking.contact1}`}
+                            className="text-gray-900 hover:text-blue-600"
+                          >
+                            {booking.contact1}
+                          </a>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-gray-600 text-sm">Alt Mobile No:</span>
+                          {booking.contact2 ? (
                             <a
                               href={`tel:${booking.contact2}`}
                               className="text-gray-900 hover:text-blue-600"
                             >
                               {booking.contact2}
                             </a>
-                          </>
-                        )}
+                          ) : (
+                            <span className="text-gray-500">-</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center shrink-0">
                         <MaterialSymbolsLocationOn className="text-red-600 text-base" />
                       </div>
-                      <span className="text-gray-700 leading-relaxed">
-                        {booking.address}
-                      </span>
+                      <div className="text-gray-700 leading-relaxed flex flex-col gap-1">
+                        <span>
+                          <span className="font-medium text-gray-900">Address:</span>{" "}
+                          {booking.address}
+                        </span>
+                        <span>
+                          <span className="font-medium text-gray-900">Location:</span>{" "}
+                          {booking.location}
+                        </span>
+                      </div>
                     </div>
                   </div>
 

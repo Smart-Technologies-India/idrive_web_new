@@ -16,6 +16,7 @@ import {
   type Booking,
   type BookingSession,
 } from "@/services/booking.api";
+import { getSchoolById } from "@/services/school.api";
 
 interface SessionRow {
   key: string;
@@ -51,6 +52,16 @@ const StudentReportDetailPage = () => {
     refetchOnWindowFocus: false,
   });
 
+  const { data: schoolResponse } = useQuery({
+    queryKey: ["school-detail", schoolId],
+    queryFn: () => getSchoolById(schoolId),
+    enabled: schoolId > 0,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const schoolBranchName = schoolResponse?.data?.getSchoolById?.branchName || "-";
+
   const studentBookings = useMemo(() => {
     const bookings = bookingsResponse?.data?.getAllBooking || [];
     return bookings.filter(
@@ -59,6 +70,14 @@ const StudentReportDetailPage = () => {
   }, [bookingsResponse, selectedStudentKey]);
 
   const student = studentBookings[0];
+
+  const studentAddress = useMemo(() => {
+    const firstAvailableAddress = studentBookings.find(
+      (booking) => booking.customer?.address && booking.customer.address.trim(),
+    )?.customer?.address;
+
+    return firstAvailableAddress || student?.customer?.address || "-";
+  }, [studentBookings, student]);
 
   const bookingIds = useMemo(() => {
     const uniqueBookingIds = Array.from(
@@ -137,9 +156,9 @@ const StudentReportDetailPage = () => {
       totalSessions: sessions.length,
       present,
       absent,
-      startDate: allDates.length ? allDates[0].format("DD MMM YYYY") : "-",
+      startDate: allDates.length ? allDates[0].format("DD/MM/YYYY") : "-",
       endDate: allDates.length
-        ? allDates[allDates.length - 1].format("DD MMM YYYY")
+        ? allDates[allDates.length - 1].format("DD/MM/YYYY")
         : "-",
       totalAmount,
       paidAmount,
@@ -177,12 +196,16 @@ const StudentReportDetailPage = () => {
     {
       title: "Schedule",
       key: "schedule",
-      render: () => <span className="inline-block min-w-[100px] text-xs">&nbsp;</span>,
+      render: () => (
+        <span className="inline-block min-w-[100px] text-xs">&nbsp;</span>
+      ),
     },
     {
       title: "Signature",
       key: "signature",
-      render: () => <span className="inline-block min-w-[100px] text-xs">&nbsp;</span>,
+      render: () => (
+        <span className="inline-block min-w-[100px] text-xs">&nbsp;</span>
+      ),
     },
   ];
 
@@ -191,18 +214,20 @@ const StudentReportDetailPage = () => {
       <Card className="shadow-sm print:shadow-none print:border print:rounded-none print:mx-0 print:my-0">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 print:hidden">
           <div>
-            <h1 className="text-xl font-bold text-gray-900 text-center">
-              Since 1954
-            </h1>
             <p className="text-gray-600 text-2xl text-center">
               CHOHAN MOTOR DRIVING SCHOOL
             </p>
-            <p className="text-gray-600 text-2xl text-center">FORM NO. 15</p>
-            <p className="text-gray-600 text-lg text-center">
-              (See Rule 27 (i))
-            </p>
             <p className="text-gray-600 text-lg text-center">
               Register Showing the driving hours spent by the student
+            </p>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 text-center">
+                Since 1954
+              </h1>
+              <p className="text-gray-600 text-2xl text-center">FORM NO. 15</p>
+            </div>
+            <p className="text-gray-600 text-lg text-center">
+              (See Rule 27 (i))
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -227,20 +252,25 @@ const StudentReportDetailPage = () => {
 
         <div className="hidden print:block border-b pb-2 mb-2">
           <div className="flex justify-between">
-            <p className="text-gray-700 text-2xl text-center font-medium leading-tight">
-              FORM NO. 15
-            </p>
-            <p className="text-gray-700 text-2xl text-center font-medium leading-tight">
-              CHOHAN MOTOR DRIVING SCHOOL- Since 1954
-            </p>
+            <div>
+              <p className="text-gray-700 text-2xl text-left font-medium leading-tight">
+                CHOHAN MOTOR DRIVING SCHOOL- Since 1954
+              </p>
+              <p className="text-gray-700 text-lg text-left leading-tight">
+                Register Showing the driving hours spent by the student
+              </p>
+            </div>
 
-            <p className="text-gray-700 text-lg text-center leading-tight">
-              (See Rule 27 (i))
-            </p>
+            <div>
+              <p className="text-gray-700 text-2xl text-center font-medium leading-tight">
+                FORM NO. 15
+              </p>
+
+              <p className="text-gray-700 text-lg text-center leading-tight">
+                (See Rule 27 (i))
+              </p>
+            </div>
           </div>
-          <p className="text-gray-700 text-lg text-center leading-tight">
-            Register Showing the driving hours spent by the student
-          </p>
         </div>
 
         <div className="report-layout grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4 print:mt-0 print:gap-2">
@@ -271,44 +301,53 @@ const StudentReportDetailPage = () => {
                 </p>
                 <p>
                   <span className="font-medium">Address:</span>{" "}
-                  {student?.customer?.address || "-"}
+                  {studentAddress}
                 </p>
                 <p>
                   <span className="font-medium">Location:</span>{" "}
-                  {student?.customer?.address || "-"}
+                  {schoolBranchName}
                 </p>
                 <p>
-                  <span className="font-medium">Start Date:</span>{" "}
-                  {reportStats.startDate}
-                </p>
-                <p>
-                  <span className="font-medium">End Date:</span>{" "}
-                  {reportStats.endDate}
-                </p>
-                <p>
-                  <span className="font-medium">
-                    Present - {reportStats.present}
+                  <span className="font-medium">Start Dt: </span>
+                  <span className="font-normal">
+                    {reportStats.startDate}{" "}
                   </span>{" "}
-                  <span className="font-medium">
-                    Absent - {reportStats.absent}
+                  <span className="font-medium">End Dt: </span>
+                  <span className="font-normal">
+                    {reportStats.endDate}
+                  </span>{" "}
+                </p>
+                <p>
+                  <span className="font-medium">Present: </span>
+                  <span className="font-normal">
+                    {reportStats.present}
+                  </span>{" "}
+                  <span className="font-medium">Absent: </span>
+                  <span className="font-normal">{reportStats.absent}</span>
+                </p>
+                <p>
+                  <span className="font-medium">Bookings: </span>
+                  <span className="font-normal">
+                    {reportStats.totalBookings}
+                  </span>{" "}
+                  <span className="font-medium">Sessions: </span>
+                  <span className="font-normal">
+                    {reportStats.totalSessions}
                   </span>
                 </p>
                 <p>
-                  <span className="font-medium">
-                    Bookings - {reportStats.totalBookings}
+                  <span className="font-medium">Amt: </span>
+                  <span className="font-normal">
+                    Rs.
+                    {reportStats.totalAmount.toLocaleString("en-IN")}
                   </span>{" "}
-                  <span className="font-medium">
-                    Sessions - {reportStats.totalSessions}
+                  <span className="font-medium">Balance: </span>
+                  <span className="font-normal">
+                    Rs.
+                    {reportStats.balance.toLocaleString("en-IN")}
                   </span>
                 </p>
-                <p>
-                  <span className="font-medium">Amount:</span> ₹
-                  {reportStats.totalAmount.toLocaleString("en-IN")}
-                </p>
-                <p>
-                  <span className="font-medium">Balance:</span> ₹
-                  {reportStats.balance.toLocaleString("en-IN")}
-                </p>
+
                 <p className="col-span-2 wrap-break-word">
                   <span className="font-medium">Driver Details:</span>{" "}
                   {reportStats.driverDetails}
@@ -329,10 +368,7 @@ const StudentReportDetailPage = () => {
                 Training Rules:
               </h3>
               <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
-                <li>
-                  One training session = approximately 10 km driving within 1
-                  hour.
-                </li>
+                <li>One training session = 10 km driving within 1 hour.</li>
                 <li>
                   Students must record date, time, kms and sign after each
                   session.

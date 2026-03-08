@@ -177,12 +177,12 @@ const StudentReportDetailPage = () => {
     {
       title: "Schedule",
       key: "schedule",
-      render: () => <span className="inline-block min-w-[100px]">&nbsp;</span>,
+      render: () => <span className="inline-block min-w-[100px] text-xs">&nbsp;</span>,
     },
     {
       title: "Signature",
       key: "signature",
-      render: () => <span className="inline-block min-w-[100px]">&nbsp;</span>,
+      render: () => <span className="inline-block min-w-[100px] text-xs">&nbsp;</span>,
     },
   ];
 
@@ -226,18 +226,18 @@ const StudentReportDetailPage = () => {
         </div>
 
         <div className="hidden print:block border-b pb-2 mb-2">
-          <h1 className="text-xl font-bold text-gray-900 text-center">
-            Since 1954
-          </h1>
-          <p className="text-gray-700 text-2xl text-center font-medium leading-tight">
-            CHOHAN MOTOR DRIVING SCHOOL
-          </p>
-          <p className="text-gray-700 text-2xl text-center font-medium leading-tight">
-            FORM NO. 15
-          </p>
-          <p className="text-gray-700 text-lg text-center leading-tight">
-            (See Rule 27 (i))
-          </p>
+          <div className="flex justify-between">
+            <p className="text-gray-700 text-2xl text-center font-medium leading-tight">
+              FORM NO. 15
+            </p>
+            <p className="text-gray-700 text-2xl text-center font-medium leading-tight">
+              CHOHAN MOTOR DRIVING SCHOOL- Since 1954
+            </p>
+
+            <p className="text-gray-700 text-lg text-center leading-tight">
+              (See Rule 27 (i))
+            </p>
+          </div>
           <p className="text-gray-700 text-lg text-center leading-tight">
             Register Showing the driving hours spent by the student
           </p>
@@ -246,9 +246,6 @@ const StudentReportDetailPage = () => {
         <div className="report-layout grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4 print:mt-0 print:gap-2">
           <div className="report-left lg:col-span-1 space-y-4">
             <div className="border rounded-lg p-4 bg-white print:rounded-none">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
-                Student Details
-              </h3>
               <div className="space-y-1 text-sm">
                 <p>
                   <span className="font-medium">Name:</span>{" "}
@@ -280,14 +277,6 @@ const StudentReportDetailPage = () => {
                   <span className="font-medium">Location:</span>{" "}
                   {student?.customer?.address || "-"}
                 </p>
-              </div>
-            </div>
-
-            <div className="border rounded-lg p-4 bg-white print:rounded-none">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
-                Report Summary
-              </h3>
-              <div className="grid grid-cols-2 gap-2 text-sm">
                 <p>
                   <span className="font-medium">Start Date:</span>{" "}
                   {reportStats.startDate}
@@ -297,20 +286,20 @@ const StudentReportDetailPage = () => {
                   {reportStats.endDate}
                 </p>
                 <p>
-                  <span className="font-medium">Present:</span>{" "}
-                  {reportStats.present}
+                  <span className="font-medium">
+                    Present - {reportStats.present}
+                  </span>{" "}
+                  <span className="font-medium">
+                    Absent - {reportStats.absent}
+                  </span>
                 </p>
                 <p>
-                  <span className="font-medium">Absent:</span>{" "}
-                  {reportStats.absent}
-                </p>
-                <p>
-                  <span className="font-medium">Bookings:</span>{" "}
-                  {reportStats.totalBookings}
-                </p>
-                <p>
-                  <span className="font-medium">Sessions:</span>{" "}
-                  {reportStats.totalSessions}
+                  <span className="font-medium">
+                    Bookings - {reportStats.totalBookings}
+                  </span>{" "}
+                  <span className="font-medium">
+                    Sessions - {reportStats.totalSessions}
+                  </span>
                 </p>
                 <p>
                   <span className="font-medium">Amount:</span> ₹
@@ -334,17 +323,47 @@ const StudentReportDetailPage = () => {
                 </p>
               </div>
             </div>
+
+            <div className="training-rules-card border rounded-lg p-4 bg-white print:rounded-none">
+              <h3 className="text-base font-semibold text-gray-700 mb-2 uppercase tracking-wide">
+                Training Rules:
+              </h3>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
+                <li>
+                  One training session = approximately 10 km driving within 1
+                  hour.
+                </li>
+                <li>
+                  Students must record date, time, kms and sign after each
+                  session.
+                </li>
+                <li>
+                  Training sessions must be completed within 45 days from
+                  admission.
+                </li>
+                <li>Maximum 1–2 leaves allowed with 24 hours prior notice.</li>
+                <li>
+                  Students must be ready 10 minutes before scheduled pickup
+                  time.
+                </li>
+                <li>
+                  Training vehicles are not allowed inside society premises or
+                  narrow lanes.
+                </li>
+              </ul>
+            </div>
           </div>
 
           <div className="report-right lg:col-span-2">
-            <div className="border rounded-lg p-4 bg-white print:rounded-none h-full">
-              <h3 className="text-base font-semibold text-gray-700 mb-4 uppercase tracking-wide">
+            <div className="border rounded-lg p-2 bg-white print:rounded-none h-full">
+              <h3 className="text-base font-semibold text-gray-700 mb-2 uppercase tracking-wide">
                 Session Details
               </h3>
               <Table
                 columns={columns}
                 dataSource={sessionRows}
                 rowKey="key"
+                rowClassName={() => "session-detail-row"}
                 pagination={false}
                 loading={isLoading}
               />
@@ -387,23 +406,21 @@ const StudentReportDetailPage = () => {
           .report-layout {
             display: grid !important;
             grid-template-columns: 32% 68% !important;
-            gap: 8px !important;
+            gap: 6px !important;
             align-items: start !important;
             margin-top: 0 !important;
           }
 
           .report-left {
             grid-column: 1 !important;
-            break-inside: avoid;
           }
 
           .report-right {
             grid-column: 2 !important;
-            break-inside: avoid;
           }
 
           .ant-card-body {
-            padding: 8px !important;
+            padding: 6px !important;
           }
 
           .ant-table {
@@ -416,8 +433,35 @@ const StudentReportDetailPage = () => {
           }
 
           .ant-table-tbody > tr > td {
-            padding: 3px 6px !important;
+            padding: 5px 6px !important;
+            line-height: 1.25 !important;
+          }
+
+          .session-detail-row > td {
+            padding-top: 6px !important;
+            padding-bottom: 6px !important;
+          }
+
+          .training-rules-card {
+            margin-top: 6px !important;
+          }
+
+          .training-rules-card h3 {
+            margin-bottom: 4px !important;
+            font-size: 12px !important;
             line-height: 1.1 !important;
+          }
+
+          .training-rules-card ul {
+            margin: 0 !important;
+            padding-left: 14px !important;
+            font-size: 10px !important;
+            line-height: 1.2 !important;
+          }
+
+          .training-rules-card li {
+            margin: 0 !important;
+            padding: 0 !important;
           }
 
           .ant-table-cell {
@@ -427,6 +471,11 @@ const StudentReportDetailPage = () => {
           .ant-table-pagination {
             display: none !important;
           }
+        }
+
+        .session-detail-row > td {
+          padding-top: 8px !important;
+          padding-bottom: 8px !important;
         }
       `}</style>
     </div>

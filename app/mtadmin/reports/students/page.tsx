@@ -29,11 +29,14 @@ interface StudentRow {
   key: string;
   studentKey: string;
   customerId?: number;
+  fullName: string;
   name: string;
   mobile: string;
   altMobile: string;
   address: string;
   location: string;
+  carDetails: string[];
+  instructorDetails: string[];
   totalBookings: number;
   totalAmount: number;
   paidAmount: number;
@@ -45,6 +48,13 @@ interface StudentRow {
 const getStudentKey = (booking: Booking) => {
   if (booking.customerId) return `id-${booking.customerId}`;
   return `mobile-${booking.customer?.contact1 || booking.customerMobile || "unknown"}`;
+};
+
+const getFullName = (booking: Booking) => {
+  const firstName = booking.customer?.name?.trim() || booking.customerName?.trim() || "";
+  const surname = booking.customer?.surname?.trim() || "";
+  const fullName = [firstName, surname].filter(Boolean).join(" ").trim();
+  return fullName || "Unknown Student";
 };
 
 const StudentReportListPage = () => {
@@ -95,15 +105,56 @@ const StudentReportListPage = () => {
         return sum + paid;
       }, 0);
 
+      const carDetails = Array.from(
+        new Set(
+          studentBookings
+            .map((booking) => {
+              const carName = booking.car?.carName || booking.carName;
+              const model = booking.car?.model;
+              const registration = booking.car?.registrationNumber;
+              return [carName, model, registration].filter(Boolean).join(" • ").trim();
+            })
+            .filter(Boolean)
+        )
+      );
+
+      const instructorDetails = Array.from(
+        new Set(
+          studentBookings
+            .flatMap((booking) => booking.sessions || [])
+            .map((session) => {
+              const instructorName = session.driver?.name;
+              const instructorId = session.driver?.driverId;
+              const instructorMobile = session.driver?.mobile;
+              if (!instructorName && !instructorId && !instructorMobile) return "";
+              return [
+                instructorName
+                  ? `${instructorName}${instructorId ? ` (${instructorId})` : ""}`
+                  : instructorId,
+                instructorMobile,
+              ]
+                .filter(Boolean)
+                .join(" • ")
+                .trim();
+            })
+            .filter(Boolean)
+        )
+      );
+
+      const fullName = getFullName(first);
+
       return {
         key: studentKey,
         studentKey,
         customerId: first.customerId,
-        name: first.customer?.name || first.customerName || "Unknown Student",
+        fullName,
+        name: fullName,
         mobile: first.customer?.contact1 || first.customerMobile || "-",
         altMobile: first.customer?.contact2 || "-",
         address: first.customer?.address || "-",
         location: first.customer?.address || "-",
+        carDetails,
+        instructorDetails,
         totalBookings: studentBookings.length,
         totalAmount,
         paidAmount,
@@ -120,9 +171,11 @@ const StudentReportListPage = () => {
     return rows.filter((row) => {
       const isSearchMatch =
         !search ||
-        row.name.toLowerCase().includes(search) ||
+        row.fullName.toLowerCase().includes(search) ||
         row.mobile.toLowerCase().includes(search) ||
-        row.altMobile.toLowerCase().includes(search);
+        row.altMobile.toLowerCase().includes(search) ||
+        row.carDetails.some((car) => car.toLowerCase().includes(search)) ||
+        row.instructorDetails.some((instructor) => instructor.toLowerCase().includes(search));
 
       const isBalanceMatch =
         balanceFilter === "all" ||
@@ -146,12 +199,58 @@ const StudentReportListPage = () => {
               className="bg-linear-to-r from-blue-600 to-indigo-600 shrink-0"
             />
             <div className="min-w-0">
-              <div className="font-semibold text-gray-900 truncate">{info.row.original.name}</div>
+              <div className="font-semibold text-gray-900 truncate">{info.row.original.fullName}</div>
               <div className="text-xs text-gray-600 truncate">{info.row.original.mobile}</div>
               <div className="text-xs text-gray-500 truncate">{info.row.original.altMobile}</div>
             </div>
           </div>
         ),
+      },
+      {
+        accessorKey: "carDetails",
+        header: "Car Details",
+        cell: (info) => {
+          const cars = info.getValue() as string[];
+          if (!cars || cars.length === 0) {
+            return <span className="text-gray-400">-</span>;
+          }
+
+          return (
+            <div className="space-y-1 min-w-[220px]">
+              {cars.slice(0, 2).map((car) => (
+                <div key={car} className="text-xs text-gray-700 truncate" title={car}>
+                  {car}
+                </div>
+              ))}
+              {cars.length > 2 && (
+                <div className="text-xs text-gray-500">+{cars.length - 2} more</div>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "instructorDetails",
+        header: "Instructor Details",
+        cell: (info) => {
+          const instructors = info.getValue() as string[];
+          if (!instructors || instructors.length === 0) {
+            return <span className="text-gray-400">-</span>;
+          }
+
+          return (
+            <div className="space-y-1 min-w-[220px]">
+              {instructors.slice(0, 2).map((instructor) => (
+                <div key={instructor} className="text-xs text-gray-700 truncate" title={instructor}>
+                  {instructor}
+                </div>
+              ))}
+              {instructors.length > 2 && (
+                <div className="text-xs text-gray-500">+{instructors.length - 2} more</div>
+              )}
+            </div>
+          );
+        },
       },
       {
         accessorKey: "totalBookings",
@@ -270,7 +369,7 @@ const StudentReportListPage = () => {
 
       <Card className="shadow-sm" loading={isLoading}>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px]">
+          <table className="w-full min-w-[1280px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>

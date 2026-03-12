@@ -39,7 +39,9 @@ export interface BookingSession {
   driver?: {
     id: number;
     userId: number;
+    driverId?: string;
     name: string;
+    mobile?: string;
   };
   status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
   attended: boolean;
@@ -166,7 +168,9 @@ const GET_PAGINATED_BOOKINGS = `
           driver {
             id
             userId
+            driverId
             name
+            mobile
           }
           customerFeedback
           internalNotes
@@ -268,7 +272,9 @@ const GET_ALL_BOOKINGS = `
         driver {
           id
           userId
+          driverId
           name
+          mobile
         }
         status
         attended
@@ -346,7 +352,9 @@ const GET_BOOKING_BY_ID = `
         driver {
           id
           userId
+          driverId
           name
+          mobile
         }
         customerFeedback
         internalNotes

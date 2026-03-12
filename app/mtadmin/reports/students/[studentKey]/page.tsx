@@ -21,6 +21,7 @@ import { getSchoolById } from "@/services/school.api";
 interface SessionRow {
   key: string;
   bookingId: string;
+  sessionTime: number;
   date: string;
   slot: string;
   carName: string;
@@ -170,10 +171,12 @@ const StudentReportDetailPage = () => {
   }, [studentBookings]);
 
   const sessionRows: SessionRow[] = useMemo(() => {
-    return studentBookings.flatMap((booking: Booking) =>
-      (booking.sessions || []).map((session: BookingSession) => ({
+    return studentBookings
+      .flatMap((booking: Booking) =>
+        (booking.sessions || []).map((session: BookingSession) => ({
         key: `${booking.id}-${session.id}`,
         bookingId: booking.bookingId,
+        sessionTime: dayjs(session.sessionDate).valueOf(),
         date: dayjs(session.sessionDate).format("DD MMM YYYY"),
         slot: session.slot,
         carName: booking.car?.carName || booking.carName,
@@ -181,7 +184,8 @@ const StudentReportDetailPage = () => {
         status: session.status,
         remark: session.instructorNotes || booking.notes || "-",
       })),
-    );
+      )
+      .sort((a, b) => a.sessionTime - b.sessionTime);
   }, [studentBookings]);
 
   const columns = [
@@ -250,7 +254,7 @@ const StudentReportDetailPage = () => {
           </div>
         </div>
 
-        <div className="hidden print:block border-b pb-2 mb-2">
+        <div className="print-header hidden print:block border-b pb-2 mb-2">
           <div className="flex justify-between">
             <div>
               <p className="text-gray-700 text-2xl text-left font-medium leading-tight">
@@ -439,24 +443,49 @@ const StudentReportDetailPage = () => {
             padding: 0 !important;
           }
 
+          .print-header {
+            margin-bottom: 4px !important;
+            padding-bottom: 4px !important;
+          }
+
+          .print-header p {
+            margin: 0 !important;
+            line-height: 1.15 !important;
+          }
+
           .report-layout {
-            display: grid !important;
-            grid-template-columns: 32% 68% !important;
-            gap: 6px !important;
+            display: flex !important;
+            gap: 4px !important;
             align-items: start !important;
             margin-top: 0 !important;
+            break-inside: avoid-page !important;
+            page-break-inside: avoid !important;
           }
 
           .report-left {
-            grid-column: 1 !important;
+            width: 32% !important;
+            max-width: 32% !important;
+            flex: 0 0 32% !important;
+            break-inside: avoid-page !important;
+            page-break-inside: avoid !important;
           }
 
           .report-right {
-            grid-column: 2 !important;
+            width: 68% !important;
+            max-width: 68% !important;
+            flex: 0 0 68% !important;
+            break-inside: auto !important;
+            page-break-inside: auto !important;
           }
 
           .ant-card-body {
-            padding: 6px !important;
+            padding: 4px !important;
+          }
+
+          .report-left .border,
+          .report-right .border {
+            margin: 0 !important;
+            padding: 4px !important;
           }
 
           .ant-table {

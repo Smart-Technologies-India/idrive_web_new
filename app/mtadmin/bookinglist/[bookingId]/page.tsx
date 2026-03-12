@@ -476,7 +476,21 @@ const BookingDetailsPage = () => {
       <div className="mt-4"></div>
 
       <Card className="shadow-sm mb-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Session Info</h2>
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Session Info</h2>
+          <div className="grow"></div>
+          <button
+            onClick={() => {
+              const studentKey = `id-${booking.customerId}`;
+              router.push(
+                `/mtadmin/reports/students/${encodeURIComponent(studentKey)}`,
+              );
+            }}
+            className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+          >
+            Report
+          </button>
+        </div>
         <Table
           columns={[
             {

@@ -30,8 +30,6 @@ import { convertSlotTo12Hour } from "@/utils/time-format";
 import { encryptURLData } from "@/utils/methods";
 import { formatDate } from "@/utils/date-format";
 
-const { Search } = Input;
-
 // Payment Status Cell Component
 const PaymentStatusCell = ({
   bookingId,
@@ -149,7 +147,9 @@ const BookingListPage = () => {
   const [urgentBookingIds, setUrgentBookingIds] = useState<Set<number>>(
     new Set()
   );
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "createdAt", desc: true },
+  ]);
   const pageSize = 10;
 
   // Fetch bookings
@@ -168,10 +168,13 @@ const BookingListPage = () => {
     ],
     queryFn: () => {
       // Convert TanStack sorting to backend orderBy format
-      const orderBy = sorting.map((sort) => ({
-        field: sort.id,
-        direction: sort.desc ? ("desc" as const) : ("asc" as const),
-      }));
+      const orderBy =
+        sorting.length > 0
+          ? sorting.map((sort) => ({
+              field: sort.id,
+              direction: sort.desc ? ("desc" as const) : ("asc" as const),
+            }))
+          : [{ field: "createdAt", direction: "desc" as const }];
 
       return getPaginatedBookings({
         searchPaginationInput: {
@@ -179,7 +182,7 @@ const BookingListPage = () => {
           take: pageSize,
           search: searchText,
           filters: ["customerMobile", "customerName", "carName"],
-          ...(orderBy.length > 0 ? { orderBy } : {}),
+          orderBy,
         },
         whereSearchInput: {
           schoolId,
@@ -374,16 +377,18 @@ const BookingListPage = () => {
         <Card className="shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex-1 max-w-md">
-              <Search
-                placeholder="Search by customer, course, car, or booking ID..."
-                allowClear
-                size="large"
-                value={searchText}
-                onChange={(e) => {
-                  setSearchText(e.target.value);
-                  setCurrentPage(1);
-                }}
-              />
+              <Space.Compact className="w-full">
+                <Input
+                  placeholder="Search by customer, course, car, or booking ID..."
+                  allowClear
+                  size="large"
+                  value={searchText}
+                  onChange={(e) => {
+                    setSearchText(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                />
+              </Space.Compact>
             </div>
             <Space size="middle">
               <div className="flex items-center gap-2">

@@ -43,7 +43,14 @@ export interface BookingSession {
     name: string;
     mobile?: string;
   };
-  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
+  status:
+    | "PENDING"
+    | "CONFIRMED"
+    | "COMPLETED"
+    | "CANCELLED"
+    | "NO_SHOW"
+    | "HOLD"
+    | "EDITED";
   attended: boolean;
   completedAt?: string;
   instructorNotes?: string;

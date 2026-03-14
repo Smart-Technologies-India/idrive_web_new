@@ -14,7 +14,7 @@ export interface Driver {
   dateOfBirth: string;
   bloodGroup?: string;
   gender: string;
-  licenseNumber: string;
+  licenseNumber?: string;
   licenseType: string;
   licenseIssueDate: string;
   licenseExpiryDate: string;
@@ -366,7 +366,7 @@ export const createDriver = async (inputType: {
   dateOfBirth: Date;
   bloodGroup?: string;
   gender: string;
-  licenseNumber: string;
+  licenseNumber?: string;
   licenseType: string;
   licenseIssueDate: Date;
   licenseExpiryDate: Date;
@@ -393,7 +393,7 @@ export const updateDriver = async (updateData: {
   dateOfBirth?: Date;
   bloodGroup?: string;
   gender?: string;
-  licenseNumber?: string;
+  licenseNumber?: string | null;
   licenseType?: string;
   licenseIssueDate?: Date;
   licenseExpiryDate?: Date;

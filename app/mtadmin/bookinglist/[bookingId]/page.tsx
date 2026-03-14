@@ -79,6 +79,16 @@ const BookingDetailsPage = () => {
   const totalPaid = totalPaidData?.data?.getTotalPaidAmount || 0;
   const remainingAmount = booking ? booking.totalAmount - totalPaid : 0;
 
+  const sortedSessions = useMemo(() => {
+    const sessions = booking?.sessions || [];
+    return [...sessions].sort((a, b) => {
+      const dateDiff =
+        new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      return a.dayNumber - b.dayNumber;
+    });
+  }, [booking?.sessions]);
+
   const orderedPayments = useMemo(() => {
     return [...payments].sort((a, b) => {
       const dateDiff =
@@ -504,6 +514,10 @@ const BookingDetailsPage = () => {
               dataIndex: "sessionDate",
               key: "sessionDate",
               width: 130,
+              sorter: (a, b) =>
+                new Date(a.sessionDate).getTime() -
+                new Date(b.sessionDate).getTime(),
+              defaultSortOrder: "ascend",
               render: (date) => formatDate(date),
             },
             {
@@ -547,7 +561,7 @@ const BookingDetailsPage = () => {
               render: (att) => (att ? "Yes" : "No"),
             },
           ]}
-          dataSource={booking.sessions || []}
+          dataSource={sortedSessions}
           pagination={false}
           rowKey="id"
           size="small"

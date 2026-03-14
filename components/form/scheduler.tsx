@@ -19,7 +19,7 @@ import {
   ReloadOutlined,
   InfoCircleOutlined,
 } from "@ant-design/icons";
-import dayjs from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
 import isSameOrBefore from "dayjs/plugin/isSameOrBefore";
 import utc from "dayjs/plugin/utc";
@@ -39,6 +39,7 @@ dayjs.extend(utc);
 interface BookingSession {
   id: number;
   bookingId: number;
+  carId: number;
   dayNumber: number;
   sessionDate: string;
   slot: string;
@@ -192,6 +193,31 @@ const CarScheduler = () => {
 
   const schoolData = schoolResponse?.data?.getSchoolById;
 
+  const getConfiguredSchoolHolidayDays = (): string[] => {
+    if (!schoolData) return [];
+
+    return [schoolData.weeklyHoliday, schoolData.testHoliday]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => value.toUpperCase().trim());
+  };
+
+  const isSchoolWeeklyOrTestHoliday = (date: Dayjs): boolean => {
+    const dayMap: { [key: string]: number } = {
+      SUNDAY: 0,
+      MONDAY: 1,
+      TUESDAY: 2,
+      WEDNESDAY: 3,
+      THURSDAY: 4,
+      FRIDAY: 5,
+      SATURDAY: 6,
+    };
+
+    const dayOfWeek = date.day();
+    const configuredHolidays = getConfiguredSchoolHolidayDays();
+
+    return configuredHolidays.some((holiday) => dayMap[holiday] == dayOfWeek);
+  };
+
   // Generate all available time slots based on school timings
   const allSlots = useMemo(() => {
     if (!schoolData?.dayStartTime || !schoolData?.dayEndTime) {
@@ -250,6 +276,7 @@ const CarScheduler = () => {
           getAllBookingSession(whereSearchInput: $whereSearchInput) {
             id
             bookingId
+            carId
             dayNumber
             sessionDate
             slot
@@ -335,7 +362,7 @@ const CarScheduler = () => {
     return carsData.map((car) => {
       // Get all future sessions for this car
       const allCarSessions = allSessions.filter(
-        (session) => session.booking?.carId == car.id
+        (session) => session.carId == car.id
       );
 
       // Group sessions by booking
@@ -354,6 +381,7 @@ const CarScheduler = () => {
           bookingsMap.get(session.booking.id)!.sessions.push({
             id: session.id,
             bookingId: session.bookingId,
+            carId: session.carId,
             dayNumber: session.dayNumber,
             sessionDate: session.sessionDate,
             slot: session.slot,
@@ -489,23 +517,9 @@ const CarScheduler = () => {
     // Use UTC to ensure consistent date parsing
     let nextDate = dayjs.utc(lastSession.sessionDate).add(1, "day");
 
-    // Skip weekly holiday if the next day falls on it
-    if (schoolData?.weeklyHoliday) {
-      const weeklyHoliday = schoolData.weeklyHoliday.toUpperCase();
-      const dayMap: { [key: string]: number } = {
-        SUNDAY: 0,
-        MONDAY: 1,
-        TUESDAY: 2,
-        WEDNESDAY: 3,
-        THURSDAY: 4,
-        FRIDAY: 5,
-        SATURDAY: 6,
-      };
-
-      const holidayDay = dayMap[weeklyHoliday];
-      if (holidayDay !== undefined && nextDate.day() == holidayDay) {
-        nextDate = nextDate.add(1, "day");
-      }
+    // Skip school weekly/test holiday days if the next day falls on either.
+    while (isSchoolWeeklyOrTestHoliday(nextDate)) {
+      nextDate = nextDate.add(1, "day");
     }
 
     return nextDate.format("YYYY-MM-DD");

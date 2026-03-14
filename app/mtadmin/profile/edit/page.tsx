@@ -19,6 +19,7 @@ import { getCookie } from "cookies-next";
 import { getSchoolById, updateSchool } from "@/services/school.api";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import test from "node:test";
 
 const weekDays = [
   { label: "Monday", value: "Monday" },
@@ -100,6 +101,7 @@ const EditSchoolProfilePage = () => {
         lunchStartTime: convertTo12Hour(school.lunchStartTime),
         lunchEndTime: convertTo12Hour(school.lunchEndTime),
         weeklyHoliday: school.weeklyHoliday || "",
+        testHoliday: school.testHoliday || "",
         ownerName: school.ownerName || "",
         ownerPhone: school.ownerPhone || "",
         ownerEmail: school.ownerEmail || "",
@@ -140,6 +142,7 @@ const EditSchoolProfilePage = () => {
         lunchStartTime: convertTo24Hour(data.lunchStartTime),
         lunchEndTime: convertTo24Hour(data.lunchEndTime),
         weeklyHoliday: data.weeklyHoliday,
+        testHoliday: data.testHoliday,
         ownerName: data.ownerName,
         ownerPhone: data.ownerPhone,
         ownerEmail: data.ownerEmail && data.ownerEmail.trim() !== "" ? data.ownerEmail : undefined,
@@ -333,6 +336,13 @@ const EditSchoolProfilePage = () => {
                     title="Weekly Holiday"
                     required={true}
                     name="weeklyHoliday"
+                    placeholder="Select day"
+                    options={weekDays}
+                  />
+                  <MultiSelect<EditProfileForm>
+                    title="Test Holiday"
+                    required={true}
+                    name="testHoliday"
                     placeholder="Select day"
                     options={weekDays}
                   />

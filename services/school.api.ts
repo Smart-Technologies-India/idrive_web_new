@@ -18,6 +18,7 @@ export interface School {
   lunchStartTime?: string;
   lunchEndTime?: string;
   weeklyHoliday?: string;
+  testHoliday?: string;
   ownerName?: string;
   ownerPhone?: string;
   ownerEmail?: string;
@@ -142,6 +143,7 @@ const GET_SCHOOL_BY_ID = `
       lunchStartTime
       lunchEndTime
       weeklyHoliday
+      testHoliday
       ownerName
       ownerPhone
       ownerEmail
@@ -203,6 +205,7 @@ const UPDATE_SCHOOL = `
       lunchStartTime
       lunchEndTime
       weeklyHoliday
+      testHoliday
       ownerName
       ownerPhone
       ownerEmail
@@ -342,6 +345,7 @@ export const updateSchool = async (updateData: {
   lunchStartTime?: string;
   lunchEndTime?: string;
   weeklyHoliday?: string;
+  testHoliday?: string;
   // Owner details
   ownerName?: string;
   ownerPhone?: string;

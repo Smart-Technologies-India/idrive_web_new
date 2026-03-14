@@ -173,7 +173,14 @@ const StudentReportDetailPage = () => {
   const sessionRows: SessionRow[] = useMemo(() => {
     return studentBookings
       .flatMap((booking: Booking) =>
-        (booking.sessions || []).map((session: BookingSession) => ({
+        (booking.sessions || [])
+          .filter(
+            (session: BookingSession) =>
+              session.status !== "EDITED" &&
+              session.status !== "CANCELLED" &&
+              session.status !== "HOLD",
+          )
+          .map((session: BookingSession) => ({
         key: `${booking.id}-${session.id}`,
         bookingId: booking.bookingId,
         sessionTime: dayjs(session.sessionDate).valueOf(),
@@ -191,7 +198,7 @@ const StudentReportDetailPage = () => {
   const columns = [
     {
       title: "Sr. No",
-      key: "srNo",
+      key: "srNo", 
       width: 80,
       render: (_: SessionRow, __: SessionRow, index: number) => index + 1,
     },

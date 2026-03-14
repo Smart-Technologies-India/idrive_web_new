@@ -121,6 +121,7 @@ interface AvailableCar {
 interface School {
   id: number;
   weeklyHoliday?: string;
+  testHoliday?: string;
 }
 
 interface GetAllCarResponse {
@@ -893,31 +894,37 @@ const AmendmentForm = () => {
     setValue("newCarId", carId.toString());
   };
 
+  // Check if the date falls on either configured weekly holiday day.
+  const isWeeklyOrTestHoliday = (date: Dayjs): boolean => {
+    if (!schoolData) return false;
+
+    const dayOfWeek = date.day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const dayMap: { [key: string]: number } = {
+      SUNDAY: 0,
+      MONDAY: 1,
+      TUESDAY: 2,
+      WEDNESDAY: 3,
+      THURSDAY: 4,
+      FRIDAY: 5,
+      SATURDAY: 6,
+    };
+
+    const configuredHolidays = [schoolData.weeklyHoliday, schoolData.testHoliday]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => value.toUpperCase().trim());
+
+    return configuredHolidays.some((holiday) => dayMap[holiday] == dayOfWeek);
+  };
+
   // Check if a date is blocked (already booked, cancelled, or holiday for the car in same slot)
   const isDateBlocked = (date: Dayjs): boolean => {
     if (!selectedBooking) return false;
 
     const dateStr = date.format("YYYY-MM-DD");
 
-    // Check weekend restriction if school has a weekly holiday
-    if (schoolData?.weeklyHoliday) {
-      const dayOfWeek = date.day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-      const weeklyHoliday = schoolData.weeklyHoliday.toUpperCase();
-
-      const dayMap: { [key: string]: number } = {
-        SUNDAY: 0,
-        MONDAY: 1,
-        TUESDAY: 2,
-        WEDNESDAY: 3,
-        THURSDAY: 4,
-        FRIDAY: 5,
-        SATURDAY: 6,
-      };
-
-      const holidayDay = dayMap[weeklyHoliday];
-      if (holidayDay !== undefined && dayOfWeek == holidayDay) {
-        return true;
-      }
+    // Block dates matching school weekly/test holiday day configuration.
+    if (isWeeklyOrTestHoliday(date)) {
+      return true;
     }
 
     // Check if date is already in car's bookings (including ALL dates from current booking)
@@ -977,25 +984,9 @@ const AmendmentForm = () => {
   const isDateBlockedForCalculation = (date: Dayjs): boolean => {
     const dateStr = date.format("YYYY-MM-DD");
 
-    // Check weekend restriction if school has a weekly holiday
-    if (schoolData?.weeklyHoliday) {
-      const dayOfWeek = date.day();
-      const weeklyHoliday = schoolData.weeklyHoliday.toUpperCase();
-
-      const dayMap: { [key: string]: number } = {
-        SUNDAY: 0,
-        MONDAY: 1,
-        TUESDAY: 2,
-        WEDNESDAY: 3,
-        THURSDAY: 4,
-        FRIDAY: 5,
-        SATURDAY: 6,
-      };
-
-      const holidayDay = dayMap[weeklyHoliday];
-      if (holidayDay !== undefined && dayOfWeek == holidayDay) {
-        return true;
-      }
+    // Block dates matching school weekly/test holiday day configuration.
+    if (isWeeklyOrTestHoliday(date)) {
+      return true;
     }
 
     // Check school holidays only (NOT car bookings - allow dates to overlap with selected sessions)

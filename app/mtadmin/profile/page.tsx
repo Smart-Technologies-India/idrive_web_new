@@ -265,6 +265,15 @@ const SchoolProfilePage = () => {
                 <span className="text-gray-400 italic">Not set</span>
               )}
             </Descriptions.Item>
+            <Descriptions.Item label="Test Holiday">
+              {schoolData.testHoliday ? (
+                <Tag color="purple" className="!text-base !px-4 !py-1">
+                  📅 {schoolData.testHoliday}
+                </Tag>
+              ) : (
+                <span className="text-gray-400 italic">Not set</span>
+              )}
+            </Descriptions.Item>
             <Descriptions.Item label="Lunch Start Time">
               {schoolData.lunchStartTime ? (
                 <Tag color="orange" className="!text-base !px-4 !py-1">

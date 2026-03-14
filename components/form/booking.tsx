@@ -381,6 +381,31 @@ const BookingForm = () => {
   const watchedCarId = watch("carId");
   const watchedCourseId = watch("courseId");
 
+  const getConfiguredSchoolHolidayDays = (): string[] => {
+    if (!schoolData) return [];
+
+    return [schoolData.weeklyHoliday, schoolData.testHoliday]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => value.toUpperCase().trim());
+  };
+
+  const isSchoolWeeklyOrTestHoliday = (date: Dayjs): boolean => {
+    const dayMap: { [key: string]: number } = {
+      SUNDAY: 0,
+      MONDAY: 1,
+      TUESDAY: 2,
+      WEDNESDAY: 3,
+      THURSDAY: 4,
+      FRIDAY: 5,
+      SATURDAY: 6,
+    };
+
+    const dayOfWeek = date.day();
+    const configuredHolidays = getConfiguredSchoolHolidayDays();
+
+    return configuredHolidays.some((holiday) => dayMap[holiday] == dayOfWeek);
+  };
+
   // Get the current selected car ID (either from URL or dropdown selection)
   const currentCarId = watchedCarId || carIdFromUrl;
   const selectedCarIdForCourses = currentCarId
@@ -939,7 +964,7 @@ const BookingForm = () => {
       errors.push("Please select a booking date");
     } else {
       const selectedDate = dayjs(formValues.bookingDate);
-      const minDate = dayjs().add(1, "day");
+      const minDate = dayjs();
       if (selectedDate.isBefore(minDate, "day")) {
         errors.push(
           `Booking date must be from ${minDate.format("DD MMM YYYY")} onwards`,
@@ -1060,24 +1085,10 @@ const BookingForm = () => {
 
     // Keep iterating until we have enough available dates
     while (sessionCount < selectedCourse.courseDays) {
-      // Skip weekly holiday if configured
-      if (schoolData?.weeklyHoliday) {
-        const dayOfWeek = currentDate.day();
-        const weeklyHoliday = schoolData.weeklyHoliday.toUpperCase();
-        const dayMap: { [key: string]: number } = {
-          SUNDAY: 0,
-          MONDAY: 1,
-          TUESDAY: 2,
-          WEDNESDAY: 3,
-          THURSDAY: 4,
-          FRIDAY: 5,
-          SATURDAY: 6,
-        };
-
-        if (dayOfWeek == dayMap[weeklyHoliday]) {
-          currentDate = currentDate.add(1, "day");
-          continue;
-        }
+      // Skip school weekly/test holiday days if configured
+      if (isSchoolWeeklyOrTestHoliday(currentDate)) {
+        currentDate = currentDate.add(1, "day");
+        continue;
       }
 
       // Check if date is available (not booked)
@@ -1457,16 +1468,16 @@ const BookingForm = () => {
             {/* Main Form - Left Side */}
             <div className="lg:col-span-2 space-y-6">
               {/* Weekend Info Banner */}
-              {schoolData?.weeklyHoliday && (
+              {getConfiguredSchoolHolidayDays().length > 0 && (
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border-2 border-blue-300">
                   <div className="flex items-center gap-3">
                     <div className="text-2xl">📅</div>
                     <div>
-                      <p className="font-bold text-blue-800">Weekly Holiday</p>
+                      <p className="font-bold text-blue-800">School Holidays</p>
                       <p className="text-sm text-blue-700">
                         School is closed on{" "}
                         <span className="font-bold">
-                          {schoolData.weeklyHoliday}s
+                          {getConfiguredSchoolHolidayDays().join(", ")}
                         </span>
                         . These dates are disabled in the calendar.
                       </p>
@@ -1617,29 +1628,9 @@ const BookingForm = () => {
                           return true;
                         }
 
-                        // Check weekend restriction if school has a weekly holiday
-                        if (schoolData?.weeklyHoliday) {
-                          const dayOfWeek = current.day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-                          const weeklyHoliday =
-                            schoolData.weeklyHoliday.toUpperCase();
-
-                          const dayMap: { [key: string]: number } = {
-                            SUNDAY: 0,
-                            MONDAY: 1,
-                            TUESDAY: 2,
-                            WEDNESDAY: 3,
-                            THURSDAY: 4,
-                            FRIDAY: 5,
-                            SATURDAY: 6,
-                          };
-
-                          const holidayDay = dayMap[weeklyHoliday];
-                          if (
-                            holidayDay !== undefined &&
-                            dayOfWeek == holidayDay
-                          ) {
-                            return true;
-                          }
+                        // Check school weekly/test holiday restriction
+                        if (isSchoolWeeklyOrTestHoliday(current)) {
+                          return true;
                         }
 
                         return false;

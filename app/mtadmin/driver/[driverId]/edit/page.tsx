@@ -32,7 +32,7 @@ interface DriverFormValues {
   bloodGroup?: string;
   gender?: string;
   address?: string;
-  licenseNumber: string;
+  licenseNumber?: string;
   licenseIssueDate?: Dayjs;
   licenseExpiryDate?: Dayjs;
   licenseType?: string;
@@ -81,7 +81,7 @@ const EditDriverPage = ({
             bloodGroup: driver.bloodGroup || "",
             gender: driver.gender || "",
             address: driver.address || "",
-            licenseNumber: driver.licenseNumber,
+            licenseNumber: driver.licenseNumber || "",
             licenseIssueDate: driver.licenseIssueDate
               ? dayjs(driver.licenseIssueDate)
               : undefined,
@@ -124,7 +124,7 @@ const EditDriverPage = ({
         bloodGroup: values.bloodGroup,
         gender: values.gender,
         address: values.address,
-        licenseNumber: values.licenseNumber,
+        licenseNumber: values.licenseNumber?.trim() || null,
         licenseType: values.licenseType,
         licenseIssueDate: values.licenseIssueDate?.toDate(),
         licenseExpiryDate: values.licenseExpiryDate?.toDate(),
@@ -320,11 +320,8 @@ const EditDriverPage = ({
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Form.Item
-                  label="License Number"
+                  label="License Number (Optional)"
                   name="licenseNumber"
-                  rules={[
-                    { required: true, message: "Please enter license number" },
-                  ]}
                 >
                   <Input
                     size="large"

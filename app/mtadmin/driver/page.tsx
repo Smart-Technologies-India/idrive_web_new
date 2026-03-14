@@ -33,7 +33,7 @@ interface DriverData {
   name: string;
   email: string | undefined;
   mobile: string;
-  licenseNumber: string;
+  licenseNumber: string | undefined;
   experience: number;
   totalBookings: number;
   completedBookings: number;

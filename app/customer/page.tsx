@@ -47,7 +47,7 @@ interface SessionData {
   slot: string;
   driver: string;
   car: string;
-  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
+  status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW" | "HOLD" | "EDITED";
   attended: boolean;
   notes?: string;
 }

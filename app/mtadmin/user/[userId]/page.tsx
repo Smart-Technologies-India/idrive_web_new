@@ -36,6 +36,7 @@ import {
   type BookingService,
 } from "@/services/service.booking.api";
 import { formatDate } from "@/utils/date-format";
+import { baseurl } from "@/utils/conts";
 
 const { TextArea } = Input;
 
@@ -649,7 +650,8 @@ const UserDetailPage = ({
               <Avatar
                 size={80}
                 icon={<MaterialSymbolsPersonRounded />}
-                className="bg-gradient-to-r from-blue-600 to-purple-600"
+                src={user?.profile ? `${baseurl}/${user.profile}` : undefined}
+                className={!user?.profile ? "bg-gradient-to-r from-blue-600 to-purple-600" : ""}
               />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">

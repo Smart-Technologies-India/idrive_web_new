@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, Button, Tag, Avatar, Descriptions, Spin, Alert } from "antd";
+import { Card, Button, Tag, Avatar, Descriptions, Spin, Alert, List } from "antd";
 import {
   AntDesignEditOutlined,
   IcBaselineRefresh,
 } from "@/components/icons";
 import { useRouter } from "next/navigation";
 import { getSchoolById, School } from "@/services/school.api";
+import { getAllTraingRules, TraingRules } from "@/services/traing-rules.api";
 import { getCookie } from "cookies-next";
 import { formatDate } from "@/utils/date-format";
 
@@ -15,6 +16,7 @@ const SchoolProfilePage = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [schoolData, setSchoolData] = useState<School | null>(null);
+  const [traingRules, setTraingRules] = useState<TraingRules | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
@@ -32,6 +34,20 @@ const SchoolProfilePage = () => {
       
       if (response.status && response.data.getSchoolById) {
         setSchoolData(response.data.getSchoolById);
+        
+        // Fetch training rules
+        try {
+          const rulesResponse = await getAllTraingRules({ schoolId });
+          if (rulesResponse.status && rulesResponse.data.getAllTraingRules) {
+            const rules = rulesResponse.data.getAllTraingRules;
+            if (rules.length > 0) {
+              setTraingRules(rules[0]);
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching training rules:", err);
+          // Don't fail the whole page if training rules fail to load
+        }
       } else {
         setError(response.message || "Failed to load school profile");
       }
@@ -434,6 +450,39 @@ const SchoolProfilePage = () => {
             </Descriptions.Item>
           </Descriptions>
         </Card>
+        <div></div>
+
+        {/* Training Rules */}
+        {traingRules && (
+          <Card
+            title={<span className="text-lg font-semibold">Training Rules</span>}
+            className="shadow-sm"
+          >
+            <List
+              size="small"
+              dataSource={[
+                traingRules.rule1,
+                traingRules.rule2,
+                traingRules.rule3,
+                traingRules.rule4,
+                traingRules.rule5,
+                traingRules.rule6,
+                traingRules.rule7,
+                traingRules.rule8,
+              ].filter(Boolean)}
+              renderItem={(rule, index) => (
+                <List.Item>
+                  <div className="flex gap-3 items-start">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-semibold">
+                      {index + 1}
+                    </span>
+                    <span className="text-gray-700">{rule}</span>
+                  </div>
+                </List.Item>
+              )}
+            />
+          </Card>
+        )}
       </div>
     </div>
   );

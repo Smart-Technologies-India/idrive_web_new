@@ -20,6 +20,7 @@ import { getCookie } from "cookies-next";
 import { getPaginatedCars, type Car } from "@/services/car.api";
 import { createHoliday } from "@/services/holiday.api";
 import { convert24To12Hour } from "@/utils/time-format";
+import dayjs from "dayjs";
 
 type DeclarationType =
   | "ALL_CARS_MULTIPLE_DATES"
@@ -214,12 +215,10 @@ const HolidayDeclarationPage = () => {
     }
 
     // Check if dates are in the future
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const startDate = new Date(data.dateRange[0]);
-    startDate.setHours(0, 0, 0, 0);
+    const today = dayjs().startOf('day');
+    const startDate = dayjs(data.dateRange[0]).startOf('day');
 
-    if (startDate < today) {
+    if (startDate.isBefore(today)) {
       toast.error("Please select future dates only. Past and present dates are not allowed.");
       return false;
     }
@@ -260,9 +259,18 @@ const HolidayDeclarationPage = () => {
         throw new Error("School ID not found. Please login again.");
       }
 
-      // Convert dateRange to startDate and endDate
-      const startDate = data.dateRange[0];
-      const endDate = data.dateRange.length > 1 ? data.dateRange[1] : data.dateRange[0];
+      // Convert dateRange to startDate and endDate with proper ISO 8601 format
+      let startDate = data.dateRange[0];
+      let endDate = data.dateRange.length > 1 ? data.dateRange[1] : data.dateRange[0];
+
+      // Ensure dates are in ISO 8601 format with time component
+      // If they're just "YYYY-MM-DD", append time component
+      if (startDate && !startDate.includes('T')) {
+        startDate = startDate + 'T00:00:00.000Z';
+      }
+      if (endDate && !endDate.includes('T')) {
+        endDate = endDate + 'T00:00:00.000Z';
+      }
 
       // Convert slots array to JSON string, or undefined if empty
       const slotsJson = data.slots && data.slots.length > 0 
@@ -319,14 +327,13 @@ const HolidayDeclarationPage = () => {
   const getDateRangeSummary = () => {
     if (!pendingData?.dateRange || pendingData.dateRange.length == 0) return null;
     
-    const startDate = new Date(pendingData.dateRange[0]);
-    const endDate = new Date(pendingData.dateRange[1]);
-    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const startDate = dayjs(pendingData.dateRange[0]);
+    const endDate = dayjs(pendingData.dateRange[1]);
+    const diffDays = endDate.diff(startDate, 'day') + 1;
 
     return {
-      startDate: formatDateShort(startDate),
-      endDate: formatDateShort(endDate),
+      startDate: formatDateShort(pendingData.dateRange[0]),
+      endDate: formatDateShort(pendingData.dateRange[1]),
       totalDays: diffDays,
     };
   };

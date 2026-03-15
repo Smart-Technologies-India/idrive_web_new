@@ -478,6 +478,9 @@ const BookingDetailsPage = () => {
           <Descriptions.Item label="Amount">
             ₹{booking.totalAmount}
           </Descriptions.Item>
+          <Descriptions.Item label="Location">
+            {booking.location || "-"}
+          </Descriptions.Item>
           <Descriptions.Item label="Notes">
             {booking.notes || "-"}
           </Descriptions.Item>

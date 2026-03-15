@@ -15,7 +15,7 @@ export interface Holiday {
   } | null;
   startDate: string;
   endDate: string;
-  slots?: string | null; // JSON string of time slots array
+  slots?: string[] | null; // Array of time slots
   reason: string;
   status: string;
   createdAt: string;

@@ -23,6 +23,7 @@ const HolidayViewPage = () => {
   });
 
   const holiday = holidayResponse?.data?.getHolidayById;
+  console.log("Fetched holiday data:", holiday);
 
   // Calculate status based on dates
   const getHolidayStatus = (
@@ -88,15 +89,19 @@ const HolidayViewPage = () => {
     return texts[type] || type;
   };
 
-  // Parse slots from JSON string
-  const parseSlots = (slotsString: string | null | undefined): string[] => {
-    if (!slotsString) return [];
-    try {
-      return JSON.parse(slotsString);
-    } catch (e) {
-      console.error("Failed to parse slots:", e);
-      return [];
+  // Get slots array, parse if needed
+  const getSlots = (slotsData: string[] | string | null | undefined): string[] => {
+    if (!slotsData) return [];
+    // Safety check: parse slots if it's a string
+    if (typeof slotsData === 'string') {
+      try {
+        return JSON.parse(slotsData);
+      } catch (error) {
+        console.error('Error parsing slots:', error);
+        return [];
+      }
     }
+    return slotsData;
   };
 
   if (isLoading) {
@@ -126,7 +131,7 @@ const HolidayViewPage = () => {
 
   const status = getHolidayStatus(holiday.startDate, holiday.endDate);
   const duration = calculateDuration(holiday.startDate, holiday.endDate);
-  const slots = parseSlots(holiday.slots);
+  const slots = getSlots(holiday.slots);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -244,19 +249,81 @@ const HolidayViewPage = () => {
                     )}
                   </div>
                 </Descriptions.Item>
-                <Descriptions.Item label="Duration">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl font-bold text-blue-600">
-                      {duration}
-                    </span>
-                    <span className="text-gray-600">
-                      day{duration > 1 ? "s" : ""}
-                    </span>
-                  </div>
+                <Descriptions.Item label="Duration / Impact">
+                  {holiday.declarationType === "ALL_CARS_MULTIPLE_DATES" || 
+                   holiday.declarationType === "ONE_CAR_MULTIPLE_DATES" ? (
+                    // Full-day holidays
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-bold text-blue-600">
+                        {duration}
+                      </span>
+                      <span className="text-gray-600">
+                        full day{duration > 1 ? "s" : ""}
+                      </span>
+                      <Tag color="purple">Entire Day Blocked</Tag>
+                    </div>
+                  ) : (
+                    // Slot-specific holidays - only show slots, not full days
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Tag color="orange" className="text-sm px-3 py-1">
+                          Only Specific Time Slots Blocked
+                        </Tag>
+                        <span className="text-sm text-gray-600">
+                          (Not full days)
+                        </span>
+                      </div>
+                      {slots.length > 0 && (
+                        <div className="mt-2">
+                          <div className="text-sm font-semibold text-gray-700 mb-2">
+                            Blocked Time Slots:
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {slots.map((slot, idx) => (
+                              <Tag key={idx} color="orange" className="text-sm font-medium px-3 py-1">
+                                ⏰ {slot}
+                              </Tag>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="text-sm text-gray-700 mt-2 bg-orange-50 px-3 py-2 rounded border border-orange-200">
+                        <strong>Impact:</strong> {slots.length} time slot{slots.length > 1 ? "s" : ""} blocked on {duration} date{duration > 1 ? "s" : ""} ({formatDateShort(holiday.startDate)} to {formatDateShort(holiday.endDate)})
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        💡 Other time slots on these dates remain available for booking
+                      </div>
+                    </div>
+                  )}
                 </Descriptions.Item>
               </Descriptions>
             </Card>
             <div></div>
+
+            {/* Full Day Information */}
+            {(holiday.declarationType === "ALL_CARS_MULTIPLE_DATES" || 
+              holiday.declarationType === "ONE_CAR_MULTIPLE_DATES") && (
+              <Card
+                title={
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🚫</span>
+                    <span>Full Day Block</span>
+                    <Tag color="purple">Entire Day Unavailable</Tag>
+                  </div>
+                }
+                className="shadow-sm"
+              >
+                <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                  <p className="text-sm text-purple-800 mb-2">
+                    <strong>📌 Important:</strong> All time slots are blocked for the entire day.
+                    {holiday.car ? " This car" : " All cars"} will be unavailable for booking during this period.
+                  </p>
+                  <p className="text-sm text-purple-700">
+                    Duration: {duration} full day{duration > 1 ? "s" : ""} from {formatDateShort(holiday.startDate)} to {formatDateShort(holiday.endDate)}
+                  </p>
+                </div>
+              </Card>
+            )}
 
             {/* Time Slots */}
             {slots.length > 0 && (
@@ -265,11 +332,20 @@ const HolidayViewPage = () => {
                   <div className="flex items-center gap-2">
                     <span className="text-xl">⏰</span>
                     <span>Blocked Time Slots</span>
-                    <Tag color="orange">{slots.length} slot(s)</Tag>
+                    <Tag color="orange">{slots.length} slot(s) per day</Tag>
                   </div>
                 }
                 className="shadow-sm"
               >
+                <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <p className="text-sm text-orange-800 mb-2">
+                    <strong>📌 Important:</strong> Only these specific time slots are blocked.
+                    Other time slots remain available for booking.
+                  </p>
+                  <p className="text-sm text-orange-700">
+                    These {slots.length} slot{slots.length > 1 ? "s" : ""} will be blocked on each of the {duration} date{duration > 1 ? "s" : ""} in the range.
+                  </p>
+                </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {slots.map((slot, index) => (
                     <div

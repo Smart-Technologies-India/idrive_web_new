@@ -17,6 +17,7 @@ import {
   type BookingSession,
 } from "@/services/booking.api";
 import { getSchoolById } from "@/services/school.api";
+import { getAllTraingRules } from "@/services/traing-rules.api";
 
 interface SessionRow {
   key: string;
@@ -61,6 +62,14 @@ const StudentReportDetailPage = () => {
     refetchOnWindowFocus: false,
   });
 
+  const { data: traingRulesResponse } = useQuery({
+    queryKey: ["traingRules", schoolId],
+    queryFn: () => getAllTraingRules({ schoolId }),
+    enabled: schoolId > 0,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+  });
+
   const schoolBranchName = schoolResponse?.data?.getSchoolById?.branchName || "-";
 
   const studentBookings = useMemo(() => {
@@ -79,6 +88,33 @@ const StudentReportDetailPage = () => {
 
     return firstAvailableAddress || student?.customer?.address || "-";
   }, [studentBookings, student]);
+
+  const studentLocations = useMemo(() => {
+    const locations = studentBookings
+      .map((booking) => booking.location)
+      .filter((loc): loc is string => !!loc && loc.trim() !== "");
+    const uniqueLocations = Array.from(new Set(locations));
+    return uniqueLocations.length > 0 ? uniqueLocations.join(", ") : "-";
+  }, [studentBookings]);
+
+  const trainingRules = useMemo(() => {
+    const rules = traingRulesResponse?.data?.getAllTraingRules || [];
+    if (rules.length === 0) return [];
+    
+    const firstRule = rules[0];
+    const rulesList: string[] = [];
+    
+    if (firstRule.rule1) rulesList.push(firstRule.rule1);
+    if (firstRule.rule2) rulesList.push(firstRule.rule2);
+    if (firstRule.rule3) rulesList.push(firstRule.rule3);
+    if (firstRule.rule4) rulesList.push(firstRule.rule4);
+    if (firstRule.rule5) rulesList.push(firstRule.rule5);
+    if (firstRule.rule6) rulesList.push(firstRule.rule6);
+    if (firstRule.rule7) rulesList.push(firstRule.rule7);
+    if (firstRule.rule8) rulesList.push(firstRule.rule8);
+    
+    return rulesList;
+  }, [traingRulesResponse]);
 
   const bookingIds = useMemo(() => {
     const uniqueBookingIds = Array.from(
@@ -315,6 +351,10 @@ const StudentReportDetailPage = () => {
                   {studentAddress}
                 </p>
                 <p>
+                  <span className="font-medium">Pickup/Drop Location:</span>{" "}
+                  {studentLocations}
+                </p>
+                <p>
                   <span className="font-medium">Location:</span>{" "}
                   {schoolBranchName}
                 </p>
@@ -378,26 +418,15 @@ const StudentReportDetailPage = () => {
               <h3 className="text-base font-semibold text-gray-700 mb-2 uppercase tracking-wide">
                 Training Rules:
               </h3>
-              <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
-                <li>One training session = 10 km driving within 1 hour.</li>
-                <li>
-                  Students must record date, time, kms and sign after each
-                  session.
-                </li>
-                <li>
-                  Training sessions must be completed within 45 days from
-                  admission.
-                </li>
-                <li>Maximum 1–2 leaves allowed with 24 hours prior notice.</li>
-                <li>
-                  Students must be ready 10 minutes before scheduled pickup
-                  time.
-                </li>
-                <li>
-                  Training vehicles are not allowed inside society premises or
-                  narrow lanes.
-                </li>
-              </ul>
+              {trainingRules.length > 0 ? (
+                <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
+                  {trainingRules.map((rule, index) => (
+                    <li key={index}>{rule}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-gray-500 italic">No training rules configured.</p>
+              )}
             </div>
           </div>
 

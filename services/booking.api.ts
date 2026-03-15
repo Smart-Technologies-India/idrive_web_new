@@ -79,6 +79,7 @@ export interface Booking {
   courseName: string;
   coursePrice: number;
   totalAmount: number;
+  location?: string;
   notes?: string;
   status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
   confirmationNumber?: string;
@@ -155,6 +156,7 @@ const GET_PAGINATED_BOOKINGS = `
         courseName
         coursePrice
         totalAmount
+        location
         notes
         status
         confirmationNumber
@@ -259,6 +261,7 @@ const GET_ALL_BOOKINGS = `
       courseName
       coursePrice
       totalAmount
+      location
       notes
       status
       confirmationNumber
@@ -339,6 +342,7 @@ const GET_BOOKING_BY_ID = `
       courseName
       coursePrice
       totalAmount
+      location
       notes
       status
       confirmationNumber

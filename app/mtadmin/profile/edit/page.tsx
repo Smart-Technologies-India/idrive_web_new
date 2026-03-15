@@ -1,6 +1,7 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { valibotResolver } from "@hookform/resolvers/valibot";
 import { onFormError } from "@/utils/methods";
@@ -13,13 +14,20 @@ import { TaxtAreaInput } from "@/components/form/inputfields/textareainput";
 import { MultiSelect } from "@/components/form/inputfields/multiselect";
 import { TimeInput } from "@/components/form/inputfields/timeinput";
 import { DateInput } from "@/components/form/inputfields/dateinput";
-import { IcBaselineArrowBack, AntDesignCheckOutlined } from "@/components/icons";
+import {
+  IcBaselineArrowBack,
+  AntDesignCheckOutlined,
+} from "@/components/icons";
 import { Button, Spin, Alert } from "antd";
 import { getCookie } from "cookies-next";
 import { getSchoolById, updateSchool } from "@/services/school.api";
+import {
+  getAllTraingRules,
+  createTraingRules,
+  updateTraingRules,
+} from "@/services/traing-rules.api";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
-import test from "node:test";
 
 const weekDays = [
   { label: "Monday", value: "Monday" },
@@ -36,18 +44,30 @@ dayjs.extend(customParseFormat);
 const EditSchoolProfilePage = () => {
   const router = useRouter();
   const initialDataLoaded = useRef(false);
+  const traingRulesLoaded = useRef(false);
   const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
+  const [traingRulesId, setTraingRulesId] = useState<number | null>(null);
+  const [traingRulesData, setTraingRulesData] = useState<{
+    rule1?: string;
+    rule2?: string;
+    rule3?: string;
+    rule4?: string;
+    rule5?: string;
+    rule6?: string;
+    rule7?: string;
+    rule8?: string;
+  }>({});
 
   // Helper function to convert 24-hour time to 12-hour format
   const convertTo12Hour = (time24: string | null | undefined): string => {
     if (!time24) return "";
-    
+
     // Try parsing various 24-hour formats (HH:mm, HH:mm:ss, H:mm)
     const parsedTime = dayjs(time24, ["HH:mm:ss", "HH:mm", "H:mm"], true);
-    
+
     // If parsing failed, return empty string
     if (!parsedTime.isValid()) return "";
-    
+
     // Convert to 12-hour format
     return parsedTime.format("h:mm A");
   };
@@ -55,13 +75,13 @@ const EditSchoolProfilePage = () => {
   // Helper function to convert 12-hour time to 24-hour format
   const convertTo24Hour = (time12: string | null | undefined): string => {
     if (!time12) return "";
-    
+
     // Parse 12-hour format (h:mm A)
     const parsedTime = dayjs(time12, "h:mm A", true);
-    
+
     // If parsing failed, return empty string
     if (!parsedTime.isValid()) return "";
-    
+
     // Convert to 24-hour format
     return parsedTime.format("HH:mm");
   };
@@ -71,7 +91,12 @@ const EditSchoolProfilePage = () => {
   });
 
   // Fetch existing school data
-  const { data: schoolResponse, isLoading, isError, error } = useQuery({
+  const {
+    data: schoolResponse,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ["school", schoolId],
     queryFn: async () => {
       if (!schoolId || schoolId == 0) {
@@ -82,9 +107,25 @@ const EditSchoolProfilePage = () => {
     enabled: schoolId > 0,
   });
 
+  // Fetch existing training rules
+  const { data: traingRulesResponse } = useQuery({
+    queryKey: ["traingRules", schoolId],
+    queryFn: async () => {
+      if (!schoolId || schoolId == 0) {
+        throw new Error("School ID not found");
+      }
+      return await getAllTraingRules({ schoolId });
+    },
+    enabled: schoolId > 0,
+  });
+
   // Set form values when data is loaded
   useEffect(() => {
-    if (schoolResponse?.status && schoolResponse.data.getSchoolById && !initialDataLoaded.current) {
+    if (
+      schoolResponse?.status &&
+      schoolResponse.data.getSchoolById &&
+      !initialDataLoaded.current
+    ) {
       const school = schoolResponse.data.getSchoolById;
       methods.reset({
         name: school.name || "",
@@ -122,6 +163,32 @@ const EditSchoolProfilePage = () => {
     }
   }, [schoolResponse, methods]);
 
+  // Load training rules when data is available
+  useEffect(() => {
+    if (
+      traingRulesResponse?.status &&
+      traingRulesResponse.data.getAllTraingRules &&
+      !traingRulesLoaded.current
+    ) {
+      const rules = traingRulesResponse.data.getAllTraingRules;
+      if (rules.length > 0) {
+        const firstRule = rules[0];
+        setTraingRulesId(firstRule.id);
+        setTraingRulesData({
+          rule1: firstRule.rule1 || "",
+          rule2: firstRule.rule2 || "",
+          rule3: firstRule.rule3 || "",
+          rule4: firstRule.rule4 || "",
+          rule5: firstRule.rule5 || "",
+          rule6: firstRule.rule6 || "",
+          rule7: firstRule.rule7 || "",
+          rule8: firstRule.rule8 || "",
+        });
+      }
+      traingRulesLoaded.current = true;
+    }
+  }, [traingRulesResponse]);
+
   // Update school mutation
   const updateSchoolMutation = useMutation({
     mutationKey: ["updateSchool"],
@@ -134,7 +201,10 @@ const EditSchoolProfilePage = () => {
         alternatePhone: data.alternatePhone || undefined,
         address: data.address,
         registrationNumber: data.registrationNumber,
-        gstNumber: data.gstNumber && data.gstNumber.trim() !== "" ? data.gstNumber : undefined,
+        gstNumber:
+          data.gstNumber && data.gstNumber.trim() !== ""
+            ? data.gstNumber
+            : undefined,
         establishedYear: data.establishedYear,
         website: data.website || undefined,
         dayStartTime: convertTo24Hour(data.dayStartTime),
@@ -145,21 +215,27 @@ const EditSchoolProfilePage = () => {
         testHoliday: data.testHoliday,
         ownerName: data.ownerName,
         ownerPhone: data.ownerPhone,
-        ownerEmail: data.ownerEmail && data.ownerEmail.trim() !== "" ? data.ownerEmail : undefined,
+        ownerEmail:
+          data.ownerEmail && data.ownerEmail.trim() !== ""
+            ? data.ownerEmail
+            : undefined,
         bankName: data.bankName,
         accountNumber: data.accountNumber,
         ifscCode: data.ifscCode,
         branchName: data.branchName,
         rtoLicenseNumber: data.rtoLicenseNumber,
-        rtoLicenseExpiry: data.rtoLicenseExpiry ? new Date(data.rtoLicenseExpiry) : undefined,
+        rtoLicenseExpiry: data.rtoLicenseExpiry
+          ? new Date(data.rtoLicenseExpiry)
+          : undefined,
         insuranceProvider: data.insuranceProvider || undefined,
         insurancePolicyNumber: data.insurancePolicyNumber || undefined,
-        insuranceExpiry: data.insuranceExpiry ? new Date(data.insuranceExpiry) : undefined,
+        insuranceExpiry: data.insuranceExpiry
+          ? new Date(data.insuranceExpiry)
+          : undefined,
         facebook: data.facebook || undefined,
         instagram: data.instagram || undefined,
         twitter: data.twitter || undefined,
       };
-
 
       const response = await updateSchool(updateData);
       if (!response.status) {
@@ -167,7 +243,33 @@ const EditSchoolProfilePage = () => {
       }
       return response;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Save training rules
+      try {
+        const hasAnyRule = Object.values(traingRulesData).some(
+          (rule) => rule && rule.trim() !== "",
+        );
+
+        if (hasAnyRule) {
+          if (traingRulesId) {
+            // Update existing training rules
+            await updateTraingRules(traingRulesId, {
+              schoolId,
+              ...traingRulesData,
+            });
+          } else {
+            // Create new training rules
+            await createTraingRules({
+              schoolId,
+              ...traingRulesData,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error saving training rules:", error);
+        // Don't block the success flow if training rules fail
+      }
+
       toast.success("School profile updated successfully!");
       window.location.href = "/mtadmin/profile";
     },
@@ -197,7 +299,9 @@ const EditSchoolProfilePage = () => {
           type="error"
           showIcon
           action={
-            <Button onClick={() => router.push("/mtadmin/profile")}>Back to Profile</Button>
+            <Button onClick={() => router.push("/mtadmin/profile")}>
+              Back to Profile
+            </Button>
           }
         />
       </div>
@@ -218,7 +322,9 @@ const EditSchoolProfilePage = () => {
             </Button>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Edit School Profile</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Edit School Profile
+            </h1>
             <p className="text-gray-600 mt-1 text-sm">
               Update your driving school information
             </p>
@@ -229,7 +335,10 @@ const EditSchoolProfilePage = () => {
       <div className="px-4 sm:px-8 py-6">
         <div className="shadow-sm max-w-6xl mx-auto bg-white rounded-lg p-4 sm:p-8 overflow-x-hidden">
           <FormProvider {...methods}>
-            <form onSubmit={methods.handleSubmit(onSubmit, onFormError)} className="space-y-6 w-full">
+            <form
+              onSubmit={methods.handleSubmit(onSubmit, onFormError)}
+              className="space-y-6 w-full"
+            >
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
                   Basic Information
@@ -340,8 +449,8 @@ const EditSchoolProfilePage = () => {
                     options={weekDays}
                   />
                   <MultiSelect<EditProfileForm>
-                    title="Test Holiday"
-                    required={true}
+                    title="Test Holiday (Optional)"
+                    required={false}
                     name="testHoliday"
                     placeholder="Select day"
                     options={weekDays}
@@ -493,6 +602,88 @@ const EditSchoolProfilePage = () => {
                 </div>
               </div>
 
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
+                  Training Rules (Optional)
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Define the training rules for your driving school that will be
+                  displayed to students.
+                </p>
+                <div className="space-y-4">
+                  {[
+                    {
+                      key: "rule1",
+                      label: "Rule 1",
+                      placeholder:
+                        "One training session = 10 km driving within 1 hour.",
+                    },
+                    {
+                      key: "rule2",
+                      label: "Rule 2",
+                      placeholder:
+                        "Students must record date, time, kms and sign after each session.",
+                    },
+                    {
+                      key: "rule3",
+                      label: "Rule 3",
+                      placeholder:
+                        "Training sessions must be completed within 45 days from admission.",
+                    },
+                    {
+                      key: "rule4",
+                      label: "Rule 4",
+                      placeholder:
+                        "Maximum 1–2 leaves allowed with 24 hours prior notice.",
+                    },
+                    {
+                      key: "rule5",
+                      label: "Rule 5",
+                      placeholder:
+                        "Students must be ready 10 minutes before scheduled pickup time.",
+                    },
+                    {
+                      key: "rule6",
+                      label: "Rule 6",
+                      placeholder:
+                        "Training vehicles are not allowed inside society premises or narrow lanes.",
+                    },
+                    {
+                      key: "rule7",
+                      label: "Rule 7",
+                      placeholder: "Enter rule 7...",
+                    },
+                    {
+                      key: "rule8",
+                      label: "Rule 8",
+                      placeholder: "Enter rule 8...",
+                    },
+                  ].map((rule) => (
+                    <div key={rule.key}>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {rule.label}
+                      </label>
+                      <input
+                        type="text"
+                        value={
+                          traingRulesData[
+                            rule.key as keyof typeof traingRulesData
+                          ] || ""
+                        }
+                        onChange={(e) =>
+                          setTraingRulesData((prev) => ({
+                            ...prev,
+                            [rule.key]: e.target.value,
+                          }))
+                        }
+                        placeholder={rule.placeholder}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex gap-4 pt-6 border-t">
                 <Button
                   type="default"
@@ -505,11 +696,16 @@ const EditSchoolProfilePage = () => {
                 </Button>
                 <button
                   type="submit"
-                  disabled={methods.formState.isSubmitting || updateSchoolMutation.isPending}
+                  disabled={
+                    methods.formState.isSubmitting ||
+                    updateSchoolMutation.isPending
+                  }
                   className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   <AntDesignCheckOutlined />
-                  {updateSchoolMutation.isPending ? "Updating..." : "Update Profile"}
+                  {updateSchoolMutation.isPending
+                    ? "Updating..."
+                    : "Update Profile"}
                 </button>
               </div>
             </form>

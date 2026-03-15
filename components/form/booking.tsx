@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ApiCall } from "@/services/api";
 import { toast } from "react-toastify";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { TextInput } from "./inputfields/textinput";
 import { TaxtAreaInput } from "./inputfields/textareainput";
 import { MultiSelect } from "./inputfields/multiselect";
@@ -107,8 +107,13 @@ type Holiday = {
   id: number;
   startDate: string;
   endDate: string;
-  holidayName: string;
+  holidayName?: string;
+  reason?: string;
   schoolId: number;
+  declarationType: string; // ALL_CARS_MULTIPLE_DATES, ONE_CAR_MULTIPLE_DATES, ALL_CARS_PARTICULAR_SLOTS, ONE_CAR_PARTICULAR_SLOTS
+  carId?: number;
+  slots?: string; // JSON array of time slots
+  status?: string;
 };
 
 // GraphQL response types
@@ -298,6 +303,10 @@ const BookingForm = () => {
             endDate
             schoolId
             declarationType
+            carId
+            slots
+            reason
+            status
           }
         }`,
         variables: {
@@ -372,6 +381,7 @@ const BookingForm = () => {
       selectedServices: [],
       totalAmount: 0,
       advanceAmount: 0,
+      location: "",
       notes: "",
     },
   });
@@ -405,6 +415,73 @@ const BookingForm = () => {
 
     return configuredHolidays.some((holiday) => dayMap[holiday] == dayOfWeek);
   };
+
+  // Helper function to check if a date is a declared holiday (considers car and slot)
+  const isDateHoliday = useCallback(
+    (date: Dayjs, carId?: number, slot?: string): boolean => {
+      const holidays: Holiday[] =
+        (holidaysResponse?.data as GetAllHolidayResponse)?.getAllHoliday || [];
+
+      const dateStr = date.format("YYYY-MM-DD");
+
+      console.log(holidays);
+
+      return holidays.some((holiday: Holiday) => {
+        // Check if date is in holiday range
+        const holidayStart = dayjs.utc(holiday.startDate).format("YYYY-MM-DD");
+        const holidayEnd = dayjs.utc(holiday.endDate).format("YYYY-MM-DD");
+        const isInDateRange = dateStr >= holidayStart && dateStr <= holidayEnd;
+
+        if (!isInDateRange) return false;
+
+        // Check holiday status (skip if not ACTIVE)
+        if (holiday.status && holiday.status !== "ACTIVE") return false;
+
+        // Handle different holiday types
+        switch (holiday.declarationType) {
+          case "ALL_CARS_MULTIPLE_DATES":
+            // Affects all cars for entire day
+            return true;
+
+          case "ONE_CAR_MULTIPLE_DATES":
+            // Affects only specific car for entire day
+            return carId ? holiday.carId === carId : false;
+
+          case "ALL_CARS_PARTICULAR_SLOTS":
+            // Affects all cars but only specific slots
+            if (!slot || !holiday.slots) return false;
+            try {
+              // Backend now returns slots as array, but handle string for backward compatibility
+              const holidaySlots = Array.isArray(holiday.slots)
+                ? holiday.slots
+                : JSON.parse(holiday.slots);
+              console.log("Parsed holiday slots:", holidaySlots);
+              return Array.isArray(holidaySlots) && holidaySlots.includes(slot);
+            } catch {
+              return false;
+            }
+
+          case "ONE_CAR_PARTICULAR_SLOTS":
+            // Affects specific car and specific slots
+            if (!carId || !slot || !holiday.slots) return false;
+            if (holiday.carId !== carId) return false;
+            try {
+              // Backend now returns slots as array, but handle string for backward compatibility
+              const holidaySlots = Array.isArray(holiday.slots)
+                ? holiday.slots
+                : JSON.parse(holiday.slots);
+              return Array.isArray(holidaySlots) && holidaySlots.includes(slot);
+            } catch {
+              return false;
+            }
+
+          default:
+            return false;
+        }
+      });
+    },
+    [holidaysResponse],
+  );
 
   // Get the current selected car ID (either from URL or dropdown selection)
   const currentCarId = watchedCarId || carIdFromUrl;
@@ -580,67 +657,84 @@ const BookingForm = () => {
         const isToday = dayjs().isSame(bookingDate, "day");
         const currentTime = dayjs();
 
-        // Get holidays data
-        const holidays: Holiday[] =
-          (holidaysResponse?.data as GetAllHolidayResponse)?.getAllHoliday ||
-          [];
+        // Check if entire day is a holiday for all cars (no specific slots)
+        const isFullDayHolidayForAllCars = isDateHoliday(
+          bookingDate,
+          undefined,
+          undefined,
+        );
 
-        // Check if selected date is a holiday
-        const isHoliday = holidays.some((holiday: Holiday) => {
-          const holidayStart = dayjs
-            .utc(holiday.startDate)
-            .format("YYYY-MM-DD");
-          const holidayEnd = dayjs.utc(holiday.endDate).format("YYYY-MM-DD");
-          return (
-            selectedDateStr >= holidayStart && selectedDateStr <= holidayEnd
-          );
+        if (isFullDayHolidayForAllCars) {
+          // Check if it's ALL_CARS_MULTIPLE_DATES type
+          const holidays: Holiday[] =
+            (holidaysResponse?.data as GetAllHolidayResponse)?.getAllHoliday ||
+            [];
+          const isAllCarsMultipleDates = holidays.some((holiday: Holiday) => {
+            const holidayStart = dayjs
+              .utc(holiday.startDate)
+              .format("YYYY-MM-DD");
+            const holidayEnd = dayjs.utc(holiday.endDate).format("YYYY-MM-DD");
+            const isInRange =
+              selectedDateStr >= holidayStart && selectedDateStr <= holidayEnd;
+            return (
+              isInRange &&
+              holiday.declarationType === "ALL_CARS_MULTIPLE_DATES" &&
+              (!holiday.status || holiday.status === "ACTIVE")
+            );
+          });
+
+          if (isAllCarsMultipleDates) {
+            // No slots available - entire day is holiday for all cars
+            setAvailableTimeSlots([]);
+            return;
+          }
+        }
+
+        // Get booking sessions data and filter for current school
+        const allSessions: BookingSession[] =
+          (sessionsResponse?.data as GetAllBookingSessionResponse)
+            ?.getAllBookingSession || [];
+        const bookingSessions = allSessions.filter(
+          (session: BookingSession) => session.booking?.schoolId == schoolId,
+        );
+
+        // Filter out booked slots for the selected car
+        // Ignore CANCELLED, NO_SHOW, HOLD, and EDITED (these slots are available)
+        const bookedSlots = bookingSessions
+          .filter(
+            (session: BookingSession) =>
+              session.booking?.carId == selectedCarId &&
+              !["CANCELLED", "NO_SHOW", "HOLD", "EDITED"].includes(
+                session.status,
+              ),
+          )
+          .map((session: BookingSession) => session.slot);
+
+        let availableSlots = allSlots.filter(
+          (slot) => !bookedSlots.includes(slot),
+        );
+
+        // Filter out holiday slots based on car and slot-specific holidays
+        availableSlots = availableSlots.filter((slot) => {
+          return !isDateHoliday(bookingDate, selectedCarId, slot);
         });
 
-        if (isHoliday) {
-          // No slots available on holidays
-          setAvailableTimeSlots([]);
-        } else {
-          // Get booking sessions data and filter for current school
-          const allSessions: BookingSession[] =
-            (sessionsResponse?.data as GetAllBookingSessionResponse)
-              ?.getAllBookingSession || [];
-          const bookingSessions = allSessions.filter(
-            (session: BookingSession) => session.booking?.schoolId == schoolId,
-          );
+        // If selected date is today, filter out past time slots
+        if (isToday) {
+          availableSlots = availableSlots.filter((slot) => {
+            // Extract start time from slot (format: "HH:MM-HH:MM")
+            const startTime = slot.split("-")[0];
+            const [hours, minutes] = startTime.split(":").map(Number);
 
-          // Filter out booked slots for the selected car
-          // Ignore CANCELLED, NO_SHOW, HOLD, and EDITED (these slots are available)
-          const bookedSlots = bookingSessions
-            .filter(
-              (session: BookingSession) =>
-                session.booking?.carId == selectedCarId &&
-                !["CANCELLED", "NO_SHOW", "HOLD", "EDITED"].includes(
-                  session.status,
-                ),
-            )
-            .map((session: BookingSession) => session.slot);
+            // Create a dayjs object for the slot time today
+            const slotTime = dayjs().hour(hours).minute(minutes).second(0);
 
-          let availableSlots = allSlots.filter(
-            (slot) => !bookedSlots.includes(slot),
-          );
-
-          // If selected date is today, filter out past time slots
-          if (isToday) {
-            availableSlots = availableSlots.filter((slot) => {
-              // Extract start time from slot (format: "HH:MM-HH:MM")
-              const startTime = slot.split("-")[0];
-              const [hours, minutes] = startTime.split(":").map(Number);
-
-              // Create a dayjs object for the slot time today
-              const slotTime = dayjs().hour(hours).minute(minutes).second(0);
-
-              // Only include slots that are in the future
-              return slotTime.isAfter(currentTime);
-            });
-          }
-
-          setAvailableTimeSlots(availableSlots);
+            // Only include slots that are in the future
+            return slotTime.isAfter(currentTime);
+          });
         }
+
+        setAvailableTimeSlots(availableSlots);
       } else {
         // No car or date selected, filter by current time if showing today's slots
         let availableSlots = allSlots;
@@ -666,6 +760,7 @@ const BookingForm = () => {
     sessionsResponse,
     holidaysResponse,
     schoolId,
+    isDateHoliday,
   ]);
 
   // Mutation for fetching customer details
@@ -1066,7 +1161,7 @@ const BookingForm = () => {
     }
   };
 
-  // Calculate available booking dates (skip booked slots)
+  // Calculate available booking dates (skip booked slots and holidays)
   const calculateAvailableDates = async () => {
     if (
       !selectedCourse ||
@@ -1087,6 +1182,12 @@ const BookingForm = () => {
     while (sessionCount < selectedCourse.courseDays) {
       // Skip school weekly/test holiday days if configured
       if (isSchoolWeeklyOrTestHoliday(currentDate)) {
+        currentDate = currentDate.add(1, "day");
+        continue;
+      }
+
+      // Skip declared holidays from holiday table (check with car and slot)
+      if (isDateHoliday(currentDate, carId, formValues.slot)) {
         currentDate = currentDate.add(1, "day");
         continue;
       }
@@ -1177,6 +1278,7 @@ const BookingForm = () => {
             coursePrice: data.coursePrice,
             totalAmount: data.totalAmount,
             discount: data.bookingDiscount || 0,
+            location: data.location,
             notes: data.notes,
           },
         },
@@ -2005,7 +2107,6 @@ const BookingForm = () => {
                       Booking Discount (₹)
                     </label>
                     <Input
-                      type="number"
                       size="large"
                       placeholder="Enter booking discount"
                       min={0}
@@ -2032,7 +2133,6 @@ const BookingForm = () => {
                       Service Discount (₹)
                     </label>
                     <Input
-                      type="number"
                       size="large"
                       placeholder="Enter service discount"
                       min={0}
@@ -2049,6 +2149,7 @@ const BookingForm = () => {
                       }}
                       prefix="₹"
                       disabled={selectedServices.length === 0}
+                      autoComplete="off"
                     />
                     {selectedServices.length > 0 ? (
                       <p className="text-xs text-gray-500 mt-1">
@@ -2107,7 +2208,6 @@ const BookingForm = () => {
                       Advance Amount (₹)
                     </label>
                     <Input
-                      type="number"
                       size="large"
                       placeholder="Enter advance payment amount"
                       min={0}
@@ -2212,7 +2312,8 @@ const BookingForm = () => {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Transaction ID <span className="text-red-500">*</span>
+                            Transaction ID{" "}
+                            <span className="text-red-500">*</span>
                           </label>
                           <Input
                             size="large"
@@ -2266,6 +2367,20 @@ const BookingForm = () => {
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Location Card */}
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-6">
+                  Location
+                </h2>
+                <TextInput
+                  name="location"
+                  title=""
+                  placeholder="Enter pickup/dropoff location..."
+                  required={false}
+                  maxlength={30}
+                />
               </div>
 
               {/* Notes Card */}
@@ -2785,6 +2900,13 @@ const BookingForm = () => {
                   💡 This advance payment will be recorded immediately upon
                   booking confirmation
                 </p>
+              </div>
+            )}
+
+            {pendingData.location && (
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <h3 className="font-bold text-gray-900 mb-2">Location</h3>
+                <p className="text-sm text-gray-700">{pendingData.location}</p>
               </div>
             )}
 

@@ -56,17 +56,18 @@ export function DateRangePicker<T extends FieldValues>(
               value={
                 field.value && Array.isArray(field.value)
                   ? [
-                      field.value[0] ? dayjs(field.value[0]) : null,
-                      field.value[1] ? dayjs(field.value[1]) : null,
+                      field.value[0] ? dayjs(field.value[0]).startOf('day') : null,
+                      field.value[1] ? dayjs(field.value[1]).startOf('day') : null,
                     ]
                   : null
               }
               status={error ? "error" : undefined}
               onChange={(dates) => {
                 if (dates && dates[0] && dates[1]) {
+                  // Format as ISO date string with time at midnight to satisfy ISO 8601
                   field.onChange([
-                    dates[0].toDate().toISOString(),
-                    dates[1].toDate().toISOString(),
+                    `${dates[0].format('YYYY-MM-DD')}T00:00:00.000Z`,
+                    `${dates[1].format('YYYY-MM-DD')}T00:00:00.000Z`,
                   ]);
                 } else if (
                   dates &&
@@ -76,8 +77,8 @@ export function DateRangePicker<T extends FieldValues>(
                 ) {
                   // Allow single date selection if enabled
                   field.onChange([
-                    dates[0].toDate().toISOString(),
-                    dates[0].toDate().toISOString(),
+                    `${dates[0].format('YYYY-MM-DD')}T00:00:00.000Z`,
+                    `${dates[0].format('YYYY-MM-DD')}T00:00:00.000Z`,
                   ]);
                 } else {
                   field.onChange(null);

@@ -10,16 +10,22 @@ import {
   DatePicker,
   Spin,
   Checkbox,
+  Upload,
+  Avatar,
+  message,
 } from "antd";
 import {
   IcBaselineArrowBack,
   AntDesignCheckOutlined,
+  MaterialSymbolsPersonRounded,
 } from "@/components/icons";
 import { useRouter } from "next/navigation";
 import { getUserById, updateUser } from "@/services/user.api";
+import { uploadUserProfile } from "@/services/uploader.api";
 import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
 import { toast } from "react-toastify";
+import { baseurl } from "@/utils/conts";
 
 const { TextArea } = Input;
 
@@ -44,6 +50,8 @@ const EditUserPage = ({ params }: { params: Promise<{ userId: string }> }) => {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [sameAsCurrentAddress, setSameAsCurrentAddress] = useState(false);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
 
   // Unwrap params (Next.js 15+ async params)
   const { userId } = use(params);
@@ -85,6 +93,10 @@ const EditUserPage = ({ params }: { params: Promise<{ userId: string }> }) => {
             role: user.role,
             status: user.status,
           });
+          // Set profile photo if exists
+          if (user.profile) {
+            setProfilePhotoUrl(user.profile);
+          }
         }
       } catch (error) {
         console.error("Error fetching user:", error);
@@ -114,6 +126,7 @@ const EditUserPage = ({ params }: { params: Promise<{ userId: string }> }) => {
         dob: values.dateOfBirth?.toDate(),
         role: values.role,
         status: values.status,
+        profile: profilePhotoUrl || undefined,
       });
 
       if (response.status && response.data.updateUser) {
@@ -128,6 +141,44 @@ const EditUserPage = ({ params }: { params: Promise<{ userId: string }> }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePhotoUpload = async (file: File) => {
+    // Validate file type - only allow images
+    const isImage = file.type.startsWith('image/');
+    if (!isImage) {
+      message.error('You can only upload image files!');
+      return false;
+    }
+
+    // Validate file size - max 1MB
+    const isLessThan1MB = file.size / 1024 / 1024 <= 1;
+    if (!isLessThan1MB) {
+      message.error('Image must be smaller than 1MB!');
+      return false;
+    }
+
+    setUploading(true);
+    try {
+      const response = await uploadUserProfile(file);
+      if (response.status && response.data) {
+        setProfilePhotoUrl(response.data);
+        message.success("Photo uploaded successfully!");
+      } else {
+        message.error(response.message || "Failed to upload photo");
+      }
+    } catch (error) {
+      console.error("Error uploading photo:", error);
+      message.error("Failed to upload photo. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+    return false; // Prevent default upload behavior
+  };
+
+  const handlePhotoRemove = () => {
+    setProfilePhotoUrl("");
+    message.success("Photo removed");
   };
 
   if (fetching) {
@@ -174,6 +225,43 @@ const EditUserPage = ({ params }: { params: Promise<{ userId: string }> }) => {
               <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b">
                 Personal Information
               </h3>
+              
+              {/* Profile Photo Upload */}
+              <div className="mb-6 flex flex-col items-center">
+                <div className="mb-3">
+                  <Avatar
+                    size={120}
+                    icon={<MaterialSymbolsPersonRounded className="text-5xl" />}
+                    src={profilePhotoUrl ? `${baseurl}/${profilePhotoUrl}` : undefined}
+                    className="border-4 border-gray-200"
+                  />
+                </div>
+                <Upload
+                  accept="image/png, image/jpeg, image/jpg, image/gif, image/webp"
+                  showUploadList={false}
+                  beforeUpload={handlePhotoUpload}
+                  disabled={uploading}
+                  maxCount={1}
+                >
+                  <Button loading={uploading} size="large">
+                    {profilePhotoUrl ? "Change Photo" : "Upload Photo"}
+                  </Button>
+                </Upload>
+                <p className="text-xs text-gray-500 mt-2">
+                  Max file size: 1MB. Supported formats: JPG, PNG, GIF, WEBP
+                </p>
+                {profilePhotoUrl && (
+                  <Button
+                    type="text"
+                    danger
+                    onClick={handlePhotoRemove}
+                    className="mt-2"
+                  >
+                    Remove Photo
+                  </Button>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Form.Item
                   label="Full Name"

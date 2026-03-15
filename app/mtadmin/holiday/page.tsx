@@ -143,16 +143,8 @@ const HolidayManagementPage = () => {
           return null;
         }
 
-        // Parse slots from JSON string to array
-        let parsedSlots: string[] | null = null;
-        if (holiday.slots) {
-          try {
-            parsedSlots = JSON.parse(holiday.slots);
-          } catch (e) {
-            console.error("Failed to parse slots:", e);
-            parsedSlots = null;
-          }
-        }
+        // Get slots array directly (no parsing needed - API returns array)
+        const parsedSlots: string[] | null = holiday.slots || null;
 
         return {
           key: holiday.id.toString(),
@@ -240,29 +232,61 @@ const HolidayManagementPage = () => {
     {
       title: "Date Range",
       key: "dateRange",
-      width: 200,
-      render: (_, record) => (
-        <div>
-          <div className="text-sm font-medium">{record.dateRange}</div>
-          <div className="text-xs text-gray-500">
-            {record.duration} day{record.duration > 1 ? "s" : ""}
+      width: 220,
+      render: (_, record) => {
+        const isSlotType = record.declarationType === "ALL_CARS_PARTICULAR_SLOTS" || 
+                          record.declarationType === "ONE_CAR_PARTICULAR_SLOTS";
+        
+        return (
+          <div>
+            <div className="text-sm font-medium">{record.dateRange}</div>
+            <div className="text-xs text-gray-500">
+              {isSlotType ? (
+                <>
+                  <span className="text-orange-600 font-medium">
+                    Specific slots only
+                  </span>
+                  {" "}on {record.duration} date{record.duration > 1 ? "s" : ""}
+                </>
+              ) : (
+                <>
+                  {record.duration} full day{record.duration > 1 ? "s" : ""}
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       title: "Slots",
       dataIndex: "slots",
       key: "slots",
-      width: 120,
+      width: 180,
       render: (slots) => {
         if (!slots || slots.length == 0) {
           return <Tag color="purple">Full Day</Tag>;
         }
+        
+        // Safety check: parse slots if it's a string
+        const slotsArray = typeof slots === 'string' ? JSON.parse(slots) : slots;
+        
         return (
-          <Tag color="orange">
-            {slots.length} slot{slots.length > 1 ? "s" : ""}
-          </Tag>
+          <div className="space-y-1">
+            <Tag color="orange" className="mb-1">
+              {slotsArray.length} slot{slotsArray.length > 1 ? "s" : ""}
+            </Tag>
+            <div className="text-xs text-gray-600">
+              {slotsArray.slice(0, 2).map((slot: string, idx: number) => (
+                <div key={idx} className="truncate">⏰ {slot}</div>
+              ))}
+              {slotsArray.length > 2 && (
+                <div className="text-orange-600 font-medium">
+                  +{slotsArray.length - 2} more
+                </div>
+              )}
+            </div>
+          </div>
         );
       },
     },

@@ -1009,23 +1009,6 @@ const AmendmentForm = () => {
     return isHoliday;
   };
 
-  // Get the earliest date from course start
-  const getMinAllowedDate = () => {
-    if (!selectedBooking || !selectedBooking.sessions)
-      return dayjs().add(1, "day");
-
-    // Get the earliest date from the booking sessions
-    const scheduledSessions = selectedBooking.sessions
-      .filter((s) => s.status == "PENDING" || s.status == "CONFIRMED")
-      .sort((a, b) => dayjs.utc(a.sessionDate).diff(dayjs.utc(b.sessionDate)));
-
-    if (scheduledSessions.length > 0) {
-      return dayjs.utc(scheduledSessions[0].sessionDate);
-    }
-
-    return dayjs().add(1, "day");
-  };
-
   // Validate form
   const validateForm = (): { isValid: boolean; errors: string[] } => {
     const errors: string[] = [];
@@ -2163,20 +2146,11 @@ const AmendmentForm = () => {
                                               disabledDate={(current) => {
                                                 if (!current) return false;
 
-                                                const minDate =
-                                                  getMinAllowedDate();
-                                                const isPast = current.isBefore(
-                                                  minDate,
-                                                  "day"
-                                                );
-                                                const isBlocked =
-                                                  isDateBlocked(current);
-
-                                                return isPast || isBlocked;
+                                                // Allow today, past dates, and future dates as long as they're not blocked
+                                                // This enables preponing (moving to earlier dates)
+                                                return isDateBlocked(current);
                                               }}
-                                              placeholder={`Select new date (from ${getMinAllowedDate().format(
-                                                "DD MMM YYYY"
-                                              )})`}
+                                              placeholder="Select new date (any unblocked date)"
                                             />
                                           </div>
                                           <div className="text-2xl text-blue-600">
@@ -2188,8 +2162,7 @@ const AmendmentForm = () => {
                                   )}
                                 </div>
                                 <div className="mt-3 text-xs text-blue-700 bg-blue-100 rounded p-2">
-                                  <strong>Note:</strong> New dates must be from{" "}
-                                  {getMinAllowedDate().format("DD MMM YYYY")}{" "}
+                                  <strong>Note:</strong> You can select any unblocked date (including past dates to prepone). Already booked or holiday dates are disabled.
                                   onwards. Already booked, cancelled dates for
                                   this car/slot and school holiday dates are
                                   disabled.
@@ -2251,7 +2224,6 @@ const AmendmentForm = () => {
                                               disabledDate={(current) =>
                                                 isDateBlocked(current)
                                               }
-                                              minDate={getMinAllowedDate()}
                                               placeholder="Select new date"
                                             />
                                           </div>
@@ -2261,9 +2233,7 @@ const AmendmentForm = () => {
                                   )}
                                 </div>
                                 <div className="mt-3 text-xs text-gray-600 bg-white rounded p-2 border border-orange-200">
-                                  📅 You can only select dates from{" "}
-                                  {getMinAllowedDate().format("DD MMM YYYY")}{" "}
-                                  onwards. Already booked, cancelled dates for
+                                  📅 You can select any unblocked date (including past dates to prepone). Already booked, cancelled dates for
                                   this car/slot and school holiday dates are
                                   disabled.
                                 </div>
@@ -2324,7 +2294,6 @@ const AmendmentForm = () => {
                                               disabledDate={(current) =>
                                                 isDateBlocked(current)
                                               }
-                                              minDate={getMinAllowedDate()}
                                               placeholder="Select new date"
                                             />
                                           </div>
@@ -2334,9 +2303,7 @@ const AmendmentForm = () => {
                                   )}
                                 </div>
                                 <div className="mt-3 text-xs text-gray-600 bg-white rounded p-2 border border-green-200">
-                                  📅 You can only select dates from{" "}
-                                  {getMinAllowedDate().format("DD MMM YYYY")}{" "}
-                                  onwards. Already booked, cancelled dates for
+                                  📅 You can select any unblocked date (including past dates to prepone). Already booked, cancelled dates for
                                   this car/slot and school holiday dates are
                                   disabled.
                                 </div>
@@ -2381,10 +2348,11 @@ const AmendmentForm = () => {
                                   className="w-full"
                                   disabledDate={(current) => {
                                     if (!current) return false;
-                                    // Only allow future dates
-                                    return current.isBefore(dayjs().add(1, "day"), "day");
+                                    // Allow today, past dates, and future dates as long as they're not blocked
+                                    // This enables preponing
+                                    return isDateBlockedForCalculation(current);
                                   }}
-                                  placeholder="Select start date (future dates only)"
+                                  placeholder="Select start date"
                                 />
                               </div>
 

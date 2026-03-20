@@ -450,6 +450,17 @@ const UPDATE_BOOKING_SESSION = `
   }
 `;
 
+const UPDATE_BOOKING = `
+  mutation UpdateBooking($id: Int!, $updateType: UpdateBookingInput!) {
+    updateBooking(id: $id, updateType: $updateType) {
+      id
+      bookingId
+      status
+      updatedAt
+    }
+  }
+`;
+
 // API Functions
 export const getPaginatedBookings = async (variables: {
   searchPaginationInput: {
@@ -512,6 +523,17 @@ export const updateBookingSession = async (updateData: {
   const { id, ...updateType } = updateData;
   return ApiCall<UpdateBookingSessionResponse>({
     query: UPDATE_BOOKING_SESSION,
+    variables: { id, updateType: { ...updateType } },
+  });
+};
+
+export const updateBooking = async (updateData: {
+  id: number;
+  status?: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
+}) => {
+  const { id, ...updateType } = updateData;
+  return ApiCall({
+    query: UPDATE_BOOKING,
     variables: { id, updateType: { ...updateType } },
   });
 };

@@ -355,7 +355,7 @@ const StudentReportDetailPage = () => {
                   {studentLocations}
                 </p>
                 <p>
-                  <span className="font-medium">Location:</span>{" "}
+                  <span className="font-medium">Branch Location:</span>{" "}
                   {schoolBranchName}
                 </p>
                 <p>

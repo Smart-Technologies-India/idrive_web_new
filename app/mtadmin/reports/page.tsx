@@ -97,11 +97,71 @@ interface BookingSession {
 
 interface Payment {
   id: number;
+  bookingId?: number;
   amount: number;
+  paymentNumber?: string;
   paymentDate: string;
   paymentMethod?: string;
   booking?: Booking;
+  status?: string;
+  notes?: string;
   createdAt: string;
+}
+
+interface ServiceBooking {
+  id: number;
+  schoolId: number;
+  serviceName: string;
+  serviceType: "LICENSE" | "ADDON";
+  price: number;
+  discount?: number;
+  confirmationNumber?: string;
+  createdAt: string;
+  booking?: Booking;
+  user?: {
+    id: number;
+    name: string;
+    surname?: string;
+    contact1: string;
+    contact2?: string;
+  };
+}
+
+interface ServicePaymentRecord {
+  id: number;
+  bookingServiceId: number;
+  amount: number;
+  paymentNumber: string;
+  paymentDate: string;
+  paymentMethod?: string;
+  status?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+interface PaymentCollectionRow {
+  id: string;
+  rawDate: string;
+  referenceNumber: string;
+  source: "BOOKING" | "SERVICE";
+  studentName: string;
+  contact: string;
+  itemName: string;
+  amount: number;
+  paymentMethod?: string;
+}
+
+interface PendingPaymentRow {
+  id: string;
+  rawDate: string;
+  referenceNumber: string;
+  source: "BOOKING" | "SERVICE";
+  studentName: string;
+  contact: string;
+  itemName: string;
+  totalAmount: number;
+  paidAmount: number;
+  pendingAmount: number;
 }
 
 interface LicenseApplication {
@@ -126,6 +186,30 @@ interface GroupedAttendance {
 interface PaymentByMethod {
   [method: string]: number;
 }
+
+const INCLUDED_SERVICE_TYPES: Array<ServiceBooking["serviceType"]> = [
+  "ADDON",
+  "LICENSE",
+];
+
+const getServiceBookingStudentName = (serviceBooking: ServiceBooking) => {
+  if (serviceBooking.user) {
+    return `${serviceBooking.user.name} ${serviceBooking.user.surname || ""}`.trim();
+  }
+
+  return serviceBooking.booking?.customerName || "N/A";
+};
+
+const getServiceBookingContact = (serviceBooking: ServiceBooking) => {
+  return (
+    serviceBooking.user?.contact1 ||
+    serviceBooking.booking?.customerMobile ||
+    "N/A"
+  );
+};
+
+const isDefined = <T,>(value: T | null | undefined): value is T =>
+  value != null;
 
 const Reports = () => {
   const router = useRouter();
@@ -298,7 +382,61 @@ const Reports = () => {
         return;
       }
 
-      // Extract headers
+      // Build report header information
+      const reportTitle = getModalTitle();
+      const generatedDate = dayjs().format("DD MMM YYYY, hh:mm A");
+      const headerRows: string[] = [];
+
+      // Add report title
+      headerRows.push(`"${reportTitle}"`);
+      headerRows.push(`"Generated on: ${generatedDate}"`);
+      headerRows.push(""); // Empty line
+
+      // Add date range if exists
+      if (dateRange && dateRange[0] && dateRange[1]) {
+        const fromDate = dateRange[0].format("DD MMM YYYY");
+        const toDate = dateRange[1].format("DD MMM YYYY");
+        headerRows.push(`"Period: ${fromDate} to ${toDate}"`);
+        headerRows.push(""); // Empty line
+      }
+
+      // Add car details for car-specific reports
+      if (
+        (selectedReport === "car-training" || selectedReport === "attendance") &&
+        selectedCarId
+      ) {
+        const selectedCar = carsData?.find((car) => car.id === selectedCarId);
+        if (selectedCar) {
+          headerRows.push(
+            `"Selected Car: ${selectedCar.carName} (${selectedCar.registrationNumber})"`,
+          );
+          headerRows.push(""); // Empty line
+        }
+      }
+
+      // Add statistics from the visible cards in the modal
+      const statsCards = document.querySelectorAll(
+        ".ant-modal-body .ant-statistic",
+      );
+      if (statsCards.length > 0) {
+        headerRows.push('"Summary Statistics:"');
+        statsCards.forEach((card) => {
+          const title =
+            card.querySelector(".ant-statistic-title")?.textContent?.trim() ||
+            "";
+          const value =
+            card.querySelector(".ant-statistic-content")?.textContent?.trim() ||
+            "";
+          if (title && value) {
+            // Clean up value - remove extra spaces
+            const cleanValue = value.replace(/\s+/g, " ").trim();
+            headerRows.push(`"${title}: ${cleanValue}"`);
+          }
+        });
+        headerRows.push(""); // Empty line
+      }
+
+      // Extract table headers
       const headers: string[] = [];
       const headerCells = tableElement.querySelectorAll("thead th");
       headerCells.forEach((cell) => {
@@ -329,8 +467,9 @@ const Reports = () => {
         }
       });
 
-      // Create CSV content
+      // Create CSV content with header rows
       const csvContent = [
+        ...headerRows,
         headers.join(","),
         ...rows.map((row) =>
           row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","),
@@ -507,7 +646,7 @@ const Reports = () => {
                 </h3>
 
                 {/* Description */}
-                <p className="text-gray-600 text-sm mb-4 min-h-[40px]">
+                <p className="text-gray-600 text-sm mb-4 min-h-10">
                   {report.description}
                 </p>
 
@@ -566,7 +705,7 @@ const Reports = () => {
       >
         <div className="space-y-6">
           {/* Filters */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100">
+          <div className="bg-linear-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100">
             <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <span className="text-lg">🔍</span>
               Filters
@@ -672,6 +811,18 @@ const StudentJoinReport = ({
 
   const columns = [
     {
+      title: "Ref No",
+      dataIndex: "bookingId",
+      key: "bookingId",
+    },
+    {
+      title: "Join Date",
+      dataIndex: "createdAt",
+      key: "createdAt",
+      render: (date: string) =>
+        date ? dayjs(date).format("DD MMM YYYY") : "-",
+    },
+    {
       title: "Student Name",
       dataIndex: "customerName",
       key: "customerName",
@@ -680,17 +831,6 @@ const StudentJoinReport = ({
       title: "Contact",
       dataIndex: "customerMobile",
       key: "customerMobile",
-    },
-    {
-      title: "Join Date",
-      dataIndex: "createdAt",
-      key: "createdAt",
-      render: (date: string) => (date ? dayjs(date).format("DD MMM YYYY") : "-"),
-    },
-    {
-      title: "Ref No",
-      dataIndex: "bookingId",
-      key: "bookingId",
     },
     {
       title: "Car Name",
@@ -704,12 +844,12 @@ const StudentJoinReport = ({
       key: "courseName",
       render: (courseName: string) => courseName || "-",
     },
-    {
-      title: "Amount",
-      dataIndex: "totalAmount",
-      key: "totalAmount",
-      render: (amount: number) => `₹${(amount || 0).toLocaleString()}`,
-    },
+    // {
+    //   title: "Amount",
+    //   dataIndex: "totalAmount",
+    //   key: "totalAmount",
+    //   render: (amount: number) => `₹${(amount || 0).toLocaleString()}`,
+    // },
     {
       title: "Balance",
       key: "balance",
@@ -720,7 +860,11 @@ const StudentJoinReport = ({
             0,
           ) || 0;
         const pending = Math.max((record.totalAmount || 0) - totalPaid, 0);
-        return <Tag color={pending > 0 ? "red" : "green"}>₹{pending.toLocaleString()}</Tag>;
+        return (
+          <Tag color={pending > 0 ? "red" : "green"}>
+            Rs. {pending.toLocaleString()}
+          </Tag>
+        );
       },
     },
   ];
@@ -729,7 +873,7 @@ const StudentJoinReport = ({
     <div>
       <Row gutter={16} className="mb-6">
         <Col span={24}>
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-r from-blue-500 to-blue-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -831,6 +975,9 @@ const CarTrainingReport = ({
       dataIndex: "sessionDate",
       key: "sessionDate",
       render: (date: string) => dayjs(date).format("DD MMM YYYY"),
+      sorter: (a: BookingSession, b: BookingSession) =>
+        dayjs(a.sessionDate).unix() - dayjs(b.sessionDate).unix(),
+      defaultSortOrder: "ascend" as const,
     },
     {
       title: "Time Slot",
@@ -893,7 +1040,7 @@ const CarTrainingReport = ({
     <div>
       <Row gutter={16} className="mb-6">
         <Col span={8}>
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-purple-500 to-purple-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -909,7 +1056,7 @@ const CarTrainingReport = ({
           </div>
         </Col>
         <Col span={8}>
-          <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-green-500 to-green-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">Attended</span>
@@ -921,7 +1068,7 @@ const CarTrainingReport = ({
           </div>
         </Col>
         <Col span={8}>
-          <div className="bg-gradient-to-br from-red-500 to-red-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-red-500 to-red-600 text-white p-4 rounded-lg">
             <Statistic
               title={<span className="text-white text-opacity-90">Absent</span>}
               value={data?.filter((s) => !s.attended).length || 0}
@@ -1023,6 +1170,9 @@ const AttendanceReport = ({
       dataIndex: "date",
       key: "date",
       render: (date: string) => dayjs(date).format("DD MMM YYYY"),
+      sorter: (a: { date: string }, b: { date: string }) =>
+        dayjs(a.date).unix() - dayjs(b.date).unix(),
+      defaultSortOrder: "ascend" as const,
     },
     {
       title: "Car",
@@ -1079,7 +1229,7 @@ const AttendanceReport = ({
     <div>
       <Row gutter={16} className="mb-6">
         <Col span={12}>
-          <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-indigo-500 to-indigo-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -1093,7 +1243,7 @@ const AttendanceReport = ({
           </div>
         </Col>
         <Col span={12}>
-          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-emerald-500 to-emerald-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -1139,43 +1289,155 @@ const PaymentCollectionReport = ({
   dateRange: [Dayjs, Dayjs] | null;
   schoolId: number;
 }) => {
-  const { data, isLoading } = useQuery<Payment[]>({
+  const { data, isLoading } = useQuery<PaymentCollectionRow[]>({
     queryKey: ["payment-collection-report", dateRange, schoolId],
     queryFn: async () => {
-      const response = await ApiCall({
-        query: `query GetAllPayment($whereSearchInput: SearchPaymentInput!) {
-          getAllPayment(whereSearchInput: $whereSearchInput) {
-            id
-            amount
-            paymentDate
-            paymentMethod
-            booking {
-              id
-              bookingId
-              customerName
-              customerMobile
-            }
-            createdAt
-          }
-        }`,
-        variables: {
-          whereSearchInput: {},
-        },
-      });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const payments = (response?.data as any)?.getAllPayment || [];
+      const [paymentsResponse, servicePaymentsResponse, bookingServicesResponse] =
+        await Promise.all([
+          ApiCall<{ getAllPayment: Payment[] }>({
+            query: `query GetAllPayment($whereSearchInput: SearchPaymentInput!) {
+              getAllPayment(whereSearchInput: $whereSearchInput) {
+                id
+                bookingId
+                amount
+                paymentNumber
+                paymentDate
+                paymentMethod
+                status
+                notes
+                booking {
+                  id
+                  bookingId
+                  customerName
+                  customerMobile
+                  courseName
+                }
+                createdAt
+              }
+            }`,
+            variables: {
+              whereSearchInput: {},
+            },
+          }),
+          ApiCall<{ getAllServicePayment: ServicePaymentRecord[] }>({
+            query: `query GetAllServicePayment($whereSearchInput: SearchServicePaymentInput!) {
+              getAllServicePayment(whereSearchInput: $whereSearchInput) {
+                id
+                bookingServiceId
+                amount
+                paymentNumber
+                paymentDate
+                paymentMethod
+                status
+                notes
+                createdAt
+              }
+            }`,
+            variables: {
+              whereSearchInput: {},
+            },
+          }),
+          ApiCall<{ getAllBookingService: ServiceBooking[] }>({
+            query: `query GetAllBookingService($whereSearchInput: WhereBookingServiceSearchInput!) {
+              getAllBookingService(whereSearchInput: $whereSearchInput) {
+                id
+                schoolId
+                serviceName
+                serviceType
+                price
+                discount
+                confirmationNumber
+                createdAt
+                booking {
+                  id
+                  bookingId
+                  customerName
+                  customerMobile
+                  courseName
+                }
+                user {
+                  id
+                  name
+                  surname
+                  contact1
+                  contact2
+                }
+              }
+            }`,
+            variables: {
+              whereSearchInput: {
+                schoolId,
+              },
+            },
+          }),
+        ]);
 
-      // Filter by date range if provided
-      if (dateRange) {
-        return payments.filter((payment: Payment) => {
-          const paymentDate = dayjs(payment.paymentDate || payment.createdAt);
+      const bookingPayments = paymentsResponse.data?.getAllPayment || [];
+      const servicePayments =
+        servicePaymentsResponse.data?.getAllServicePayment || [];
+      const bookingServices =
+        bookingServicesResponse.data?.getAllBookingService || [];
+
+      const serviceBookingMap = new Map(
+        bookingServices
+          .filter((serviceBooking) =>
+            INCLUDED_SERVICE_TYPES.includes(serviceBooking.serviceType),
+          )
+          .map((serviceBooking) => [serviceBooking.id, serviceBooking]),
+      );
+
+      const bookingRows: PaymentCollectionRow[] = bookingPayments.map(
+        (payment) => ({
+          id: `BOOKING-${payment.id}`,
+          rawDate: payment.paymentDate || payment.createdAt,
+          referenceNumber:
+            payment.booking?.bookingId || payment.paymentNumber || "N/A",
+          source: "BOOKING",
+          studentName: payment.booking?.customerName || "N/A",
+          contact: payment.booking?.customerMobile || "N/A",
+          itemName: payment.booking?.courseName || "Course Booking",
+          amount: payment.amount || 0,
+          paymentMethod: payment.paymentMethod,
+        }),
+      );
+
+      const serviceRows: PaymentCollectionRow[] = servicePayments
+        .map<PaymentCollectionRow | null>((payment) => {
+          const serviceBooking = serviceBookingMap.get(payment.bookingServiceId);
+          if (!serviceBooking) {
+            return null;
+          }
+
+          return {
+            id: `SERVICE-${payment.id}`,
+            rawDate: payment.paymentDate || payment.createdAt,
+            referenceNumber:
+              serviceBooking.confirmationNumber || payment.paymentNumber,
+            source: "SERVICE" as const,
+            studentName: getServiceBookingStudentName(serviceBooking),
+            contact: getServiceBookingContact(serviceBooking),
+            itemName: serviceBooking.serviceName || "Service Booking",
+            amount: payment.amount || 0,
+            paymentMethod: payment.paymentMethod,
+          };
+        })
+        .filter(isDefined);
+
+      const rows = [...bookingRows, ...serviceRows]
+        .filter((row) => {
+          if (!dateRange) {
+            return true;
+          }
+
+          const paymentDate = dayjs(row.rawDate);
           return (
             paymentDate.isAfter(dateRange[0].startOf("day")) &&
             paymentDate.isBefore(dateRange[1].endOf("day"))
           );
-        });
-      }
-      return payments;
+        })
+        .sort((left, right) => dayjs(left.rawDate).unix() - dayjs(right.rawDate).unix());
+
+      return rows;
     },
     enabled: schoolId > 0,
   });
@@ -1183,24 +1445,40 @@ const PaymentCollectionReport = ({
   const columns = [
     {
       title: "Date",
+      dataIndex: "rawDate",
       key: "date",
-      render: (record: Payment) =>
-        dayjs(record.paymentDate || record.createdAt).format("DD MMM YYYY"),
+      render: (date: string) => dayjs(date).format("DD MMM YYYY"),
+      sorter: (a: PaymentCollectionRow, b: PaymentCollectionRow) =>
+        dayjs(a.rawDate).unix() - dayjs(b.rawDate).unix(),
+      defaultSortOrder: "ascend" as const,
     },
     {
-      title: "Booking ID",
-      key: "bookingId",
-      render: (record: Payment) => record.booking?.bookingId || "N/A",
+      title: "Reference",
+      dataIndex: "referenceNumber",
+      key: "referenceNumber",
+    },
+    {
+      title: "Source",
+      dataIndex: "source",
+      key: "source",
+      render: (source: PaymentCollectionRow["source"]) => (
+        <Tag color={source === "SERVICE" ? "purple" : "blue"}>{source}</Tag>
+      ),
     },
     {
       title: "Student Name",
+      dataIndex: "studentName",
       key: "studentName",
-      render: (record: Payment) => record.booking?.customerName || "N/A",
     },
     {
       title: "Contact",
+      dataIndex: "contact",
       key: "contact",
-      render: (record: Payment) => record.booking?.customerMobile || "N/A",
+    },
+    {
+      title: "Course / Service",
+      dataIndex: "itemName",
+      key: "itemName",
     },
     {
       title: "Amount",
@@ -1245,7 +1523,7 @@ const PaymentCollectionReport = ({
     <div>
       <Row gutter={16} className="mb-6">
         <Col span={6}>
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-orange-500 to-orange-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -1260,7 +1538,7 @@ const PaymentCollectionReport = ({
           </div>
         </Col>
         <Col span={6}>
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -1274,7 +1552,7 @@ const PaymentCollectionReport = ({
           </div>
         </Col>
         <Col span={6}>
-          <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-green-500 to-green-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -1289,7 +1567,7 @@ const PaymentCollectionReport = ({
           </div>
         </Col>
         <Col span={6}>
-          <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-cyan-500 to-cyan-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -1470,7 +1748,7 @@ const DriverPerformanceReport = ({
     <div>
       <Row gutter={16} className="mb-6">
         <Col span={12}>
-          <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-indigo-500 to-indigo-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -1484,7 +1762,7 @@ const DriverPerformanceReport = ({
           </div>
         </Col>
         <Col span={12}>
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-purple-500 to-purple-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -1523,6 +1801,8 @@ const CourseCompletionReport = ({
   dateRange: [Dayjs, Dayjs] | null;
   schoolId: number;
 }) => {
+  const router = useRouter();
+  
   const { data, isLoading } = useQuery({
     queryKey: ["course-completion-report", dateRange, schoolId],
     queryFn: async () => {
@@ -1607,13 +1887,27 @@ const CourseCompletionReport = ({
       key: "status",
       render: () => <Tag color="green">COMPLETED</Tag>,
     },
+    {
+      title: "Certificate",
+      key: "certificate",
+      render: (_: unknown, record: Booking) => (
+        <Button
+          type="primary"
+          icon={<AntDesignEyeOutlined />}
+          onClick={() => router.push(`/mtadmin/reports/certificate/${record.id}`)}
+          size="small"
+        >
+          View Certificate
+        </Button>
+      ),
+    },
   ];
 
   return (
     <div>
       <Row gutter={16} className="mb-6">
         <Col span={24}>
-          <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-r from-emerald-500 to-emerald-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -1748,7 +2042,7 @@ const RevenueAnalysisReport = ({
     <div>
       <Row gutter={16} className="mb-6">
         <Col span={8}>
-          <div className="bg-gradient-to-br from-amber-500 to-amber-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-amber-500 to-amber-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -1763,7 +2057,7 @@ const RevenueAnalysisReport = ({
           </div>
         </Col>
         <Col span={8}>
-          <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-green-500 to-green-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">Cash Revenue</span>
@@ -1776,7 +2070,7 @@ const RevenueAnalysisReport = ({
           </div>
         </Col>
         <Col span={8}>
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -1821,78 +2115,206 @@ const PendingPaymentsReport = ({
   dateRange: [Dayjs, Dayjs] | null;
   schoolId: number;
 }) => {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<PendingPaymentRow[]>({
     queryKey: ["pending-payments-report", dateRange, schoolId],
     queryFn: async () => {
-      const response = await ApiCall({
-        query: `query GetAllBooking($whereSearchInput: WhereBookingSearchInput!) {
-          getAllBooking(whereSearchInput: $whereSearchInput) {
-            id
-            bookingId
-            customerName
-            customerMobile
-            totalAmount
-            bookingDate
-            courseName
-            payments {
-              id
-              amount
-            }
-          }
-        }`,
-        variables: {
-          whereSearchInput: {
-            schoolId,
-          },
+      const [bookingsResponse, bookingServicesResponse, servicePaymentsResponse] =
+        await Promise.all([
+          ApiCall<{ getAllBooking: Booking[] }>({
+            query: `query GetAllBooking($whereSearchInput: WhereBookingSearchInput!) {
+              getAllBooking(whereSearchInput: $whereSearchInput) {
+                id
+                bookingId
+                customerName
+                customerMobile
+                totalAmount
+                bookingDate
+                courseName
+                payments {
+                  id
+                  amount
+                }
+              }
+            }`,
+            variables: {
+              whereSearchInput: {
+                schoolId,
+              },
+            },
+          }),
+          ApiCall<{ getAllBookingService: ServiceBooking[] }>({
+            query: `query GetAllBookingService($whereSearchInput: WhereBookingServiceSearchInput!) {
+              getAllBookingService(whereSearchInput: $whereSearchInput) {
+                id
+                schoolId
+                serviceName
+                serviceType
+                price
+                discount
+                confirmationNumber
+                createdAt
+                booking {
+                  id
+                  bookingId
+                  customerName
+                  customerMobile
+                }
+                user {
+                  id
+                  name
+                  surname
+                  contact1
+                  contact2
+                }
+              }
+            }`,
+            variables: {
+              whereSearchInput: {
+                schoolId,
+              },
+            },
+          }),
+          ApiCall<{ getAllServicePayment: ServicePaymentRecord[] }>({
+            query: `query GetAllServicePayment($whereSearchInput: SearchServicePaymentInput!) {
+              getAllServicePayment(whereSearchInput: $whereSearchInput) {
+                id
+                bookingServiceId
+                amount
+                paymentDate
+                createdAt
+              }
+            }`,
+            variables: {
+              whereSearchInput: {},
+            },
+          }),
+        ]);
+
+      const bookings = bookingsResponse.data?.getAllBooking || [];
+      const bookingServices =
+        bookingServicesResponse.data?.getAllBookingService || [];
+      const servicePayments =
+        servicePaymentsResponse.data?.getAllServicePayment || [];
+
+      const serviceBookingMap = new Map(
+        bookingServices
+          .filter((serviceBooking) =>
+            INCLUDED_SERVICE_TYPES.includes(serviceBooking.serviceType),
+          )
+          .map((serviceBooking) => [serviceBooking.id, serviceBooking]),
+      );
+
+      const paidServiceMap = servicePayments.reduce(
+        (accumulator, payment) => {
+          const currentAmount = accumulator.get(payment.bookingServiceId) || 0;
+          accumulator.set(payment.bookingServiceId, currentAmount + payment.amount);
+          return accumulator;
         },
-      });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const bookings = (response?.data as any)?.getAllBooking || [];
+        new Map<number, number>(),
+      );
 
-      // Filter bookings with pending payments
-      const pendingBookings = bookings.filter((booking: Booking) => {
-        const totalPaid =
-          booking.payments?.reduce(
-            (sum: number, payment: Payment) => sum + (payment.amount || 0),
+      const bookingRows: PendingPaymentRow[] = bookings
+        .map<PendingPaymentRow | null>((booking) => {
+          const paidAmount =
+            booking.payments?.reduce(
+              (sum: number, payment: Payment) => sum + (payment.amount || 0),
+              0,
+            ) || 0;
+          const pendingAmount = Math.max((booking.totalAmount || 0) - paidAmount, 0);
+
+          if (pendingAmount <= 0) {
+            return null;
+          }
+
+          return {
+            id: `BOOKING-${booking.id}`,
+            rawDate: booking.bookingDate || "",
+            referenceNumber: booking.bookingId,
+            source: "BOOKING" as const,
+            studentName: booking.customerName,
+            contact: booking.customerMobile,
+            itemName: booking.courseName || "Course Booking",
+            totalAmount: booking.totalAmount || 0,
+            paidAmount,
+            pendingAmount,
+          };
+        })
+        .filter(isDefined);
+
+      const serviceRows: PendingPaymentRow[] = Array.from(
+        serviceBookingMap.values(),
+      )
+        .map<PendingPaymentRow | null>((serviceBooking) => {
+          const totalAmount = Math.max(
+            (serviceBooking.price || 0) - (serviceBooking.discount || 0),
             0,
-          ) || 0;
-        return totalPaid < booking.totalAmount;
-      });
-
-      if (dateRange) {
-        return pendingBookings.filter((booking: Booking) => {
-          const bookingDate = dayjs(booking.bookingDate);
-          return (
-            bookingDate.isAfter(dateRange[0].startOf("day")) &&
-            bookingDate.isBefore(dateRange[1].endOf("day"))
           );
-        });
-      }
-      return pendingBookings;
+          const paidAmount = paidServiceMap.get(serviceBooking.id) || 0;
+          const pendingAmount = Math.max(totalAmount - paidAmount, 0);
+
+          if (pendingAmount <= 0) {
+            return null;
+          }
+
+          return {
+            id: `SERVICE-${serviceBooking.id}`,
+            rawDate: serviceBooking.createdAt,
+            referenceNumber:
+              serviceBooking.confirmationNumber || `SVC-${serviceBooking.id}`,
+            source: "SERVICE" as const,
+            studentName: getServiceBookingStudentName(serviceBooking),
+            contact: getServiceBookingContact(serviceBooking),
+            itemName: serviceBooking.serviceName || "Service Booking",
+            totalAmount,
+            paidAmount,
+            pendingAmount,
+          };
+        })
+        .filter(isDefined);
+
+      return [...bookingRows, ...serviceRows].filter((row) => {
+        if (!dateRange) {
+          return true;
+        }
+
+        const recordDate = dayjs(row.rawDate);
+        return (
+          recordDate.isAfter(dateRange[0].startOf("day")) &&
+          recordDate.isBefore(dateRange[1].endOf("day"))
+        );
+      });
     },
     enabled: schoolId > 0,
   });
 
   const columns = [
     {
-      title: "Booking ID",
-      dataIndex: "bookingId",
-      key: "bookingId",
+      title: "Reference",
+      dataIndex: "referenceNumber",
+      key: "referenceNumber",
+    },
+    {
+      title: "Source",
+      dataIndex: "source",
+      key: "source",
+      render: (source: PendingPaymentRow["source"]) => (
+        <Tag color={source === "SERVICE" ? "purple" : "blue"}>{source}</Tag>
+      ),
     },
     {
       title: "Student Name",
-      dataIndex: "customerName",
-      key: "customerName",
+      dataIndex: "studentName",
+      key: "studentName",
     },
     {
       title: "Contact",
-      dataIndex: "customerMobile",
-      key: "customerMobile",
+      dataIndex: "contact",
+      key: "contact",
     },
     {
-      title: "Course",
-      dataIndex: "courseName",
-      key: "courseName",
+      title: "Course / Service",
+      dataIndex: "itemName",
+      key: "itemName",
     },
     {
       title: "Total Amount",
@@ -1902,46 +2324,29 @@ const PendingPaymentsReport = ({
     },
     {
       title: "Paid",
-      key: "paid",
-      render: (record: Booking) => {
-        const totalPaid =
-          record.payments?.reduce(
-            (sum: number, payment: Payment) => sum + (payment.amount || 0),
-            0,
-          ) || 0;
-        return `₹${totalPaid.toLocaleString()}`;
-      },
+      dataIndex: "paidAmount",
+      key: "paidAmount",
+      render: (amount: number) => `₹${amount.toLocaleString()}`,
     },
     {
       title: "Pending",
-      key: "pending",
-      render: (record: Booking) => {
-        const totalPaid =
-          record.payments?.reduce(
-            (sum: number, payment: Payment) => sum + (payment.amount || 0),
-            0,
-          ) || 0;
-        const pending = record.totalAmount - totalPaid;
-        return <Tag color="red">₹{pending.toLocaleString()}</Tag>;
-      },
+      dataIndex: "pendingAmount",
+      key: "pendingAmount",
+      render: (amount: number) => <Tag color="red">₹{amount.toLocaleString()}</Tag>,
     },
   ];
 
   const totalPending =
-    data?.reduce((sum: number, booking: Booking) => {
-      const totalPaid =
-        booking.payments?.reduce(
-          (s: number, payment: Payment) => s + (payment.amount || 0),
-          0,
-        ) || 0;
-      return sum + (booking.totalAmount - totalPaid);
-    }, 0) || 0;
+    data?.reduce(
+      (sum: number, record: PendingPaymentRow) => sum + record.pendingAmount,
+      0,
+    ) || 0;
 
   return (
     <div>
       <Row gutter={16} className="mb-6">
         <Col span={12}>
-          <div className="bg-gradient-to-br from-red-500 to-red-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-red-500 to-red-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -1956,7 +2361,7 @@ const PendingPaymentsReport = ({
           </div>
         </Col>
         <Col span={12}>
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-orange-500 to-orange-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -2110,7 +2515,7 @@ const CarUtilizationReport = ({
     <div>
       <Row gutter={16} className="mb-6">
         <Col span={12}>
-          <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-cyan-500 to-cyan-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">Total Cars</span>
@@ -2122,7 +2527,7 @@ const CarUtilizationReport = ({
           </div>
         </Col>
         <Col span={12}>
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -2251,7 +2656,7 @@ const SessionCancellationReport = ({
     <div>
       <Row gutter={16} className="mb-6">
         <Col span={24}>
-          <div className="bg-gradient-to-r from-pink-500 to-pink-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-r from-pink-500 to-pink-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -2483,7 +2888,7 @@ const LicenseApplicationsReport = ({
       </div>
       <Row gutter={16} className="mb-6">
         <Col span={6}>
-          <div className="bg-gradient-to-br from-violet-500 to-violet-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-violet-500 to-violet-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -2497,7 +2902,7 @@ const LicenseApplicationsReport = ({
           </div>
         </Col>
         <Col span={6}>
-          <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-green-500 to-green-600 text-white p-4 rounded-lg">
             <Statistic
               title={<span className="text-white text-opacity-90">Closed</span>}
               value={statusCounts.CLOSED || 0}
@@ -2506,7 +2911,7 @@ const LicenseApplicationsReport = ({
           </div>
         </Col>
         <Col span={6}>
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-orange-500 to-orange-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">Pending</span>
@@ -2517,7 +2922,7 @@ const LicenseApplicationsReport = ({
           </div>
         </Col>
         <Col span={6}>
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">Applied</span>
@@ -2649,7 +3054,7 @@ const PeakHoursReport = ({
     <div>
       <Row gutter={16} className="mb-6">
         <Col span={12}>
-          <div className="bg-gradient-to-br from-rose-500 to-rose-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-rose-500 to-rose-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -2663,7 +3068,7 @@ const PeakHoursReport = ({
           </div>
         </Col>
         <Col span={12}>
-          <div className="bg-gradient-to-br from-pink-500 to-pink-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-pink-500 to-pink-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -2823,7 +3228,7 @@ const StudentProgressReport = ({
     <div>
       <Row gutter={16} className="mb-6">
         <Col span={24}>
-          <div className="bg-gradient-to-r from-teal-500 to-teal-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-r from-teal-500 to-teal-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -2950,7 +3355,7 @@ const MonthlyRevenueReport = ({
     <div>
       <Row gutter={16} className="mb-6">
         <Col span={8}>
-          <div className="bg-gradient-to-br from-lime-500 to-lime-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-lime-500 to-lime-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -2965,7 +3370,7 @@ const MonthlyRevenueReport = ({
           </div>
         </Col>
         <Col span={8}>
-          <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-green-500 to-green-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -2980,7 +3385,7 @@ const MonthlyRevenueReport = ({
           </div>
         </Col>
         <Col span={8}>
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -3122,7 +3527,7 @@ const BookingConversionReport = ({
     <div>
       <Row gutter={16} className="mb-6">
         <Col span={6}>
-          <div className="bg-gradient-to-br from-fuchsia-500 to-fuchsia-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-fuchsia-500 to-fuchsia-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -3136,7 +3541,7 @@ const BookingConversionReport = ({
           </div>
         </Col>
         <Col span={6}>
-          <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-green-500 to-green-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -3150,7 +3555,7 @@ const BookingConversionReport = ({
           </div>
         </Col>
         <Col span={6}>
-          <div className="bg-gradient-to-br from-red-500 to-red-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-red-500 to-red-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">
@@ -3164,7 +3569,7 @@ const BookingConversionReport = ({
           </div>
         </Col>
         <Col span={6}>
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-br from-orange-500 to-orange-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">Pending</span>
@@ -3295,7 +3700,7 @@ const ActiveStudentsReport = ({
     <div>
       <Row gutter={16} className="mb-6">
         <Col span={24}>
-          <div className="bg-gradient-to-r from-sky-500 to-sky-600 text-white p-4 rounded-lg">
+          <div className="bg-linear-to-r from-sky-500 to-sky-600 text-white p-4 rounded-lg">
             <Statistic
               title={
                 <span className="text-white text-opacity-90">

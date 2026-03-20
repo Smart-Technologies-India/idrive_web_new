@@ -203,7 +203,7 @@ const ServiceBookingViewPage = () => {
   // Mutation for updating license application
   const { mutate: updateLicense, isPending: isUpdating } = useMutation({
     mutationFn: async (values: {
-      llNumber: string;
+      llNumber?: string;
       issuedDate: string;
       applicationNumber: string;
       dlApplicationNumber?: string;
@@ -583,7 +583,7 @@ const ServiceBookingViewPage = () => {
   const handleFormSubmit = () => {
     form.validateFields().then((values) => {
       updateLicense({
-        llNumber: values.llNumber,
+        llNumber: values.llNumber || undefined,
         issuedDate: values.issuedDate.toISOString(),
         applicationNumber: values.applicationNumber,
         dlApplicationNumber: values.dlApplicationNumber,
@@ -1191,6 +1191,8 @@ const ServiceBookingViewPage = () => {
         confirmLoading={isUpdating}
         okText="Update"
         cancelText="Cancel"
+        okButtonProps={{ style: { order: 1 } }}
+        cancelButtonProps={{ style: { order: 2 } }}
         width={600}
       >
         <div className="py-4">
@@ -1199,19 +1201,6 @@ const ServiceBookingViewPage = () => {
             application status.
           </p>
           <Form form={form} layout="vertical">
-            <Form.Item
-              label="LL Number"
-              name="llNumber"
-              rules={[
-                { required: true, message: "Please enter the LL number" },
-                { min: 5, message: "LL number must be at least 5 characters" },
-              ]}
-            >
-              <Input
-                placeholder="Enter Learner's License number"
-                size="large"
-              />
-            </Form.Item>
             <Form.Item
               label="Application Number"
               name="applicationNumber"
@@ -1228,6 +1217,28 @@ const ServiceBookingViewPage = () => {
             >
               <Input placeholder="Enter application number" size="large" />
             </Form.Item>
+            <Form.Item
+              label="LL Number"
+              name="llNumber"
+              rules={[
+                {
+                  validator: (_, value) =>
+                    !value || value.length >= 5
+                      ? Promise.resolve()
+                      : Promise.reject(
+                          new Error(
+                            "LL number must be at least 5 characters",
+                          ),
+                        ),
+                },
+              ]}
+            >
+              <Input
+                placeholder="Enter Learner's License number"
+                size="large"
+              />
+            </Form.Item>
+
             <Form.Item
               label="Issue Date"
               name="issuedDate"
@@ -1263,6 +1274,9 @@ const ServiceBookingViewPage = () => {
       >
         <div className="py-4">
           <Form form={fullUpdateForm} layout="vertical">
+            <Form.Item label="Application Number" name="applicationNumber">
+              <Input placeholder="Enter application number" size="large" />
+            </Form.Item>
             <Form.Item label="LL Number" name="llNumber">
               <Input placeholder="Enter LL number" size="large" />
             </Form.Item>
@@ -1274,9 +1288,7 @@ const ServiceBookingViewPage = () => {
                 placeholder="Select issue date"
               />
             </Form.Item>
-            <Form.Item label="Application Number" name="applicationNumber">
-              <Input placeholder="Enter application number" size="large" />
-            </Form.Item>
+
             <Form.Item label="DL Application Number" name="dlApplicationNumber">
               <Input placeholder="Enter DL application number" size="large" />
             </Form.Item>

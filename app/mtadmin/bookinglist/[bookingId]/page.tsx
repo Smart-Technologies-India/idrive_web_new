@@ -18,10 +18,16 @@ import {
   InputNumber,
   Dropdown,
 } from "antd";
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, Controller } from "react-hook-form";
 import { valibotResolver } from "@hookform/resolvers/valibot";
-import { getBookingById } from "@/services/booking.api";
+import {
+  getBookingById,
+  updateBookingSession,
+  updateBooking,
+  type BookingSession,
+} from "@/services/booking.api";
 import {
   getPaymentsByBooking,
   getTotalPaidAmount,
@@ -36,6 +42,7 @@ import {
   EyeOutlined,
   DownloadOutlined,
   FilePdfOutlined,
+  WhatsAppOutlined,
 } from "@ant-design/icons";
 import { PaymentSchema, type PaymentFormData } from "@/schema/payment";
 import { getCookie } from "cookies-next";
@@ -52,6 +59,18 @@ const BookingDetailsPage = () => {
   const userId = parseInt(getCookie("id")?.toString() || "0");
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [attendanceModal, setAttendanceModal] = useState<{
+    visible: boolean;
+    session: BookingSession | null;
+    notes: string;
+    status: "completed" | "no_show";
+  }>({
+    visible: false,
+    session: null,
+    notes: "",
+    status: "completed",
+  });
+  const [courseCompleteModal, setCourseCompleteModal] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["booking-details", bookingId],
@@ -88,6 +107,14 @@ const BookingDetailsPage = () => {
       return a.dayNumber - b.dayNumber;
     });
   }, [booking?.sessions]);
+
+  // Check if all sessions are completed
+  const allSessionsCompleted = useMemo(() => {
+    if (!sortedSessions || sortedSessions.length === 0) return false;
+    return sortedSessions.every(
+      (session) => session.status === "COMPLETED"
+    );
+  }, [sortedSessions]);
 
   const orderedPayments = useMemo(() => {
     return [...payments].sort((a, b) => {
@@ -319,7 +346,7 @@ const BookingDetailsPage = () => {
 
   const handleReceiptAction = (
     payment: Payment,
-    actionType: "view" | "download",
+    actionType: "view" | "download" | "whatsapp",
   ) => {
     if (!booking) return;
 
@@ -336,6 +363,37 @@ const BookingDetailsPage = () => {
 
     if (actionType === "download") {
       doc.save(fileName);
+      return;
+    }
+
+    if (actionType === "whatsapp") {
+      // Download the PDF first
+      doc.save(fileName);
+      
+      // Get the customer's WhatsApp number
+      const phoneNumber = booking.customer?.contact1;
+      
+      if (!phoneNumber) {
+        toast.error("Customer phone number not available");
+        return;
+      }
+      
+      // Clean the phone number (remove spaces, dashes, etc.)
+      const cleanedNumber = phoneNumber.replace(/[^0-9+]/g, "");
+      
+      // Create WhatsApp message
+      const message = encodeURIComponent(
+        `Hello ${booking.customerName || booking.customer?.name || ""}, \n\nHere is your payment receipt for ${booking.courseName || "your course"}.\n\nReceipt Number: ${payment.paymentNumber || payment.id}\nAmount: ₹${payment.amount.toLocaleString("en-IN")}\nDate: ${formatDate(payment.paymentDate)}\n\nThank you for choosing Chohan Motor Driving School.`
+      );
+      
+      // Open WhatsApp Web
+      window.open(
+        `https://wa.me/${cleanedNumber}?text=${message}`,
+        "_blank",
+        "noopener,noreferrer"
+      );
+      
+      toast.success("PDF downloaded. WhatsApp opened - please attach the receipt.");
       return;
     }
 
@@ -382,6 +440,51 @@ const BookingDetailsPage = () => {
     },
   });
 
+  // Update session mutation for attendance marking
+  const updateSessionMutation = useMutation({
+    mutationFn: async (data: {
+      sessionId: number;
+      status: "COMPLETED" | "NO_SHOW";
+      notes: string;
+    }) => {
+      return await updateBookingSession({
+        id: data.sessionId,
+        status: data.status,
+        attended: data.status === "COMPLETED",
+        completedAt: new Date(),
+        instructorNotes: data.notes,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["booking-details", bookingId] });
+      toast.success("Attendance marked successfully");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to mark attendance");
+    },
+  });
+
+  // Update booking status to COMPLETED
+  const completeCourseMutation = useMutation({
+    mutationFn: async () => {
+      if (!booking) {
+        throw new Error("Booking not found");
+      }
+      return await updateBooking({
+        id: booking.id,
+        status: "COMPLETED",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["booking-details", bookingId] });
+      toast.success("Course completed successfully!");
+      setCourseCompleteModal(false);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to complete course");
+    },
+  });
+
   // Handle form submission
   const onSubmit = (data: PaymentFormData) => {
     const installmentNum = payments.length + 1;
@@ -409,6 +512,33 @@ const BookingDetailsPage = () => {
       notes: "",
     });
     setIsModalOpen(true);
+  };
+
+  // Handle attendance marking
+  const handleMarkAttendance = (session: BookingSession) => {
+    setAttendanceModal({
+      visible: true,
+      session,
+      notes: session.instructorNotes || "",
+      status: "completed",
+    });
+  };
+
+  const handleAttendanceSubmit = () => {
+    if (!attendanceModal.session) return;
+
+    updateSessionMutation.mutate({
+      sessionId: attendanceModal.session.id,
+      status: attendanceModal.status === "completed" ? "COMPLETED" : "NO_SHOW",
+      notes: attendanceModal.notes,
+    });
+
+    setAttendanceModal({
+      visible: false,
+      session: null,
+      notes: "",
+      status: "completed",
+    });
   };
 
   if (isLoading) {
@@ -492,17 +622,28 @@ const BookingDetailsPage = () => {
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-bold text-gray-900 mb-2">Session Info</h2>
           <div className="grow"></div>
-          <button
-            onClick={() => {
-              const studentKey = `id-${booking.customerId}`;
-              router.push(
-                `/mtadmin/reports/students/${encodeURIComponent(studentKey)}`,
-              );
-            }}
-            className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-          >
-            Report
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                const studentKey = `id-${booking.customerId}`;
+                router.push(
+                  `/mtadmin/reports/students/${encodeURIComponent(studentKey)}`,
+                );
+              }}
+              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+            >
+              Form No. 15
+            </button>
+            {allSessionsCompleted && booking.status !== "COMPLETED" && (
+              <button
+                onClick={() => setCourseCompleteModal(true)}
+                className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 flex items-center gap-1"
+              >
+                <CheckCircleOutlined />
+                Course Complete
+              </button>
+            )}
+          </div>
         </div>
         <Table
           columns={[
@@ -530,7 +671,17 @@ const BookingDetailsPage = () => {
               width: 110,
               render: (slot: string) => convertSlotTo12Hour(slot),
             },
-            { title: "Car", dataIndex: "carId", key: "carId", width: 100 },
+            {
+              title: "Car",
+              key: "car",
+              width: 150,
+              render: (_, rec) => {
+                const carData = sortedSessions.find((s) => s.id === rec.id);
+                return carData?.carId
+                  ? `${booking.car?.carName || booking.carName} (${carData.carId})`
+                  : booking.car?.carName || booking.carName || "-";
+              },
+            },
             {
               title: "Driver",
               key: "driver",
@@ -562,6 +713,27 @@ const BookingDetailsPage = () => {
               key: "attended",
               width: 100,
               render: (att) => (att ? "Yes" : "No"),
+            },
+            {
+              title: "Mark Attendance",
+              key: "markAttendance",
+              width: 150,
+              render: (_, record) => (
+                <Button
+                  type="primary"
+                  size="small"
+                  onClick={() => handleMarkAttendance(record)}
+                  disabled={
+                    record.status === "COMPLETED" ||
+                    record.status === "CANCELLED" ||
+                    record.attended
+                  }
+                >
+                  {record.attended || record.status === "COMPLETED"
+                    ? "Marked"
+                    : "Mark"}
+                </Button>
+              ),
             },
           ]}
           dataSource={sortedSessions}
@@ -859,9 +1031,14 @@ const BookingDetailsPage = () => {
                         icon: <DownloadOutlined />,
                         label: "Download PDF",
                       },
+                      {
+                        key: "whatsapp",
+                        icon: <WhatsAppOutlined />,
+                        label: "Send on WhatsApp",
+                      },
                     ],
                     onClick: ({ key }) =>
-                      handleReceiptAction(record, key as "view" | "download"),
+                      handleReceiptAction(record, key as "view" | "download" | "whatsapp"),
                   }}
                 >
                   <Button icon={<FilePdfOutlined />} size="small">
@@ -1033,6 +1210,263 @@ const BookingDetailsPage = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Attendance Marking Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-3 pb-4 border-b">
+            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+              <CheckCircleOutlined className="text-blue-600 text-lg" />
+            </div>
+            <span className="text-xl font-semibold">Mark Attendance</span>
+          </div>
+        }
+        open={attendanceModal.visible}
+        onOk={handleAttendanceSubmit}
+        onCancel={() =>
+          setAttendanceModal({
+            visible: false,
+            session: null,
+            notes: "",
+            status: "completed",
+          })
+        }
+        okText="Submit Attendance"
+        okButtonProps={{
+          size: "large",
+          loading: updateSessionMutation.isPending,
+        }}
+        cancelButtonProps={{ size: "large" }}
+        width={650}
+      >
+        {attendanceModal.session && (
+          <div className="space-y-6 py-4">
+            <div className="bg-linear-to-br from-blue-50 to-purple-50 border border-blue-100 p-5 rounded-xl">
+              <h4 className="font-bold text-gray-900 mb-4 text-base">
+                Session Information
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600 block mb-1">Student Name</span>
+                  <span className="font-semibold text-gray-900">
+                    {booking.customerName || booking.customer?.name}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600 block mb-1">Mobile</span>
+                  <span className="font-semibold text-gray-900">
+                    {booking.customerMobile || booking.customer?.contact1}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600 block mb-1">Session Date</span>
+                  <span className="font-semibold text-gray-900">
+                    {formatDate(attendanceModal.session.sessionDate)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600 block mb-1">Time Slot</span>
+                  <span className="font-semibold text-gray-900">
+                    {convertSlotTo12Hour(attendanceModal.session.slot)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600 block mb-1">Course</span>
+                  <span className="font-semibold text-gray-900">
+                    {booking.courseName || booking.course?.courseName}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600 block mb-1">
+                    Session Number
+                  </span>
+                  <span className="font-semibold text-gray-900">
+                    Day {attendanceModal.session.dayNumber}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-3">
+                Attendance Status
+              </label>
+              <div className="flex gap-3">
+                <Button
+                  type={
+                    attendanceModal.status === "completed"
+                      ? "primary"
+                      : "default"
+                  }
+                  size="large"
+                  icon={<CheckCircleOutlined />}
+                  onClick={() =>
+                    setAttendanceModal((prev) => ({
+                      ...prev,
+                      status: "completed",
+                    }))
+                  }
+                  className={
+                    attendanceModal.status === "completed"
+                      ? "bg-green-600! border-green-600!"
+                      : ""
+                  }
+                >
+                  Session Completed
+                </Button>
+                <Button
+                  type={
+                    attendanceModal.status === "no_show" ? "primary" : "default"
+                  }
+                  size="large"
+                  danger={attendanceModal.status === "no_show"}
+                  icon={<ClockCircleOutlined />}
+                  onClick={() =>
+                    setAttendanceModal((prev) => ({
+                      ...prev,
+                      status: "no_show",
+                    }))
+                  }
+                >
+                  No Show / Cancelled
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-3">
+                Session Notes (Optional)
+              </label>
+              <Input.TextArea
+                rows={4}
+                placeholder="Enter feedback, student performance, areas of improvement, or any issues encountered during the session..."
+                value={attendanceModal.notes}
+                onChange={(e) =>
+                  setAttendanceModal((prev) => ({
+                    ...prev,
+                    notes: e.target.value,
+                  }))
+                }
+                className="text-base!"
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Course Complete Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-3 pb-4 border-b">
+            <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center">
+              <CheckCircleOutlined className="text-green-600 text-lg" />
+            </div>
+            <span className="text-xl font-semibold">Complete Course</span>
+          </div>
+        }
+        open={courseCompleteModal}
+        onOk={() => completeCourseMutation.mutate()}
+        onCancel={() => setCourseCompleteModal(false)}
+        okText="Complete Course"
+        okButtonProps={{
+          size: "large",
+          loading: completeCourseMutation.isPending,
+          className: "!bg-green-600 hover:!bg-green-700",
+        }}
+        cancelButtonProps={{ size: "large" }}
+        width={650}
+      >
+        <div className="space-y-6 py-4">
+          <div className="bg-linear-to-br from-green-50 to-emerald-50 border border-green-100 p-5 rounded-xl">
+            <h4 className="font-bold text-gray-900 mb-4 text-base">
+              Course Completion Summary
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-600 block mb-1">Student Name</span>
+                <span className="font-semibold text-gray-900">
+                  {booking?.customerName || booking?.customer?.name}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-600 block mb-1">Booking ID</span>
+                <span className="font-semibold text-gray-900">
+                  {booking?.bookingId}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-600 block mb-1">Course Name</span>
+                <span className="font-semibold text-gray-900">
+                  {booking?.courseName || booking?.course?.courseName}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-600 block mb-1">Total Sessions</span>
+                <span className="font-semibold text-gray-900">
+                  {sortedSessions.length}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-600 block mb-1">Completed Sessions</span>
+                <span className="font-semibold text-green-600">
+                  {sortedSessions.filter((s) => s.status === "COMPLETED").length}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-600 block mb-1">Car Used</span>
+                <span className="font-semibold text-gray-900">
+                  {booking?.car?.carName || booking?.carName}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-600 block mb-1">Course Duration</span>
+                <span className="font-semibold text-gray-900">
+                  {formatDate(getCourseDateRange().startDate)} - {formatDate(getCourseDateRange().endDate)}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-600 block mb-1">Total Amount</span>
+                <span className="font-semibold text-gray-900">
+                  ₹{booking?.totalAmount.toLocaleString("en-IN")}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+            <div className="flex items-start gap-3">
+              <CheckCircleOutlined className="text-blue-600 text-xl mt-1" />
+              <div>
+                <h5 className="font-semibold text-gray-900 mb-2">
+                  All Sessions Completed
+                </h5>
+                <p className="text-sm text-gray-600">
+                  All training sessions for this course have been successfully completed. 
+                  Click &quot;Complete Course&quot; to mark this booking as completed. This action 
+                  will update the booking status and cannot be undone.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {remainingAmount > 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+              <div className="flex items-start gap-3">
+                <ClockCircleOutlined className="text-yellow-600 text-xl mt-1" />
+                <div>
+                  <h5 className="font-semibold text-gray-900 mb-2">
+                    Pending Payment
+                  </h5>
+                  <p className="text-sm text-gray-600">
+                    There is a pending payment of <strong>₹{remainingAmount.toLocaleString("en-IN")}</strong>. 
+                    Please ensure all payments are collected before completing the course.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   );

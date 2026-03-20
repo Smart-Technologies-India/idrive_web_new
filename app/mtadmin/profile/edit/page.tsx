@@ -616,47 +616,47 @@ const EditSchoolProfilePage = () => {
                       key: "rule1",
                       label: "Rule 1",
                       placeholder:
-                        "One training session = 10 km driving within 1 hour.",
+                        "Enter Rule 1",
                     },
                     {
                       key: "rule2",
                       label: "Rule 2",
                       placeholder:
-                        "Students must record date, time, kms and sign after each session.",
+                        "Enter Rule 2",
                     },
                     {
                       key: "rule3",
                       label: "Rule 3",
                       placeholder:
-                        "Training sessions must be completed within 45 days from admission.",
+                        "Enter Rule 3",
                     },
                     {
                       key: "rule4",
                       label: "Rule 4",
                       placeholder:
-                        "Maximum 1–2 leaves allowed with 24 hours prior notice.",
+                        "Enter Rule 4",
                     },
                     {
                       key: "rule5",
                       label: "Rule 5",
                       placeholder:
-                        "Students must be ready 10 minutes before scheduled pickup time.",
+                        "Enter Rule 5",
                     },
                     {
                       key: "rule6",
                       label: "Rule 6",
                       placeholder:
-                        "Training vehicles are not allowed inside society premises or narrow lanes.",
+                        "Enter Rule 6",
                     },
                     {
                       key: "rule7",
                       label: "Rule 7",
-                      placeholder: "Enter rule 7...",
+                      placeholder: "Enter Rule 7",
                     },
                     {
                       key: "rule8",
                       label: "Rule 8",
-                      placeholder: "Enter rule 8...",
+                      placeholder: "Enter Rule 8",
                     },
                   ].map((rule) => (
                     <div key={rule.key}>

@@ -226,6 +226,11 @@ export default function MtAdminLayout({
       label: "Profile",
     },
     {
+      key: "reset-password",
+      icon: <span className="text-lg">🔐</span>,
+      label: "Reset Password",
+    },
+    {
       type: "divider",
     },
     {
@@ -237,6 +242,16 @@ export default function MtAdminLayout({
   ];
 
   const handleUserMenuClick: MenuProps["onClick"] = (e) => {
+    if (e.key == "profile") {
+      router.push("/mtadmin/profile");
+      return;
+    }
+
+    if (e.key == "reset-password") {
+      router.push("/mtadmin/reset-password");
+      return;
+    }
+
     if (e.key == "logout") {
       deleteCookie("id");
       deleteCookie("role");

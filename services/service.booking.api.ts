@@ -42,6 +42,9 @@ export interface BookingService {
     contact1: string;
     contact2?: string;
     email?: string;
+    fatherName?: string;
+    profile?: string;
+    address?: string;
   };
   school?: {
     id: number;
@@ -120,6 +123,9 @@ const GET_PAGINATED_BOOKING_SERVICES = `
           contact1
           contact2
           email
+          fatherName
+          profile
+          address
         }
         school {
           id
@@ -157,6 +163,7 @@ const GET_ALL_BOOKING_SERVICES = `
       createdAt
       updatedAt
       deletedAt
+      confirmationNumber
       booking {
         id
         bookingId
@@ -183,6 +190,9 @@ const GET_ALL_BOOKING_SERVICES = `
         contact1
         contact2
         email
+        fatherName
+        profile
+        address
       }
       school {
         id
@@ -218,6 +228,7 @@ const GET_BOOKING_SERVICE_BY_ID = `
       createdAt
       updatedAt
       deletedAt
+      confirmationNumber
       booking {
         id
         bookingId
@@ -244,6 +255,9 @@ const GET_BOOKING_SERVICE_BY_ID = `
         contact1
         contact2
         email
+        fatherName
+        profile
+        address
       }
       school {
         id

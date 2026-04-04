@@ -122,3 +122,39 @@ export const getAllPayments = async (whereSearchInput?: {
     variables: { whereSearchInput: whereSearchInput || {} },
   });
 };
+
+const UPDATE_PAYMENT = `
+  mutation UpdatePayment($id: Int!, $updateType: UpdatePaymentInput!) {
+    updatePayment(id: $id, updateType: $updateType) {
+      id
+      amount
+      paymentMethod
+      transactionId
+      bankName
+      installmentNumber
+      totalInstallments
+      notes
+      status
+      paymentNumber
+      paymentDate
+      updatedAt
+    }
+  }
+`;
+
+export const updatePayment = async (
+  id: number,
+  updateType: {
+    amount?: number;
+    paymentMethod?: string;
+    transactionId?: string;
+    bankName?: string;
+    notes?: string;
+    status?: string;
+  },
+) => {
+  return await ApiCall<{ updatePayment: Payment }>({
+    query: UPDATE_PAYMENT,
+    variables: { id, updateType },
+  });
+};

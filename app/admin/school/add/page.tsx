@@ -79,14 +79,13 @@ const AddSchoolPage = () => {
       }
 
       // Generate password: first 4 letters of school name (first capital, rest lowercase) + @ + last 4 digits of phone
-      const schoolNamePart = data.name.substring(0, 4);
+      const schoolNamePart = data.name.replaceAll(" ", "").substring(0, 4);
       const formattedSchoolName =
         schoolNamePart.charAt(0).toUpperCase() +
         schoolNamePart.slice(1).toLowerCase();
+
       const last4Digits = data.phone.slice(-4);
       const generatedPassword = `${formattedSchoolName}@${last4Digits}`;
-
-   
 
       // Create user for the school with MTADMIN role
       const userResponse = await ApiCall({
@@ -121,7 +120,7 @@ const AddSchoolPage = () => {
 
     onSuccess: (data) => {
       toast.success(
-        `School created successfully! Login credentials - Phone: ${data.school.phone}, Password: ${data.generatedPassword}`
+        `School created successfully! Login credentials - Phone: ${data.school.phone}, Password: ${data.generatedPassword}`,
       );
       router.push("/admin/school");
     },
@@ -295,7 +294,7 @@ const AddSchoolPage = () => {
                     methods.formState.isSubmitting ||
                     createSchoolWithUser.isPending
                   }
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 px-4 py-2 bg-linear-to-r from-indigo-600 to-blue-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   <AntDesignCheckOutlined />
                   {createSchoolWithUser.isPending

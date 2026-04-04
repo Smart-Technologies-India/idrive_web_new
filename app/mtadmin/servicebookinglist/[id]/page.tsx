@@ -814,7 +814,18 @@ const ServiceBookingViewPage = () => {
 
         {/* School Service Details */}
         {bookingService.schoolService && (
-          <Card title="School Service Details" className="shadow-sm">
+          <Card 
+            title="School Service Details" 
+            className="shadow-sm"
+            extra={
+              <Button
+                type="primary"
+                onClick={() => router.push(`/mtadmin/reports/service-certificate/${bookingServiceId}`)}
+              >
+                Download Certificate
+              </Button>
+            }
+          >
             <Descriptions bordered column={{ xs: 1, sm: 2, md: 2 }}>
               <Descriptions.Item label="School Service ID">
                 {bookingService.schoolService.schoolServiceId}
@@ -876,7 +887,7 @@ const ServiceBookingViewPage = () => {
                             icon={<EditOutlined />}
                             onClick={() => handleFullUpdateOpen(licenseApp)}
                           >
-                            Update
+                            Edit Booking
                           </Button>
                           {licenseApp.status === "PENDING" &&
                             (bookingService.schoolService?.service?.category ===

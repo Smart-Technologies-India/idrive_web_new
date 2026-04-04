@@ -297,7 +297,6 @@ export const updateUser = async (updateData: {
   profile?: string;
   status?: "ACTIVE" | "INACTIVE";
   schoolId?: number;
-  updatedById?: number;
 }) => {
   const { id, ...updateType } = updateData;
   return ApiCall<UpdateUserResponse>({

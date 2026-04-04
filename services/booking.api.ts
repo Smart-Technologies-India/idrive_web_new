@@ -100,6 +100,7 @@ export interface Booking {
     contact2?: string;
     address?: string;
     fatherName?: string;
+    profile?: string;
   };
   car?: {
     id: number;
@@ -196,6 +197,8 @@ const GET_PAGINATED_BOOKINGS = `
           contact1
           contact2
           address
+          fatherName
+          profile
         }
         car {
           id
@@ -382,6 +385,8 @@ const GET_BOOKING_BY_ID = `
         contact1
         contact2
         address
+        fatherName
+        profile
       }
       car {
         id

@@ -37,7 +37,7 @@ const AddDriverPage = () => {
       }
 
       // Generate password: First 4 letters (capitalized) + @ + last 4 mobile digits
-      const driverNamePart = data.name.substring(0, 4);
+      const driverNamePart = data.name.replaceAll(" ", "").substring(0, 4);
       const formattedName =
         driverNamePart.charAt(0).toUpperCase() +
         driverNamePart.slice(1).toLowerCase();
@@ -141,7 +141,7 @@ const AddDriverPage = () => {
   });
 
   const onSubmit = (data: AddDriverForm) => {
-    const driverNamePart = data.name.substring(0, 4);
+    const driverNamePart = data.name.replaceAll(" ", "").substring(0, 4);
     const formattedName =
       driverNamePart.charAt(0).toUpperCase() +
       driverNamePart.slice(1).toLowerCase();

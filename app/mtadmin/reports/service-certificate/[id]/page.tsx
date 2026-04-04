@@ -1,26 +1,26 @@
 "use client";
 
 import { useMemo } from "react";
-import { Avatar, Button, Image, Spin } from "antd";
+import { Button, Image, Spin } from "antd";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { getCookie } from "cookies-next";
 import dayjs from "dayjs";
-import { Fa6SolidAngleLeft, AntDesignBookOutlined, MaterialSymbolsPersonRounded } from "@/components/icons";
-import { getBookingById, type Booking } from "@/services/booking.api";
+import { Fa6SolidAngleLeft, AntDesignBookOutlined } from "@/components/icons";
+import { getBookingServiceById, type BookingService } from "@/services/service.booking.api";
 import { getSchoolById } from "@/services/school.api";
 import { baseurl } from "@/utils/conts";
 
 const CertificatePage = () => {
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const bookingId = parseInt(params.id || "0");
+  const bookingServiceId = parseInt(params.id || "0");
   const schoolId = parseInt(getCookie("school")?.toString() || "0");
 
-  const { data: bookingResponse, isLoading } = useQuery({
-    queryKey: ["booking-certificate", bookingId],
-    queryFn: () => getBookingById(bookingId),
-    enabled: !!bookingId,
+  const { data: bookingServiceResponse, isLoading } = useQuery({
+    queryKey: ["bookingservice-certificate", bookingServiceId],
+    queryFn: () => getBookingServiceById(bookingServiceId),
+    enabled: !!bookingServiceId,
   });
 
   const { data: schoolResponse } = useQuery({
@@ -29,54 +29,42 @@ const CertificatePage = () => {
     enabled: schoolId > 0,
   });
 
-  const booking: Booking | undefined = bookingResponse?.data?.getBookingById;
+  const bookingService: BookingService | undefined = bookingServiceResponse?.data?.getBookingServiceById;
   const school = schoolResponse?.data?.getSchoolById;
 
   const certificateData = useMemo(() => {
-    if (!booking) return null;
+    if (!bookingService) return null;
 
-    const sessions = booking.sessions || [];
-    const sortedSessions = [...sessions].sort(
-      (a, b) =>
-        new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime(),
-    );
-
-    const startDate = sortedSessions.length
-      ? sortedSessions[0].sessionDate
-      : booking.bookingDate;
-    const endDate = sortedSessions.length
-      ? sortedSessions[sortedSessions.length - 1].sessionDate
-      : booking.bookingDate;
-
-    // Determine course type based on course name
+    // Get data from user or booking
+    const userName = bookingService.user?.name || bookingService.booking?.customerName || "-";
+    const userSurname = bookingService.user?.surname || "";
+    const studentName = userSurname ? `${userName} ${userSurname}` : userName;
+    
+    // Determine course type based on service name
     let courseType = "LMV";
-    const courseName = (
-      booking.course?.courseName ||
-      booking.courseName ||
-      ""
-    ).toUpperCase();
-    if (courseName.includes("MCWG") || courseName.includes("TWO WHEELER")) {
+    const serviceName = (bookingService.serviceName || "").toUpperCase();
+    if (serviceName.includes("MCWG") || serviceName.includes("TWO WHEELER")) {
       courseType = "MCWG";
     } else if (
-      courseName.includes("LMV") ||
-      courseName.includes("CAR") ||
-      courseName.includes("FOUR WHEELER")
+      serviceName.includes("LMV") ||
+      serviceName.includes("CAR") ||
+      serviceName.includes("FOUR WHEELER")
     ) {
       courseType = "LMV";
     }
 
     return {
-      serialNumber: booking.bookingId,
-      studentName: booking.customerName || booking.customer?.name || "-",
-      fatherName: booking.customer?.fatherName || "-",
-      address: booking.customer?.address || "-",
-      enrollmentDate: booking.bookingDate,
+      serialNumber: bookingService.confirmationNumber,
+      studentName: studentName,
+      fatherName: bookingService.user?.fatherName || "-",
+      address: bookingService.user?.address || "-",
+      enrollmentDate: bookingService.createdAt,
       courseType,
-      trainingFrom: startDate,
-      trainingTo: endDate,
-      photo: booking.customer?.profile,
+      trainingFrom: bookingService.createdAt,
+      trainingTo: bookingService.updatedAt || bookingService.createdAt,
+      photo: bookingService.user?.profile ,
     };
-  }, [booking]);
+  }, [bookingService]);
 
   if (isLoading) {
     return (
@@ -86,11 +74,11 @@ const CertificatePage = () => {
     );
   }
 
-  if (!booking || !certificateData) {
+  if (!bookingService || !certificateData) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center text-red-600">
-          Certificate not found or invalid booking ID
+          Certificate not found or invalid booking service ID
         </div>
       </div>
     );
@@ -214,7 +202,6 @@ const CertificatePage = () => {
                         height={160}
                         className="object-contain"
                       />
-                     
                     ) : (
                       <div className="text-gray-400 text-xs text-center p-2">
                         Student
@@ -248,9 +235,7 @@ const CertificatePage = () => {
                     in our register in Form no. 14 and that he/she has undergone
                     the course of Training in Driving of{" "}
                   </span>
-                  <span className="text-red-600 font-bold">
-                    {certificateData.courseType}
-                  </span>
+                  <span className="text-red-600 font-bold">LMV</span>
                   <span className="font-semibold">
                     {" "}
                     according to the syllabus as prescribed in Motor Vehicle

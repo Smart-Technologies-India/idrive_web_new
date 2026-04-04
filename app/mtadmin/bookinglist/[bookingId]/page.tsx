@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { formatDate } from "@/utils/date-format";
 import {
@@ -16,6 +16,8 @@ import {
   Input,
   Select,
   InputNumber,
+  Form,
+  Steps,
   Dropdown,
 } from "antd";
 
@@ -32,6 +34,7 @@ import {
   getPaymentsByBooking,
   getTotalPaidAmount,
   createPayment,
+  updatePayment,
   type Payment,
 } from "@/services/payment.api";
 import {
@@ -43,9 +46,12 @@ import {
   DownloadOutlined,
   FilePdfOutlined,
   WhatsAppOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
 import { PaymentSchema, type PaymentFormData } from "@/schema/payment";
 import { getCookie } from "cookies-next";
+import { getUserById } from "@/services/user.api";
+import { sendOtp, verifyOtp as verifyUserOtp } from "@/services/auth.api";
 import { toast } from "react-toastify";
 import { convertSlotTo12Hour } from "@/utils/time-format";
 import { decryptURLData, encryptURLData } from "@/utils/methods";
@@ -71,6 +77,17 @@ const BookingDetailsPage = () => {
     status: "completed",
   });
   const [courseCompleteModal, setCourseCompleteModal] = useState(false);
+
+  // Edit payment modal state
+  const editTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [editForm] = Form.useForm();
+  const [editOtpForm] = Form.useForm();
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [editStep, setEditStep] = useState<"edit" | "otp">("edit");
+  const [editAdminContact, setEditAdminContact] = useState("");
+  const [editOtpCountdown, setEditOtpCountdown] = useState(0);
+  const [editLoading, setEditLoading] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["booking-details", bookingId],
@@ -485,6 +502,164 @@ const BookingDetailsPage = () => {
     },
   });
 
+  // Update payment mutation
+  const updatePaymentMutation = useMutation({
+    mutationFn: async ({
+      id,
+      updateType,
+    }: {
+      id: number;
+      updateType: {
+        amount?: number;
+        paymentMethod?: string;
+        transactionId?: string;
+        bankName?: string;
+        notes?: string;
+        status?: string;
+      };
+    }) => {
+      const res = await updatePayment(id, updateType);
+      console.log("Update Payment Response:", res);
+      if (!res.status || !res.data?.updatePayment) {
+        throw new Error(res.message || "Payment update failed");
+      }
+      return res.data.updatePayment;
+    },
+    onSuccess: () => {
+      toast.success("Payment updated successfully!");
+      queryClient.invalidateQueries({ queryKey: ["payments", bookingId] });
+      queryClient.invalidateQueries({ queryKey: ["payment-total", bookingId] });
+      closeEditModal();
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update payment: ${error.message}`);
+    },
+  });
+
+  const startEditCountdown = () => {
+    setEditOtpCountdown(60);
+    if (editTimerRef.current) clearInterval(editTimerRef.current);
+    editTimerRef.current = setInterval(() => {
+      setEditOtpCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(editTimerRef.current!);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const closeEditModal = () => {
+    if (editTimerRef.current) clearInterval(editTimerRef.current);
+    setEditModalVisible(false);
+    setEditingPayment(null);
+    setEditStep("edit");
+    setEditAdminContact("");
+    setEditOtpCountdown(0);
+    editForm.resetFields();
+    editOtpForm.resetFields();
+  };
+
+  const handleEditPayment = async (payment: Payment) => {
+    setEditLoading(true);
+    try {
+      const res = await getUserById(userId);
+      if (!res.status || !res.data.getUserById) {
+        toast.error("Unable to load admin profile. Please try again.");
+        return;
+      }
+      const contact = res.data.getUserById.contact1;
+      setEditAdminContact(contact);
+      setEditingPayment(payment);
+      editForm.setFieldsValue({
+        amount: payment.amount,
+        paymentMethod: payment.paymentMethod || "CASH",
+        transactionId: payment.transactionId || "",
+        bankName: payment.bankName || "",
+        notes: payment.notes || "",
+        status: payment.status,
+      });
+      setEditStep("edit");
+      setEditModalVisible(true);
+    } catch {
+      toast.error("Failed to open edit dialog. Please try again.");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleEditFormSubmit = async () => {
+    setEditLoading(true);
+    try {
+      const res = await sendOtp(editAdminContact);
+      if (!res.status) {
+        toast.error(res.message || "Failed to send OTP");
+        return;
+      }
+      startEditCountdown();
+      setEditStep("otp");
+      toast.success("OTP sent to your registered mobile number.");
+    } catch {
+      toast.error("Failed to send OTP. Please try again.");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleResendEditOtp = async () => {
+    if (editOtpCountdown > 0) return;
+    setEditLoading(true);
+    try {
+      const res = await sendOtp(editAdminContact);
+      if (!res.status) {
+        toast.error(res.message || "Failed to resend OTP");
+        return;
+      }
+      startEditCountdown();
+      toast.success("OTP resent successfully");
+    } catch {
+      toast.error("Failed to resend OTP. Please try again.");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleEditOtpVerify = async (values: { otp: string }) => {
+    if (!editingPayment) return;
+    setEditLoading(true);
+    try {
+      const verifyRes = await verifyUserOtp(editAdminContact, values.otp);
+      if (!verifyRes.status) {
+        toast.error(verifyRes.message || "Invalid OTP. Please try again.");
+        return;
+      }
+      const editValues = editForm.getFieldsValue() as {
+        amount: number;
+        paymentMethod: string;
+        transactionId: string;
+        bankName: string;
+        notes: string;
+        status: string;
+      };
+      await updatePaymentMutation.mutateAsync({
+        id: editingPayment.id,
+        updateType: {
+          amount: editValues.amount,
+          paymentMethod: editValues.paymentMethod || undefined,
+          transactionId: editValues.transactionId || undefined,
+          bankName: editValues.bankName || undefined,
+          notes: editValues.notes || undefined,
+          status: editValues.status,
+        },
+      });
+    } catch {
+      toast.error("OTP verification failed. Please try again.");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   // Handle form submission
   const onSubmit = (data: PaymentFormData) => {
     const installmentNum = payments.length + 1;
@@ -889,7 +1064,7 @@ const BookingDetailsPage = () => {
       )}
 
       <Card className="shadow-sm mb-6">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center">
           <h2 className="text-xl font-bold text-gray-900">Payment History</h2>
           <Button
             type="primary"
@@ -1047,12 +1222,28 @@ const BookingDetailsPage = () => {
                 </Dropdown>
               ),
             },
+            {
+              title: "Edit",
+              key: "edit",
+              width: 80,
+              fixed: "right",
+              render: (_, record) => (
+                <Button
+                  icon={<EditOutlined />}
+                  size="small"
+                  loading={editLoading && editingPayment?.id === record.id}
+                  onClick={() => handleEditPayment(record)}
+                >
+                  Edit
+                </Button>
+              ),
+            },
           ]}
           dataSource={payments}
           pagination={false}
           rowKey="id"
           size="small"
-          scroll={{ x: 1140 }}
+          scroll={{ x: 1220 }}
           locale={{
             emptyText: "No payment records found",
           }}
@@ -1467,6 +1658,209 @@ const BookingDetailsPage = () => {
             </div>
           )}
         </div>
+      </Modal>
+
+      {/* Edit Payment Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <EditOutlined className="text-blue-600" />
+            <span>
+              {editStep === "edit" ? "Edit Payment" : "Verify OTP to Save"}
+            </span>
+          </div>
+        }
+        open={editModalVisible}
+        onCancel={closeEditModal}
+        footer={null}
+        width={560}
+      >
+        <Steps
+          current={editStep === "edit" ? 0 : 1}
+          items={[{ title: "Edit Details" }, { title: "Verify OTP" }]}
+          size="small"
+          className="mb-6 mt-2"
+        />
+
+        {/* Step 1 — Edit fields */}
+        {editStep === "edit" && (
+          <Form
+            form={editForm}
+            layout="vertical"
+            onFinish={handleEditFormSubmit}
+            autoComplete="off"
+          >
+            <div className="grid grid-cols-2 gap-x-4">
+              <Form.Item
+                label="Amount"
+                name="amount"
+                rules={[
+                  { required: true, message: "Amount is required" },
+                  {
+                    validator(_, value) {
+                      if (!value || value < 1)
+                        return Promise.reject(
+                          new Error("Amount must be greater than 0"),
+                        );
+                      return Promise.resolve();
+                    },
+                  },
+                ]}
+              >
+                <InputNumber<number>
+                  className="w-full"
+                  prefix="₹"
+                  min={1}
+                  controls={false}
+                  formatter={(value) =>
+                    `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                  }
+                  parser={(value) =>
+                    parseFloat(value?.replace(/,/g, "") || "0")
+                  }
+                />
+              </Form.Item>
+
+              <Form.Item label="Payment Method" name="paymentMethod">
+                <Select placeholder="Select method">
+                  <Select.Option value="CASH">Cash</Select.Option>
+                  <Select.Option value="CARD">Card</Select.Option>
+                  <Select.Option value="UPI">UPI</Select.Option>
+                  <Select.Option value="NET_BANKING">Net Banking</Select.Option>
+                  <Select.Option value="CHEQUE">Cheque</Select.Option>
+                  <Select.Option value="OTHER">Other</Select.Option>
+                </Select>
+              </Form.Item>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-4">
+              <Form.Item
+                label="Transaction ID / Reference"
+                name="transactionId"
+              >
+                <Input placeholder="Optional" />
+              </Form.Item>
+
+              <Form.Item label="Bank Name" name="bankName">
+                <Input placeholder="Optional" />
+              </Form.Item>
+            </div>
+
+            <Form.Item label="Status" name="status">
+              <Select>
+                <Select.Option value="COMPLETED">Completed</Select.Option>
+                <Select.Option value="PENDING">Pending</Select.Option>
+                <Select.Option value="FAILED">Failed</Select.Option>
+                <Select.Option value="REFUNDED">Refunded</Select.Option>
+              </Select>
+            </Form.Item>
+
+            <Form.Item label="Notes" name="notes">
+              <Input.TextArea
+                rows={3}
+                placeholder="Optional notes about this payment"
+              />
+            </Form.Item>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button onClick={closeEditModal}>Cancel</Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={editLoading}
+                className="bg-blue-600!"
+              >
+                Send OTP &amp; Update
+              </Button>
+            </div>
+          </Form>
+        )}
+
+        {/* Step 2 — OTP verification */}
+        {editStep === "otp" && (
+          <Form
+            form={editOtpForm}
+            layout="vertical"
+            onFinish={handleEditOtpVerify}
+            autoComplete="off"
+          >
+            <p className="text-gray-500 text-sm mb-4">
+              OTP sent to{" "}
+              <span className="font-semibold text-gray-800">
+                {editAdminContact}
+              </span>
+              . Enter it below to confirm the update.
+            </p>
+
+            <Form.Item
+              label="Enter OTP"
+              name="otp"
+              rules={[
+                { required: true, message: "Please enter the OTP" },
+                { len: 6, message: "OTP must be 6 digits" },
+                {
+                  pattern: /^\d{6}$/,
+                  message: "OTP must contain only digits",
+                },
+              ]}
+            >
+              <Input
+                size="large"
+                maxLength={6}
+                placeholder="Enter 6-digit OTP"
+                className="tracking-widest text-center text-lg font-mono"
+              />
+            </Form.Item>
+
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm text-gray-500">
+                {editOtpCountdown > 0 ? (
+                  <>
+                    Resend OTP in{" "}
+                    <span className="font-semibold text-blue-600">
+                      {editOtpCountdown}s
+                    </span>
+                  </>
+                ) : (
+                  "Didn't receive the OTP?"
+                )}
+              </span>
+              <button
+                type="button"
+                disabled={editOtpCountdown > 0 || editLoading}
+                onClick={handleResendEditOtp}
+                className={`text-sm font-medium transition-colors ${
+                  editOtpCountdown > 0
+                    ? "text-gray-400 cursor-not-allowed"
+                    : "text-blue-600 hover:text-purple-600 cursor-pointer"
+                }`}
+              >
+                Resend OTP
+              </button>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                onClick={() => {
+                  if (editTimerRef.current) clearInterval(editTimerRef.current);
+                  setEditOtpCountdown(0);
+                  editOtpForm.resetFields();
+                  setEditStep("edit");
+                }}
+              >
+                Back
+              </Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={editLoading || updatePaymentMutation.isPending}
+                className="bg-blue-600!"
+              >
+                Verify &amp; Save
+              </Button>
+            </div>
+          </Form>
+        )}
       </Modal>
     </div>
   );

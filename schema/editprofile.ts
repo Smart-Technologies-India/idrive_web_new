@@ -57,7 +57,17 @@ const EditProfileSchema = object({
     regex(/^(19|20)\d{2}$/, "Please enter valid year (e.g., 2022)"),
   ),
   website: optional(
-    pipe(string("Enter website URL"), url("Please enter valid URL")),
+    pipe(
+      string(),
+      check(
+        (value) => value == "" || /^https?:\/\/.+/.test(value),
+        "Please enter valid URL",
+      ),
+    ),
+  ),
+  slotDuration: pipe(
+    string("Select slot duration"),
+    regex(/^(30|60)$/, "Please select valid slot duration"),
   ),
 
   // Operating Hours

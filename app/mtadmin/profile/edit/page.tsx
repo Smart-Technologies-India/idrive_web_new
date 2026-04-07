@@ -21,6 +21,7 @@ import {
 import { Button, Spin, Alert } from "antd";
 import { getCookie } from "cookies-next";
 import { getSchoolById, updateSchool } from "@/services/school.api";
+import { getAllCourses } from "@/services/course.api";
 import {
   getAllTraingRules,
   createTraingRules,
@@ -119,6 +120,16 @@ const EditSchoolProfilePage = () => {
     enabled: schoolId > 0,
   });
 
+  // Fetch active/running courses to restrict slotDuration editing
+  const { data: activeCoursesResponse } = useQuery({
+    queryKey: ["activeCourses", schoolId],
+    queryFn: () => getAllCourses({ schoolId, status: "ACTIVE" }),
+    enabled: schoolId > 0,
+  });
+
+  const hasActiveCourses =
+    (activeCoursesResponse?.data?.getAllCourse?.length ?? 0) > 0;
+
   // Set form values when data is loaded
   useEffect(() => {
     if (
@@ -137,6 +148,7 @@ const EditSchoolProfilePage = () => {
         gstNumber: school.gstNumber || "",
         establishedYear: school.establishedYear || "",
         website: school.website || "",
+        slotDuration: school.slotDuration?.toString() || "60",
         dayStartTime: convertTo12Hour(school.dayStartTime),
         dayEndTime: convertTo12Hour(school.dayEndTime),
         lunchStartTime: convertTo12Hour(school.lunchStartTime),
@@ -207,6 +219,7 @@ const EditSchoolProfilePage = () => {
             : undefined,
         establishedYear: data.establishedYear,
         website: data.website || undefined,
+        slotDuration: Number(data.slotDuration),
         dayStartTime: convertTo24Hour(data.dayStartTime),
         dayEndTime: convertTo24Hour(data.dayEndTime),
         lunchStartTime: convertTo24Hour(data.lunchStartTime),
@@ -473,6 +486,25 @@ const EditSchoolProfilePage = () => {
                     use12Hours={true}
                     minuteStep={30}
                   />
+                  <div className="flex col-span-2 md:col-span-4 lg:col-span-4 items-center gap-4">
+                    <MultiSelect<EditProfileForm>
+                      title="Slot Duration"
+                      required={true}
+                      name="slotDuration"
+                      placeholder="Select slot duration"
+                      disable={hasActiveCourses}
+                      options={[
+                        { label: "30 Minutes", value: "30" },
+                        { label: "60 Minutes", value: "60" },
+                      ]}
+                    />
+                    {hasActiveCourses && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        ⚠️ Cannot change slot duration while active courses
+                        exist.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -615,38 +647,32 @@ const EditSchoolProfilePage = () => {
                     {
                       key: "rule1",
                       label: "Rule 1",
-                      placeholder:
-                        "Enter Rule 1",
+                      placeholder: "Enter Rule 1",
                     },
                     {
                       key: "rule2",
                       label: "Rule 2",
-                      placeholder:
-                        "Enter Rule 2",
+                      placeholder: "Enter Rule 2",
                     },
                     {
                       key: "rule3",
                       label: "Rule 3",
-                      placeholder:
-                        "Enter Rule 3",
+                      placeholder: "Enter Rule 3",
                     },
                     {
                       key: "rule4",
                       label: "Rule 4",
-                      placeholder:
-                        "Enter Rule 4",
+                      placeholder: "Enter Rule 4",
                     },
                     {
                       key: "rule5",
                       label: "Rule 5",
-                      placeholder:
-                        "Enter Rule 5",
+                      placeholder: "Enter Rule 5",
                     },
                     {
                       key: "rule6",
                       label: "Rule 6",
-                      placeholder:
-                        "Enter Rule 6",
+                      placeholder: "Enter Rule 6",
                     },
                     {
                       key: "rule7",

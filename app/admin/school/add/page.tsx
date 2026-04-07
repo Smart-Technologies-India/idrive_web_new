@@ -6,10 +6,12 @@ import { onFormError } from "@/utils/methods";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { ApiCall } from "@/services/api";
+import { createSchool } from "@/services/school.api";
 import { toast } from "react-toastify";
 import { AddSchoolForm, AddSchoolSchema } from "@/schema/addschool";
 import { TextInput } from "@/components/form/inputfields/textinput";
 import { TaxtAreaInput } from "@/components/form/inputfields/textareainput";
+import { Select } from "@/components/form/inputfields/select";
 import {
   IcBaselineArrowBack,
   AntDesignCheckOutlined,
@@ -19,8 +21,9 @@ import { Button } from "antd";
 type CreateSchoolResponse = {
   id: number;
   name: string;
-  email: string;
+  email?: string | null;
   phone: string;
+  slotDuration: number;
 };
 
 type CreateUserResponse = {
@@ -31,10 +34,16 @@ type CreateUserResponse = {
 
 const AddSchoolPage = () => {
   const router = useRouter();
+  const slotDurationOptions = [
+    { label: "30 Minutes", value: "30" },
+    { label: "60 Minutes", value: "60" },
+  ];
+
   const methods = useForm<AddSchoolForm>({
     resolver: valibotResolver(AddSchoolSchema),
     defaultValues: {
       website: "https://www.",
+      slotDuration: "60",
     },
   });
 
@@ -42,37 +51,24 @@ const AddSchoolPage = () => {
     mutationKey: ["createSchoolWithUser"],
     mutationFn: async (data: AddSchoolForm) => {
       // First, create the school
-      const schoolResponse = await ApiCall({
-        query: `mutation CreateSchool($inputType: CreateSchoolInput!) {
-          createSchool(inputType: $inputType) {
-            id
-            name
-            email
-            phone
-          }
-        }`,
-        variables: {
-          inputType: {
-            name: data.name,
-            email: data.email,
-            phone: data.phone,
-            alternatePhone: data.alternatePhone || null,
-            address: data.address,
-            registrationNumber: data.registrationNumber,
-            gstNumber: data.gstNumber || null,
-            establishedYear: data.establishedYear,
-            website: data.website || null,
-          },
-        },
+      const schoolResponse = await createSchool({
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        alternatePhone: data.alternatePhone || undefined,
+        address: data.address,
+        registrationNumber: data.registrationNumber,
+        gstNumber: data.gstNumber || undefined,
+        establishedYear: data.establishedYear,
+        website: data.website || undefined,
+        slotDuration: Number(data.slotDuration),
       });
 
       if (!schoolResponse.status) {
         throw new Error(schoolResponse.message || "Failed to create school");
       }
 
-      const school = (schoolResponse.data as Record<string, unknown>)[
-        "createSchool"
-      ] as CreateSchoolResponse;
+      const school = schoolResponse.data.createSchool as CreateSchoolResponse;
 
       if (!school) {
         throw new Error("School not created");
@@ -206,6 +202,14 @@ const AddSchoolPage = () => {
                     required={false}
                     name="website"
                     placeholder="https://www.yourschool.com"
+                  />
+
+                  <Select<AddSchoolForm>
+                    title="Slot Duration"
+                    required={true}
+                    name="slotDuration"
+                    placeholder="Select slot duration"
+                    options={slotDurationOptions}
                   />
 
                   <div className="md:col-span-2">

@@ -99,6 +99,7 @@ interface Holiday {
 const generateTimeSlots = (
   startTime: string,
   endTime: string,
+  slotDuration: number,
   lunchStart?: string,
   lunchEnd?: string
 ): string[] => {
@@ -121,11 +122,17 @@ const generateTimeSlots = (
   const endMinutes = parseTime(endTime);
   const lunchStartMinutes = lunchStart ? parseTime(lunchStart) : null;
   const lunchEndMinutes = lunchEnd ? parseTime(lunchEnd) : null;
+  const effectiveSlotDuration =
+    slotDuration == 30 || slotDuration == 60 ? slotDuration : 60;
 
   let currentMinutes = startMinutes;
 
   while (currentMinutes < endMinutes) {
-    const nextMinutes = currentMinutes + 60;
+    const nextMinutes = currentMinutes + effectiveSlotDuration;
+
+    if (nextMinutes > endMinutes) {
+      break;
+    }
 
     // Skip if slot overlaps with lunch time
     if (lunchStartMinutes !== null && lunchEndMinutes !== null) {
@@ -148,24 +155,28 @@ const generateTimeSlots = (
   return slots;
 };
 
-// Helper function to categorize slots
-const categorizeSlots = (slots: string[]) => {
-  const morning: string[] = [];
-  const afternoon: string[] = [];
-  const evening: string[] = [];
+// Helper function to categorize slots (3 equal parts for 60-min, 5 equal parts for 30-min)
+const categorizeSlots = (slots: string[], slotDuration: number) => {
+  if (slotDuration === 30) {
+    const total = slots.length;
+    const partSize = Math.ceil(total / 5);
+    return {
+      earlyMorning: slots.slice(0, partSize),
+      morning: slots.slice(partSize, partSize * 2),
+      afternoon: slots.slice(partSize * 2, partSize * 3),
+      evening: slots.slice(partSize * 3, partSize * 4),
+      lateEvening: slots.slice(partSize * 4),
+    };
+  }
 
-  slots.forEach((slot) => {
-    const hour = parseInt(slot.split(":")[0]);
-    if (hour < 12) {
-      morning.push(slot);
-    } else if (hour < 17) {
-      afternoon.push(slot);
-    } else {
-      evening.push(slot);
-    }
-  });
-
-  return { morning, afternoon, evening };
+  // 3 equal parts for 60-min slots
+  const total = slots.length;
+  const partSize = Math.ceil(total / 3);
+  return {
+    morning: slots.slice(0, partSize),
+    afternoon: slots.slice(partSize, partSize * 2),
+    evening: slots.slice(partSize * 2),
+  };
 };
 
 const CarScheduler = () => {
@@ -175,7 +186,7 @@ const CarScheduler = () => {
   const [pageSize] = useState(10);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<
-    "morning" | "afternoon" | "evening"
+    "earlyMorning" | "morning" | "afternoon" | "evening" | "lateEvening"
   >("morning");
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showBookedUsersModal, setShowBookedUsersModal] = useState(false);
@@ -223,16 +234,21 @@ const CarScheduler = () => {
     if (!schoolData?.dayStartTime || !schoolData?.dayEndTime) {
       return [];
     }
+
     return generateTimeSlots(
       schoolData.dayStartTime,
       schoolData.dayEndTime,
+      schoolData.slotDuration,
       schoolData.lunchStartTime || undefined,
       schoolData.lunchEndTime || undefined
     );
   }, [schoolData]);
 
   // Categorize slots by time period
-  const timeSlots = useMemo(() => categorizeSlots(allSlots), [allSlots]);
+  const timeSlots = useMemo(
+    () => categorizeSlots(allSlots, schoolData?.slotDuration ?? 60),
+    [allSlots, schoolData?.slotDuration]
+  );
 
   // Fetch cars for the school
   const {
@@ -674,7 +690,7 @@ const CarScheduler = () => {
   };
 
   // Get current time slots based on active tab
-  const currentSlots = timeSlots[activeTab];
+  const currentSlots: string[] = (timeSlots as Record<string, string[]>)[activeTab] ?? [];
 
   const columns: ColumnsType<EnrichedCar> = [
     {
@@ -745,12 +761,14 @@ const CarScheduler = () => {
     // Time slot columns - only show slots for active tab
     ...currentSlots.map((slot) => ({
       title: (
-        <div className="text-center py-1">
-          <div className="font-bold text-base">{convertSlotTo12Hour(slot)}</div>
+        <div className="text-center py-1 px-1">
+          <div className="font-bold text-xs leading-tight whitespace-normal wrap-break-word">
+            {convertSlotTo12Hour(slot)}
+          </div>
         </div>
       ),
       key: slot,
-      width: 110,
+      width: 140,
       render: (_: unknown, car: EnrichedCar) => renderSlotCell(car, slot),
     })),
   ];
@@ -1102,36 +1120,81 @@ const CarScheduler = () => {
           <Tabs
             activeKey={activeTab}
             onChange={(key) =>
-              setActiveTab(key as "morning" | "afternoon" | "evening")
+              setActiveTab(key as "earlyMorning" | "morning" | "afternoon" | "evening" | "lateEvening")
             }
             size="large"
             className="px-4 pt-3"
-            items={[
-              {
-                key: "morning",
-                label: (
-                  <span className="text-base font-semibold px-4">
-                    🌅 Morning
-                  </span>
-                ),
-              },
-              {
-                key: "afternoon",
-                label: (
-                  <span className="text-base font-semibold px-4">
-                    ☀️ Afternoon
-                  </span>
-                ),
-              },
-              {
-                key: "evening",
-                label: (
-                  <span className="text-base font-semibold px-4">
-                    🌙 Evening
-                  </span>
-                ),
-              },
-            ]}
+            items={
+              schoolData?.slotDuration === 30
+                ? [
+                    {
+                      key: "earlyMorning",
+                      label: (
+                        <span className="text-base font-semibold px-4">
+                          🌄 Early Morning
+                        </span>
+                      ),
+                    },
+                    {
+                      key: "morning",
+                      label: (
+                        <span className="text-base font-semibold px-4">
+                          🌅 Morning
+                        </span>
+                      ),
+                    },
+                    {
+                      key: "afternoon",
+                      label: (
+                        <span className="text-base font-semibold px-4">
+                           ☀️ Afternoon
+                        </span>
+                      ),
+                    },
+                    {
+                      key: "evening",
+                      label: (
+                        <span className="text-base font-semibold px-4">
+                          🌙 Evening
+                        </span>
+                      ),
+                    },
+                    {
+                      key: "lateEvening",
+                      label: (
+                        <span className="text-base font-semibold px-4">
+                          🌙 Late Evening
+                        </span>
+                      ),
+                    },
+                  ]
+                : [
+                    {
+                      key: "morning",
+                      label: (
+                        <span className="text-base font-semibold px-4">
+                          🌅 Morning
+                        </span>
+                      ),
+                    },
+                    {
+                      key: "afternoon",
+                      label: (
+                        <span className="text-base font-semibold px-4">
+                          ☀️ Afternoon
+                        </span>
+                      ),
+                    },
+                    {
+                      key: "evening",
+                      label: (
+                        <span className="text-base font-semibold px-4">
+                          🌙 Evening
+                        </span>
+                      ),
+                    },
+                  ]
+            }
           />
 
           {/* Schedule Table */}

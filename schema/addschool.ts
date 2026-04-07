@@ -55,6 +55,10 @@ const AddSchoolSchema = object({
       url("Please enter valid URL")
     )
   ),
+  slotDuration: pipe(
+    string("Select slot duration"),
+    regex(/^(30|60)$/, "Please select valid slot duration")
+  ),
 });
 
 type AddSchoolForm = InferInput<typeof AddSchoolSchema>;

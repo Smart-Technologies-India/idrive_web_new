@@ -23,7 +23,6 @@ const HolidayViewPage = () => {
   });
 
   const holiday = holidayResponse?.data?.getHolidayById;
-  console.log("Fetched holiday data:", holiday);
 
   // Calculate status based on dates
   const getHolidayStatus = (

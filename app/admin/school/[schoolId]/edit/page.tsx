@@ -8,6 +8,8 @@ import {
 } from "@/components/icons";
 import { useRouter } from "next/navigation";
 import { getSchoolById, updateSchool } from "@/services/school.api";
+import { getAllCourses } from "@/services/course.api";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 
 const { TextArea } = Input;
@@ -22,6 +24,7 @@ interface SchoolFormValues {
   gstNumber: string;
   establishedYear: string;
   website: string;
+  slotDuration: number;
   status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
 }
 
@@ -35,6 +38,18 @@ const EditSchoolPage = ({
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+
+  const schoolIdNum = parseInt(resolvedParams.schoolId);
+
+  // Fetch active courses to restrict slotDuration editing
+  const { data: activeCoursesResponse } = useQuery({
+    queryKey: ["activeCourses", schoolIdNum],
+    queryFn: () => getAllCourses({ schoolId: schoolIdNum, status: "ACTIVE" }),
+    enabled: !isNaN(schoolIdNum) && schoolIdNum > 0,
+  });
+
+  const hasActiveCourses =
+    (activeCoursesResponse?.data?.getAllCourse?.length ?? 0) > 0;
 
   // Load existing data
   useEffect(() => {
@@ -55,6 +70,7 @@ const EditSchoolPage = ({
             gstNumber: school.gstNumber,
             establishedYear: school.establishedYear,
             website: school.website,
+            slotDuration: school.slotDuration,
             status: school.status,
           });
         }
@@ -213,6 +229,31 @@ const EditSchoolPage = ({
                   <Input
                     size="large"
                     placeholder="https://www.yourschool.com"
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  label="Slot Duration"
+                  name="slotDuration"
+                  rules={[
+                    { required: true, message: "Please select slot duration" },
+                  ]}
+                  extra={
+                    hasActiveCourses ? (
+                      <span className="text-amber-600 text-xs">
+                        ⚠️ Cannot change slot duration while active courses exist.
+                      </span>
+                    ) : undefined
+                  }
+                >
+                  <Select
+                    size="large"
+                    placeholder="Select slot duration"
+                    disabled={hasActiveCourses}
+                    options={[
+                      { label: "30 Minutes", value: 30 },
+                      { label: "60 Minutes", value: 60 },
+                    ]}
                   />
                 </Form.Item>
 

@@ -19,6 +19,7 @@ export interface School {
   lunchEndTime?: string;
   weeklyHoliday?: string;
   testHoliday?: string;
+  slotDuration: number;
   ownerName?: string;
   ownerPhone?: string;
   ownerEmail?: string;
@@ -113,6 +114,7 @@ const GET_PAGINATED_SCHOOLS = `
         establishedYear
         website
         logo
+        slotDuration
         status
         createdAt
         updatedAt
@@ -144,6 +146,7 @@ const GET_SCHOOL_BY_ID = `
       lunchEndTime
       weeklyHoliday
       testHoliday
+      slotDuration
       ownerName
       ownerPhone
       ownerEmail
@@ -180,6 +183,7 @@ const CREATE_SCHOOL = `
       establishedYear
       website
       logo
+      slotDuration
       status
       createdAt
     }
@@ -206,6 +210,7 @@ const UPDATE_SCHOOL = `
       lunchEndTime
       weeklyHoliday
       testHoliday
+      slotDuration
       ownerName
       ownerPhone
       ownerEmail
@@ -256,6 +261,7 @@ const GET_ALL_SCHOOLS_WITH_COUNTS = `
       establishedYear
       website
       logo
+      slotDuration
       status
       createdAt
       updatedAt
@@ -310,14 +316,15 @@ export const getSchoolById = async (id: number) => {
 
 export const createSchool = async (inputType: {
   name: string;
-  email: string;
+  email?: string;
   phone: string;
   alternatePhone?: string;
   address: string;
   registrationNumber: string;
-  gstNumber: string;
+  gstNumber?: string;
   establishedYear: string;
-  website: string;
+  website?: string;
+  slotDuration: number;
   logo?: string;
 }) => {
   return ApiCall<CreateSchoolResponse>({
@@ -346,6 +353,7 @@ export const updateSchool = async (updateData: {
   lunchEndTime?: string;
   weeklyHoliday?: string;
   testHoliday?: string;
+  slotDuration?: number;
   // Owner details
   ownerName?: string;
   ownerPhone?: string;

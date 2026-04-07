@@ -285,7 +285,6 @@ const AdminLoginPage = () => {
         onCancel={closeForgot}
         footer={null}
         width={440}
-        destroyOnClose
       >
         <Steps
           current={fpStep}

@@ -19,6 +19,7 @@ import {
 import { getCookie } from "cookies-next";
 import { getPaginatedCars, type Car } from "@/services/car.api";
 import { createHoliday } from "@/services/holiday.api";
+import { getSchoolById } from "@/services/school.api";
 import { convert24To12Hour } from "@/utils/time-format";
 import dayjs from "dayjs";
 
@@ -64,6 +65,15 @@ const HolidayDeclarationPage = () => {
 
   const cars = carsResponse?.data?.getPaginatedCar?.data || [];
 
+  // Fetch school data for slot duration
+  const { data: schoolResponse } = useQuery({
+    queryKey: ["school", schoolId],
+    queryFn: () => getSchoolById(schoolId),
+    enabled: schoolId > 0,
+  });
+
+  const schoolData = schoolResponse?.data?.getSchoolById;
+
   // Convert cars to options for dropdown
   const carOptions: OptionValue[] = cars.map((car: Car) => ({
     label: `${car.carName} ${car.model} (${car.registrationNumber})`,
@@ -80,18 +90,52 @@ const HolidayDeclarationPage = () => {
     { icon: "📝", label: "Custom", value: "" },
   ];
 
-  // Generate time slots from 7 AM to 10 PM with 1-hour intervals
+  // Generate time slots based on school settings
   const generateTimeSlots = (): OptionValue[] => {
+    const startTime = schoolData?.dayStartTime || "07:00";
+    const endTime = schoolData?.dayEndTime || "22:00";
+    const slotDuration = schoolData?.slotDuration;
+    const effectiveSlotDuration =
+      slotDuration == 30 || slotDuration == 60 ? slotDuration : 60;
+
+    const parseTime = (time: string) => {
+      const [hours, minutes] = time.split(":").map(Number);
+      return hours * 60 + minutes;
+    };
+    const formatTime = (minutes: number) => {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
+    };
+
+    const lunchStartMinutes = schoolData?.lunchStartTime
+      ? parseTime(schoolData.lunchStartTime)
+      : null;
+    const lunchEndMinutes = schoolData?.lunchEndTime
+      ? parseTime(schoolData.lunchEndTime)
+      : null;
+
     const slots: OptionValue[] = [];
-    for (let hour = 7; hour < 22; hour++) {
-      const startTime = `${hour.toString().padStart(2, "0")}:00`;
-      const endTime = `${(hour + 1).toString().padStart(2, "0")}:00`;
-      const slotValue = `${startTime}-${endTime}`;
-      const slotLabel = `${convert24To12Hour(startTime)} - ${convert24To12Hour(endTime)}`;
-      slots.push({
-        value: slotValue,
-        label: slotLabel,
-      });
+    let currentMinutes = parseTime(startTime);
+    const endMinutes = parseTime(endTime);
+
+    while (currentMinutes < endMinutes) {
+      const nextMinutes = currentMinutes + effectiveSlotDuration;
+      if (nextMinutes > endMinutes) { break; }
+
+      const isInLunchTime =
+        lunchStartMinutes !== null &&
+        lunchEndMinutes !== null &&
+        ((currentMinutes >= lunchStartMinutes && currentMinutes < lunchEndMinutes) ||
+          (nextMinutes > lunchStartMinutes && nextMinutes <= lunchEndMinutes) ||
+          (currentMinutes < lunchStartMinutes && nextMinutes > lunchEndMinutes));
+
+      if (!isInLunchTime) {
+        const slotValue = `${formatTime(currentMinutes)}-${formatTime(nextMinutes)}`;
+        const slotLabel = `${convert24To12Hour(formatTime(currentMinutes))} - ${convert24To12Hour(formatTime(nextMinutes))}`;
+        slots.push({ value: slotValue, label: slotLabel });
+      }
+      currentMinutes = nextMinutes;
     }
     return slots;
   };

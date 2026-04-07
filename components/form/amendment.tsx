@@ -427,6 +427,55 @@ const fetchBookingsWithSessions = async (
   }
 };
 
+// Helper function to generate time slots
+const generateTimeSlots = (
+  startTime: string,
+  endTime: string,
+  slotDuration: number,
+  lunchStart?: string,
+  lunchEnd?: string,
+): string[] => {
+  const slots: string[] = [];
+  const effectiveSlotDuration =
+    slotDuration == 30 || slotDuration == 60 ? slotDuration : 60;
+
+  const parseTime = (time: string) => {
+    const [hours, minutes] = time.split(":").map(Number);
+    return hours * 60 + minutes;
+  };
+
+  const formatTime = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
+  };
+
+  const startMinutes = parseTime(startTime);
+  const endMinutes = parseTime(endTime);
+  const lunchStartMinutes = lunchStart ? parseTime(lunchStart) : null;
+  const lunchEndMinutes = lunchEnd ? parseTime(lunchEnd) : null;
+
+  let currentMinutes = startMinutes;
+  while (currentMinutes < endMinutes) {
+    const nextMinutes = currentMinutes + effectiveSlotDuration;
+    if (nextMinutes > endMinutes) { break; }
+
+    if (lunchStartMinutes !== null && lunchEndMinutes !== null) {
+      const isInLunchTime =
+        (currentMinutes >= lunchStartMinutes && currentMinutes < lunchEndMinutes) ||
+        (nextMinutes > lunchStartMinutes && nextMinutes <= lunchEndMinutes) ||
+        (currentMinutes < lunchStartMinutes && nextMinutes > lunchEndMinutes);
+      if (!isInLunchTime) {
+        slots.push(`${formatTime(currentMinutes)}-${formatTime(nextMinutes)}`);
+      }
+    } else {
+      slots.push(`${formatTime(currentMinutes)}-${formatTime(nextMinutes)}`);
+    }
+    currentMinutes = nextMinutes;
+  }
+  return slots;
+};
+
 const AmendmentForm = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -2394,22 +2443,20 @@ const AmendmentForm = () => {
                                   size="large"
                                   className="w-full"
                                   placeholder="Select time slot"
-                                  options={[
-                                    { value: "06:00-07:00", label: "06:00 - 07:00 AM" },
-                                    { value: "07:00-08:00", label: "07:00 - 08:00 AM" },
-                                    { value: "08:00-09:00", label: "08:00 - 09:00 AM" },
-                                    { value: "09:00-10:00", label: "09:00 - 10:00 AM" },
-                                    { value: "10:00-11:00", label: "10:00 - 11:00 AM" },
-                                    { value: "11:00-12:00", label: "11:00 - 12:00 PM" },
-                                    { value: "12:00-13:00", label: "12:00 - 01:00 PM" },
-                                    { value: "13:00-14:00", label: "01:00 - 02:00 PM" },
-                                    { value: "14:00-15:00", label: "02:00 - 03:00 PM" },
-                                    { value: "15:00-16:00", label: "03:00 - 04:00 PM" },
-                                    { value: "16:00-17:00", label: "04:00 - 05:00 PM" },
-                                    { value: "17:00-18:00", label: "05:00 - 06:00 PM" },
-                                    { value: "18:00-19:00", label: "06:00 - 07:00 PM" },
-                                    { value: "19:00-20:00", label: "07:00 - 08:00 PM" },
-                                  ]}
+                                  options={
+                                    schoolData?.dayStartTime && schoolData?.dayEndTime
+                                      ? generateTimeSlots(
+                                          schoolData.dayStartTime,
+                                          schoolData.dayEndTime,
+                                          schoolData.slotDuration,
+                                          schoolData.lunchStartTime || undefined,
+                                          schoolData.lunchEndTime || undefined,
+                                        ).map((slot) => ({
+                                          value: slot,
+                                          label: convertSlotTo12Hour(slot),
+                                        }))
+                                      : []
+                                  }
                                 />
                               </div>
 

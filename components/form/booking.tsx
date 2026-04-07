@@ -129,10 +129,14 @@ type GetAllBookingSessionResponse = {
 const generateTimeSlots = (
   startTime: string,
   endTime: string,
+  slotDuration: number,
   lunchStart?: string,
   lunchEnd?: string,
 ): string[] => {
   const slots: string[] = [];
+
+  const effectiveSlotDuration =
+    slotDuration == 30 || slotDuration == 60 ? slotDuration : 60;
 
   const parseTime = (time: string) => {
     const [hours, minutes] = time.split(":").map(Number);
@@ -155,7 +159,8 @@ const generateTimeSlots = (
   let currentMinutes = startMinutes;
 
   while (currentMinutes < endMinutes) {
-    const nextMinutes = currentMinutes + 60;
+    const nextMinutes = currentMinutes + effectiveSlotDuration;
+    if (nextMinutes > endMinutes) { break; }
 
     // Skip if slot overlaps with lunch time
     if (lunchStartMinutes !== null && lunchEndMinutes !== null) {
@@ -646,6 +651,7 @@ const BookingForm = () => {
       const allSlots = generateTimeSlots(
         schoolData.dayStartTime,
         schoolData.dayEndTime,
+        schoolData.slotDuration,
         schoolData.lunchStartTime || undefined,
         schoolData.lunchEndTime || undefined,
       );

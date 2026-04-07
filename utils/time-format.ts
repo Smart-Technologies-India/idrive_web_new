@@ -28,5 +28,6 @@ export function convertSlotTo12Hour(slot: string): string {
     return slot; // Return original if invalid format
   }
   
-  return `${convert24To12Hour(start)} - ${convert24To12Hour(end)}`;
+  // return `${convert24To12Hour(start)} - ${convert24To12Hour(end)}`;
+  return `${convert24To12Hour(start)}`;
 }

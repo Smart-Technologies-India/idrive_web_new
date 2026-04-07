@@ -260,6 +260,11 @@ const SchoolDetailPage = ({ params }: { params: Promise<{ schoolId: string }> })
           className="shadow-sm"
         >
           <Descriptions column={{ xs: 1, sm: 2, md: 3 }} bordered>
+            <Descriptions.Item label="Slot Duration">
+              <Tag color="blue" className="!text-base !px-4 !py-1">
+                {schoolData.slotDuration} Minutes
+              </Tag>
+            </Descriptions.Item>
             <Descriptions.Item label="Day Start Time">
               {schoolData.dayStartTime ? (
                 <Tag color="green" className="!text-base !px-4 !py-1">

@@ -20,6 +20,7 @@ import { getCookie } from "cookies-next";
 import { createCourse } from "@/services/course.api";
 import { getPaginatedCars } from "@/services/car.api";
 import { createCarCourse } from "@/services/carcourse.api";
+import { getSchoolById } from "@/services/school.api";
 import { useState } from "react";
 
 const AddCoursePage = () => {
@@ -48,6 +49,15 @@ const AddCoursePage = () => {
     enabled: schoolId > 0,
   });
 
+  // Fetch school slot duration to use as minsPerDay
+  const { data: schoolResponse, isLoading: loadingSchool } = useQuery({
+    queryKey: ["school", schoolId],
+    queryFn: () => getSchoolById(schoolId),
+    enabled: schoolId > 0,
+  });
+
+  const slotDuration = schoolResponse?.data?.getSchoolById?.slotDuration;
+
   const availableCars = carsResponse?.data?.getPaginatedCar?.data || [];
 
   const createCourseMutation = useMutation({
@@ -55,6 +65,10 @@ const AddCoursePage = () => {
     mutationFn: async (data: AddCourseForm) => {
       if (!schoolId) {
         throw new Error("School ID not found. Please login again.");
+      }
+
+      if (!slotDuration) {
+        throw new Error("School slot duration not found. Please update school profile first.");
       }
 
       // Generate courseId: CRS-{schoolId}-{timestamp}
@@ -66,7 +80,7 @@ const AddCoursePage = () => {
         courseId: courseId,
         courseName: data.courseName,
         courseType: data.courseType as "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "REFRESHER",
-        minsPerDay: parseInt(data.minsPerDay),
+        minsPerDay: slotDuration,
         courseDays: parseInt(data.courseDays),
         price: parseFloat(data.price),
         automaticPrice: data.automaticPrice ? parseFloat(data.automaticPrice) : undefined,
@@ -99,7 +113,7 @@ const AddCoursePage = () => {
             <div className="space-y-2">
               <p><strong>Course Name:</strong> {course.courseName}</p>
               <p><strong>Course Type:</strong> {course.courseType}</p>
-              <p><strong>Hours Per Day:</strong> {course.minsPerDay} min</p>
+              <p><strong>Slot Duration:</strong> {course.minsPerDay} min</p>
               <p><strong>Course Days:</strong> {course.courseDays} days</p>
               <p><strong>Manual Car Price:</strong> ₹{course.price}</p>
               {course.automaticPrice && (
@@ -120,7 +134,12 @@ const AddCoursePage = () => {
   });
 
   const onSubmit = (data: AddCourseForm) => {
-    const minsPerDay = parseInt(data.minsPerDay);
+    if (!slotDuration) {
+      toast.error("School slot duration not found. Please update school profile first.");
+      return;
+    }
+
+    const minsPerDay = slotDuration;
     const courseDays = parseInt(data.courseDays);
     const durationInDays = Math.ceil((courseDays * minsPerDay) / 60);
     
@@ -130,7 +149,7 @@ const AddCoursePage = () => {
         <div>
           <p><strong>Course Name:</strong> {data.courseName}</p>
           <p><strong>Course Type:</strong> {data.courseType}</p>
-          <p><strong>Hours Per Day:</strong> {minsPerDay} minutes</p>
+          <p><strong>Slot Duration (From School):</strong> {minsPerDay} minutes</p>
           <p><strong>Course Days:</strong> {courseDays} days</p>
           <p><strong>Total Duration:</strong> {durationInDays} days</p>
           <p><strong>Manual Car Price:</strong> ₹{data.price}</p>
@@ -212,16 +231,12 @@ const AddCoursePage = () => {
                     />
                   </div>
                   <div>
-                    <MultiSelect<AddCourseForm>
-                      name="minsPerDay"
-                      title="Hours Per Day"
-                      placeholder="Select hours per day"
-                      required
-                      options={[
-                        { label: "30 minutes", value: "30" },
-                        { label: "60 minutes", value: "60" },
-                      ]}
-                    />
+                    <label className="text-sm font-semibold mb-2 block text-gray-900">
+                      Slot Duration (From School Settings)
+                    </label>
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                      {loadingSchool ? "Loading..." : `${slotDuration ?? "Not set"} minutes`}
+                    </div>
                   </div>
                   <div>
                     <TextInput<AddCourseForm>
@@ -364,6 +379,9 @@ const AddCoursePage = () => {
                   Course ID will be generated automatically based on your school
                 </li>
                 <li>
+                  Slot duration is automatically taken from school profile settings
+                </li>
+                <li>
                   The course will be created with ACTIVE status by default
                 </li>
                 <li>
@@ -387,7 +405,8 @@ const AddCoursePage = () => {
                   type="primary"
                   size="large"
                   htmlType="submit"
-                  loading={createCourseMutation.isPending}
+                  loading={createCourseMutation.isPending || loadingSchool}
+                  disabled={!slotDuration}
                   icon={<AntDesignPlusCircleOutlined className="text-lg" />}
                   className="!bg-gradient-to-r from-blue-600 to-purple-600"
                 >

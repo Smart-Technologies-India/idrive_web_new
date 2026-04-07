@@ -8,7 +8,7 @@ import {
 } from "@/components/icons";
 import { useRouter } from "next/navigation";
 import { getSchoolById, updateSchool } from "@/services/school.api";
-import { getAllCourses } from "@/services/course.api";
+import { getAllBookings } from "@/services/booking.api";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 
@@ -41,15 +41,24 @@ const EditSchoolPage = ({
 
   const schoolIdNum = parseInt(resolvedParams.schoolId);
 
-  // Fetch active courses to restrict slotDuration editing
-  const { data: activeCoursesResponse } = useQuery({
-    queryKey: ["activeCourses", schoolIdNum],
-    queryFn: () => getAllCourses({ schoolId: schoolIdNum, status: "ACTIVE" }),
+  // Fetch active/running bookings to restrict slotDuration editing
+  const { data: activeBookingsResponse } = useQuery({
+    queryKey: ["activeBookings", schoolIdNum],
+    queryFn: async () => {
+      // Fetch all bookings for the school
+      const response = await getAllBookings({ schoolId: schoolIdNum });
+      // Filter for active bookings (not COMPLETED or CANCELLED)
+      const activeBookings = response?.data?.getAllBooking?.filter(
+        (booking) =>
+          booking.status !== "COMPLETED" && booking.status !== "CANCELLED"
+      );
+      return { ...response, activeBookings };
+    },
     enabled: !isNaN(schoolIdNum) && schoolIdNum > 0,
   });
 
-  const hasActiveCourses =
-    (activeCoursesResponse?.data?.getAllCourse?.length ?? 0) > 0;
+  const hasActiveBookings =
+    (activeBookingsResponse?.activeBookings?.length ?? 0) > 0;
 
   // Load existing data
   useEffect(() => {
@@ -239,9 +248,9 @@ const EditSchoolPage = ({
                     { required: true, message: "Please select slot duration" },
                   ]}
                   extra={
-                    hasActiveCourses ? (
+                    hasActiveBookings ? (
                       <span className="text-amber-600 text-xs">
-                        ⚠️ Cannot change slot duration while active courses exist.
+                        ⚠️ Cannot change slot duration while active bookings exist.
                       </span>
                     ) : undefined
                   }
@@ -249,7 +258,7 @@ const EditSchoolPage = ({
                   <Select
                     size="large"
                     placeholder="Select slot duration"
-                    disabled={hasActiveCourses}
+                    disabled={hasActiveBookings}
                     options={[
                       { label: "30 Minutes", value: 30 },
                       { label: "60 Minutes", value: 60 },

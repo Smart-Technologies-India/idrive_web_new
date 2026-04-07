@@ -628,7 +628,7 @@ const CarScheduler = () => {
             )
           }
         >
-          <div className="w-full h-16 bg-gradient-to-br from-red-50 to-red-100 border-2 border-red-400 rounded-lg shadow-sm relative overflow-hidden group">
+          <div className="w-38 h-16 bg-gradient-to-br from-red-50 to-red-100 border-2 border-red-400 rounded-lg shadow-sm relative overflow-hidden group">
             {/* Main clickable area */}
             <div
               className="h-full flex flex-col items-center justify-center cursor-pointer hover:from-red-100 hover:to-red-200 transition-all pt-1"
@@ -672,7 +672,7 @@ const CarScheduler = () => {
     return (
       <Tooltip title="Available - Click to book">
         <div
-          className="w-full h-16 flex flex-col items-center justify-center bg-green-50 border-2 border-green-400 rounded cursor-pointer hover:bg-green-200 hover:scale-105 transition-all"
+          className="w-38 h-16 flex flex-col items-center justify-center bg-green-50 border-2 border-green-400 rounded cursor-pointer hover:bg-green-200 hover:scale-105 transition-all"
           onClick={() => {
             const bookingUrl = `/mtadmin/booking?carId=${
               car.id

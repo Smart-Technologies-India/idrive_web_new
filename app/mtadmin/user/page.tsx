@@ -158,14 +158,22 @@ function UserManagementPage() {
         id: "action",
         header: "Action",
         cell: (info) => (
-          <Button
-            type="primary"
-            icon={<AntDesignEyeOutlined />}
-            onClick={() => router.push(`/mtadmin/user/${info.row.original.id}`)}
-            className="!bg-blue-600"
-          >
-            View Profile
-          </Button>
+          <Space size="small">
+            <Button
+              type="primary"
+              icon={<AntDesignEyeOutlined />}
+              onClick={() => router.push(`/mtadmin/user/${info.row.original.id}`)}
+              className="bg-blue-600!"
+            >
+              View Profile
+            </Button>
+            <Button
+              type="default"
+              onClick={() => router.push(`/mtadmin/user/${info.row.original.id}/form-14`)}
+            >
+              Form-14
+            </Button>
+          </Space>
         ),
       },
     ],

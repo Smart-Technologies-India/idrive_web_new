@@ -21,7 +21,7 @@ const Reports = () => {
   const reportCards: ReportCard[] = [
      {
       id: "students",
-      title: "Student Report List",
+      title: "Form - 15 ",
       description: "View comprehensive reports on student activities and performance",
       icon: <span className="text-3xl">🧑‍🎓</span>,
       color: "bg-blue-500",

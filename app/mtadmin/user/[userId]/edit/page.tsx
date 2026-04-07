@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect, use, useRef } from "react";
 import {
   Card,
   Form,
@@ -13,6 +13,7 @@ import {
   Upload,
   Avatar,
   message,
+  Modal,
 } from "antd";
 import {
   IcBaselineArrowBack,
@@ -28,6 +29,19 @@ import { toast } from "react-toastify";
 import { baseurl } from "@/utils/conts";
 
 const { TextArea } = Input;
+
+// Camera Icon Component
+const CameraIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="1em"
+    height="1em"
+    viewBox="0 0 24 24"
+    fill="currentColor"
+  >
+    <path d="M12 17.5c-2.33 0-4.32-1.45-5.12-3.5h1.5c.72 1.21 2 2 3.62 2s2.9-.79 3.62-2h1.5c-.8 2.05-2.79 3.5-5.12 3.5M9 11c0 .55-.45 1-1 1s-1-.45-1-1 .45-1 1-1 1 .45 1 1m6 0c0 .55-.45 1-1 1s-1-.45-1-1 .45-1 1-1 1 .45 1 1m4-4h-3.17L14 5H10L8.17 7H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2z"/>
+  </svg>
+);
 
 interface UserFormValues {
   name: string;
@@ -52,6 +66,10 @@ const EditUserPage = ({ params }: { params: Promise<{ userId: string }> }) => {
   const [sameAsCurrentAddress, setSameAsCurrentAddress] = useState(false);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string>("");
   const [uploading, setUploading] = useState(false);
+  const [cameraModalOpen, setCameraModalOpen] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Unwrap params (Next.js 15+ async params)
   const { userId } = use(params);
@@ -181,6 +199,139 @@ const EditUserPage = ({ params }: { params: Promise<{ userId: string }> }) => {
     message.success("Photo removed");
   };
 
+  // Open camera and start stream
+  const handleOpenCamera = async () => {
+    // Check if running on HTTPS or localhost
+    const isSecureContext = window.isSecureContext;
+    if (!isSecureContext) {
+      message.error("Camera access requires HTTPS or localhost. Please use a secure connection.");
+      return;
+    }
+
+    // Check if browser supports getUserMedia
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      message.error("Your browser doesn't support camera access. Please use a modern browser.");
+      return;
+    }
+
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: "user"
+        },
+        audio: false,
+      });
+      setStream(mediaStream);
+      setCameraModalOpen(true);
+      
+      // Wait for modal to render then set video stream
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+        }
+      }, 100);
+    } catch (error: unknown) {
+      console.error("Error accessing camera:", error);
+      
+      // Provide specific error messages based on error type
+      const err = error as DOMException;
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        message.error("Camera permission denied. Please allow camera access in your browser settings.");
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        message.error("No camera found. Please connect a camera and try again.");
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        message.error("Camera is already in use by another application. Please close other apps and try again.");
+      } else if (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError') {
+        message.error("Camera doesn't support the requested settings. Trying with default settings...");
+        // Retry with minimal constraints
+        try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+          setStream(fallbackStream);
+          setCameraModalOpen(true);
+          setTimeout(() => {
+            if (videoRef.current) {
+              videoRef.current.srcObject = fallbackStream;
+            }
+          }, 100);
+        } catch (fallbackError) {
+          message.error("Failed to access camera with any settings.");
+        }
+      } else {
+        message.error(`Camera error: ${err.message || 'Unknown error occurred'}`);
+      }
+    }
+  };
+
+  // Stop camera stream
+  const handleCloseCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setCameraModalOpen(false);
+  };
+
+  // Capture photo from webcam
+  const handleCapturePhoto = async () => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d');
+
+    if (!context) return;
+
+    // Set canvas dimensions to match video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Draw current video frame to canvas
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Convert canvas to blob
+    canvas.toBlob(async (blob) => {
+      if (!blob) {
+        message.error('Failed to capture photo');
+        return;
+      }
+
+      // Create a File object from blob
+      const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+      // Upload the captured photo
+      setUploading(true);
+      try {
+        const response = await uploadUserProfile(file);
+        if (response.status && response.data) {
+          setProfilePhotoUrl(response.data);
+          message.success("Photo captured and uploaded successfully!");
+          handleCloseCamera();
+        } else {
+          message.error(response.message || "Failed to upload photo");
+        }
+      } catch (error) {
+        console.error("Error uploading captured photo:", error);
+        message.error("Failed to upload photo. Please try again.");
+      } finally {
+        setUploading(false);
+      }
+    }, 'image/jpeg', 0.9);
+  };
+
+  // Cleanup camera stream on unmount
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stream]);
+
   if (fetching) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -236,17 +387,27 @@ const EditUserPage = ({ params }: { params: Promise<{ userId: string }> }) => {
                     className="border-4 border-gray-200"
                   />
                 </div>
-                <Upload
-                  accept="image/png, image/jpeg, image/jpg, image/gif, image/webp"
-                  showUploadList={false}
-                  beforeUpload={handlePhotoUpload}
-                  disabled={uploading}
-                  maxCount={1}
-                >
-                  <Button loading={uploading} size="large">
-                    {profilePhotoUrl ? "Change Photo" : "Upload Photo"}
+                <div className="flex gap-2">
+                  <Button
+                    icon={<CameraIcon />}
+                    onClick={handleOpenCamera}
+                    disabled={uploading}
+                    size="large"
+                  >
+                    Take Photo
                   </Button>
-                </Upload>
+                  <Upload
+                    accept="image/png, image/jpeg, image/jpg, image/gif, image/webp"
+                    showUploadList={false}
+                    beforeUpload={handlePhotoUpload}
+                    disabled={uploading}
+                    maxCount={1}
+                  >
+                    <Button loading={uploading} size="large">
+                      {profilePhotoUrl ? "Change Photo" : "Upload Photo"}
+                    </Button>
+                  </Upload>
+                </div>
                 <p className="text-xs text-gray-500 mt-2">
                   Max file size: 1MB. Supported formats: JPG, PNG, GIF, WEBP
                 </p>
@@ -457,6 +618,45 @@ const EditUserPage = ({ params }: { params: Promise<{ userId: string }> }) => {
           </Form>
         </Card>
       </div>
+
+      {/* Camera Modal */}
+      <Modal
+        title="Take Photo"
+        open={cameraModalOpen}
+        onCancel={handleCloseCamera}
+        footer={[
+          <Button key="cancel" onClick={handleCloseCamera}>
+            Cancel
+          </Button>,
+          <Button
+            key="capture"
+            type="primary"
+            onClick={handleCapturePhoto}
+            loading={uploading}
+            icon={<CameraIcon />}
+          >
+            Capture Photo
+          </Button>,
+        ]}
+        width={700}
+      >
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative bg-black rounded-lg overflow-hidden">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              className="w-full max-w-[640px] h-auto"
+              style={{ transform: 'scaleX(-1)' }} // Mirror the video
+            />
+          </div>
+          <p className="text-sm text-gray-500">
+            Position yourself in the frame and click &quot;Capture Photo&quot; when ready
+          </p>
+          {/* Hidden canvas for capturing the photo */}
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
+        </div>
+      </Modal>
     </div>
   );
 };

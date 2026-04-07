@@ -25,6 +25,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getCookie } from "cookies-next";
 import { ApiCall } from "@/services/api";
 import { useRouter } from "next/navigation";
+import { convertSlotTo12Hour } from "@/utils/time-format";
 
 const { RangePicker } = DatePicker;
 
@@ -34,16 +35,19 @@ interface Car {
   registrationNumber: string;
 }
 
+interface Payment {
+  id: number;
+  amount: number;
+}
+
 interface Booking {
   id: number;
   bookingId: string;
   customerName: string;
   customerMobile: string;
-}
-
-interface Driver {
-  id: number;
-  name: string;
+  location?: string;
+  totalAmount: number;
+  payments?: Payment[];
 }
 
 interface BookingSession {
@@ -54,7 +58,6 @@ interface BookingSession {
   attended: boolean;
   booking?: Booking;
   car?: Car;
-  driver?: Driver;
 }
 
 const REPORT_TITLE = "Car Training Report";
@@ -85,7 +88,7 @@ const CarTrainingPage = () => {
   });
 
   const { data, isLoading } = useQuery<BookingSession[]>({
-    queryKey: ["car-training-report", dateRange, selectedCarId, schoolId],
+    queryKey: ["car-training-report", selectedCarId, schoolId],
     queryFn: async () => {
       if (!selectedCarId) return [];
       const response = await ApiCall({
@@ -96,25 +99,37 @@ const CarTrainingPage = () => {
             slot
             status
             attended
-            booking { id customerName customerMobile bookingId }
+            booking { 
+              id 
+              customerName 
+              customerMobile 
+              bookingId 
+              location
+              totalAmount
+              payments {
+                id
+                amount
+              }
+            }
             car { id carName registrationNumber }
-            driver { id name }
           }
         }`,
         variables: { whereSearchInput: { carId: selectedCarId } },
       });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sessions = (response?.data as any)?.getAllBookingSession || [];
-      if (dateRange) {
-        return sessions.filter((s: BookingSession) => {
-          const d = dayjs(s.sessionDate);
-          return d.isAfter(dateRange[0].startOf("day")) && d.isBefore(dateRange[1].endOf("day"));
-        });
-      }
       return sessions;
     },
     enabled: schoolId > 0 && !!selectedCarId,
   });
+
+  // Filter data by date range for display, but keep original data for calculations
+  const filteredData = dateRange && data 
+    ? data.filter((s: BookingSession) => {
+        const d = dayjs(s.sessionDate);
+        return d.isAfter(dateRange[0].startOf("day")) && d.isBefore(dateRange[1].endOf("day"));
+      })
+    : data;
 
   const handleExport = (exportAll = false) => {
     try {
@@ -175,19 +190,75 @@ const CarTrainingPage = () => {
     }
   };
 
+  // Calculate start and end dates from all sessions for each booking
+  const getBookingDateRange = (bookingId: number) => {
+    if (!data) return { startDate: null, endDate: null };
+    const bookingSessions = data.filter(s => s.booking?.id === bookingId);
+    if (bookingSessions.length === 0) return { startDate: null, endDate: null };
+    
+    const dates = bookingSessions.map(s => dayjs(s.sessionDate));
+    const startDate = dates.reduce((min, date) => date.isBefore(min) ? date : min, dates[0]);
+    const endDate = dates.reduce((max, date) => date.isAfter(max) ? date : max, dates[0]);
+    
+    return { startDate, endDate };
+  };
+
   const columns = [
     {
       title: "Date",
       dataIndex: "sessionDate",
       key: "sessionDate",
       render: (d: string) => dayjs(d).format("DD MMM YYYY"),
-      sorter: (a: BookingSession, b: BookingSession) => dayjs(a.sessionDate).unix() - dayjs(b.sessionDate).unix(),
+      sorter: (a: BookingSession, b: BookingSession) => {
+        const dateCompare = dayjs(a.sessionDate).unix() - dayjs(b.sessionDate).unix();
+        if (dateCompare !== 0) return dateCompare;
+        // If dates are equal, sort by time slot
+        return a.slot.localeCompare(b.slot);
+      },
       defaultSortOrder: "ascend" as const,
     },
-    { title: "Time Slot", dataIndex: "slot", key: "slot" },
+    { 
+      title: "Time Slot", 
+      dataIndex: "slot", 
+      key: "slot",
+      render: (slot: string) => convertSlotTo12Hour(slot),
+      sorter: (a: BookingSession, b: BookingSession) => a.slot.localeCompare(b.slot),
+    },
     { title: "Student Name", key: "studentName", render: (r: BookingSession) => r.booking?.customerName || "N/A" },
     { title: "Contact", key: "contact", render: (r: BookingSession) => r.booking?.customerMobile || "N/A" },
-    { title: "Driver", key: "driver", render: (r: BookingSession) => r.driver?.name || "Not Assigned" },
+    { 
+      title: "Location", 
+      key: "location", 
+      render: (r: BookingSession) => r.booking?.location || "-" 
+    },
+    {
+      title: "Start Date",
+      key: "startDate",
+      render: (r: BookingSession) => {
+        if (!r.booking) return "-";
+        const { startDate } = getBookingDateRange(r.booking.id);
+        return startDate ? startDate.format("DD MMM YYYY") : "-";
+      },
+    },
+    {
+      title: "End Date",
+      key: "endDate",
+      render: (r: BookingSession) => {
+        if (!r.booking) return "-";
+        const { endDate } = getBookingDateRange(r.booking.id);
+        return endDate ? endDate.format("DD MMM YYYY") : "-";
+      },
+    },
+    {
+      title: "Balance",
+      key: "balance",
+      render: (r: BookingSession) => {
+        if (!r.booking) return <Tag color="gray">N/A</Tag>;
+        const totalPaid = r.booking.payments?.reduce((s, p) => s + (p.amount || 0), 0) || 0;
+        const pending = Math.max((r.booking.totalAmount || 0) - totalPaid, 0);
+        return <Tag color={pending > 0 ? "red" : "green"}>Rs. {pending.toLocaleString()}</Tag>;
+      },
+    },
     {
       title: "Status",
       dataIndex: "status",
@@ -271,7 +342,7 @@ const CarTrainingPage = () => {
                   <div className="bg-linear-to-br from-purple-500 to-purple-600 text-white p-4 rounded-lg">
                     <Statistic
                       title={<span className="text-white text-opacity-90">Total Sessions</span>}
-                      value={data?.length || 0}
+                      value={filteredData?.length || 0}
                       prefix={<MaterialSymbolsCalendarClockRounded className="text-white" />}
                       valueStyle={{ color: "white" }}
                     />
@@ -281,7 +352,7 @@ const CarTrainingPage = () => {
                   <div className="bg-linear-to-br from-green-500 to-green-600 text-white p-4 rounded-lg">
                     <Statistic
                       title={<span className="text-white text-opacity-90">Attended</span>}
-                      value={data?.filter((s) => s.attended).length || 0}
+                      value={filteredData?.filter((s) => s.attended).length || 0}
                       prefix={<AntDesignCheckOutlined className="text-white" />}
                       valueStyle={{ color: "white" }}
                     />
@@ -291,7 +362,7 @@ const CarTrainingPage = () => {
                   <div className="bg-linear-to-br from-red-500 to-red-600 text-white p-4 rounded-lg">
                     <Statistic
                       title={<span className="text-white text-opacity-90">Absent</span>}
-                      value={data?.filter((s) => !s.attended).length || 0}
+                      value={filteredData?.filter((s) => !s.attended).length || 0}
                       valueStyle={{ color: "white" }}
                     />
                   </div>
@@ -299,7 +370,7 @@ const CarTrainingPage = () => {
               </Row>
               <Table
                 columns={columns}
-                dataSource={data || []}
+                dataSource={filteredData || []}
                 loading={isLoading}
                 rowKey="id"
                 pagination={{

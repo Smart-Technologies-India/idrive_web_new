@@ -766,7 +766,16 @@ const ServiceBookingViewPage = () => {
         <div></div>
 
         {/* Customer Information */}
-        <Card title="Customer Information" className="shadow-sm">
+        <Card title="Customer Information" className="shadow-sm"
+             extra={
+              <Button
+                type="primary"
+                onClick={() => router.push(`/mtadmin/user/${bookingService.user!.id}/edit`)}
+              >
+                Add Photo
+              </Button>
+            }
+        >
           {bookingService.user ? (
             <Descriptions bordered column={{ xs: 1, sm: 2, md: 2 }}>
               <Descriptions.Item label="Customer Name">

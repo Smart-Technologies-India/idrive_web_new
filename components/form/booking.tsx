@@ -18,6 +18,7 @@ import {
   Drawer,
   Input,
   Select,
+  AutoComplete,
 } from "antd";
 import { getCookie } from "cookies-next";
 import { convertSlotTo12Hour } from "@/utils/time-format";
@@ -32,6 +33,11 @@ import { getCourseById, type Course } from "@/services/course.api";
 import { searchUserByContact, type User } from "@/services/user.api";
 import { getPaginatedCars, getCarById } from "@/services/car.api";
 import { getSchoolById } from "@/services/school.api";
+import {
+  getAllLocations,
+  createLocation,
+  type Location,
+} from "@/services/location.api";
 import { createLicenseApplication } from "@/services/license-application.api";
 import {
   CheckCircleOutlined,
@@ -42,6 +48,7 @@ import {
   BookOutlined,
   DollarOutlined,
   CheckSquareOutlined,
+  PlusOutlined,
 } from "@ant-design/icons";
 import dayjs, { Dayjs } from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -160,7 +167,9 @@ const generateTimeSlots = (
 
   while (currentMinutes < endMinutes) {
     const nextMinutes = currentMinutes + effectiveSlotDuration;
-    if (nextMinutes > endMinutes) { break; }
+    if (nextMinutes > endMinutes) {
+      break;
+    }
 
     // Skip if slot overlaps with lunch time
     if (lunchStartMinutes !== null && lunchEndMinutes !== null) {
@@ -227,6 +236,9 @@ const BookingForm = () => {
   const [dropdownSelectedCar, setDropdownSelectedCar] = useState<
     typeof selectedCarData | null
   >(null);
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
+  const [newLocationValue, setNewLocationValue] = useState("");
+  const [creatingLocation, setCreatingLocation] = useState(false);
 
   // Get school ID from cookie
   const schoolId: number = parseInt(getCookie("school")?.toString() || "0");
@@ -342,6 +354,19 @@ const BookingForm = () => {
   });
 
   const availableCars = carsResponse?.data?.getPaginatedCar?.data || [];
+
+  // Fetch locations for the school
+  const { data: locationsResponse, refetch: refetchLocations } = useQuery({
+    queryKey: ["locations", schoolId],
+    queryFn: () =>
+      getAllLocations({
+        schoolId: schoolId,
+      }),
+    enabled: schoolId > 0,
+  });
+
+  const locations: Location[] =
+    locationsResponse?.data?.getAllLocation || [];
 
   // Fetch services for the school from schoolService table
   const { data: servicesResponse, isLoading: loadingServices } = useQuery({
@@ -971,6 +996,50 @@ const BookingForm = () => {
       {
         onSettled: () => {
           setCreatingUser(false);
+        },
+      },
+    );
+  };
+
+  // Create location mutation
+  const { mutate: createNewLocation } = useMutation({
+    mutationFn: async (data: { location: string; schoolId: number }) => {
+      return await createLocation(data);
+    },
+    onSuccess: (response) => {
+      if (response.status && response.data.createLocation) {
+        const newLocation = response.data.createLocation;
+        setValue("location", newLocation.location);
+        setLocationModalOpen(false);
+        setNewLocationValue("");
+        refetchLocations();
+        toast.success("Location added successfully!");
+      } else {
+        toast.error(response.message || "Failed to create location");
+      }
+    },
+    onError: (error: Error) => {
+      console.error("Error creating location:", error);
+      toast.error(error.message || "Failed to create location");
+    },
+  });
+
+  // Handle create location submit
+  const handleCreateLocation = () => {
+    if (!newLocationValue || newLocationValue.trim().length < 3) {
+      toast.error("Please enter a valid location (minimum 3 characters)");
+      return;
+    }
+
+    setCreatingLocation(true);
+    createNewLocation(
+      {
+        location: newLocationValue,
+        schoolId: schoolId,
+      },
+      {
+        onSettled: () => {
+          setCreatingLocation(false);
         },
       },
     );
@@ -1805,226 +1874,278 @@ const BookingForm = () => {
                 </div>
               </div>
 
-              {/* Customer Details Card */}
-              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <UserOutlined className="text-blue-600" />
-                  Customer Details
-                </h2>
+              <div className="flex gap-2">
+                {/* Customer Details Card */}
+                <div className="bg-white flex-1 rounded-2xl shadow-lg border border-gray-100 p-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                    <UserOutlined className="text-blue-600" />
+                    Customer Details
+                  </h2>
 
-                <div className="space-y-4">
-                  <div className="relative">
-                    <TextInput
-                      name="customerMobile"
-                      title="Mobile Number"
-                      placeholder="Enter 10-digit mobile number"
-                      required
-                      maxlength={10}
-                      onlynumber
-                    />
-                    {loadingCustomer && (
-                      <div className="absolute right-3 top-11">
-                        <Spin size="small" />
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <TextInput
+                        name="customerMobile"
+                        title="Mobile Number"
+                        placeholder="Enter 10-digit mobile number"
+                        required
+                        maxlength={10}
+                        onlynumber
+                      />
+                      {loadingCustomer && (
+                        <div className="absolute right-3 top-11">
+                          <Spin size="small" />
+                        </div>
+                      )}
+                    </div>
+
+                    {customerData && (
+                      <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-4 border-2 border-green-200 animate-fadeIn">
+                        <div className="flex items-center gap-2 mb-3">
+                          <CheckCircleOutlined className="text-green-600 text-xl" />
+                          <span className="font-bold text-green-700">
+                            Customer Found!
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <span className="text-gray-600">Name:</span>
+                            <p className="font-semibold text-gray-900">
+                              {customerData.name} - {customerData.surname}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Email:</span>
+                            <p className="font-semibold text-gray-900">
+                              {customerData.email || "Not provided"}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">
+                              Primary Contact:
+                            </span>
+                            <p className="font-semibold text-gray-900">
+                              {customerData.contact1}
+                            </p>
+                          </div>
+                          {customerData.contact2 && (
+                            <div>
+                              <span className="text-gray-600">
+                                Secondary Contact:
+                              </span>
+                              <p className="font-semibold text-gray-900">
+                                {customerData.contact2}
+                              </p>
+                            </div>
+                          )}
+                          {customerData.address && (
+                            <div className="md:col-span-2">
+                              <span className="text-gray-600">Address:</span>
+                              <p className="font-semibold text-gray-900">
+                                {customerData.address}
+                              </p>
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-gray-600">Role:</span>
+                            <p className="font-semibold text-gray-900 capitalize">
+                              {customerData.role?.toLowerCase()}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
+                </div>
 
-                  {customerData && (
-                    <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-4 border-2 border-green-200 animate-fadeIn">
-                      <div className="flex items-center gap-2 mb-3">
-                        <CheckCircleOutlined className="text-green-600 text-xl" />
-                        <span className="font-bold text-green-700">
-                          Customer Found!
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <span className="text-gray-600">Name:</span>
-                          <p className="font-semibold text-gray-900">
-                            {customerData.name} - {customerData.surname}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Email:</span>
-                          <p className="font-semibold text-gray-900">
-                            {customerData.email || "Not provided"}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">
-                            Primary Contact:
-                          </span>
-                          <p className="font-semibold text-gray-900">
-                            {customerData.contact1}
-                          </p>
-                        </div>
-                        {customerData.contact2 && (
-                          <div>
-                            <span className="text-gray-600">
-                              Secondary Contact:
-                            </span>
-                            <p className="font-semibold text-gray-900">
-                              {customerData.contact2}
-                            </p>
+                {/* Course Selection Card */}
+                <div className="bg-white flex-1 rounded-2xl shadow-lg border border-gray-100 p-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                    <BookOutlined className="text-blue-600" />
+                    Select Course
+                  </h2>
+
+                  <div className="space-y-4">
+                    <MultiSelect<BookingFormData>
+                      name="courseId"
+                      title=""
+                      placeholder={
+                        loadingCourses
+                          ? "Loading courses..."
+                          : "Choose a driving course"
+                      }
+                      required={true}
+                      options={courses.map((course) => ({
+                        value: course.id.toString(),
+                        label: course.name,
+                      }))}
+                      disable={loadingCourses}
+                    />
+                    <div></div>
+
+                    {selectedCourse && (
+                      <div className="bg-linear-to-br from-blue-50 to-indigo-50 rounded-lg p-5 border-2 border-blue-300 shadow-sm">
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between border-b border-blue-200 pb-3">
+                            <div>
+                              <p className="text-xl font-bold text-gray-900">
+                                {selectedCourse.name}
+                              </p>
+                              <Tag
+                                color={
+                                  selectedCourse.courseType == "BEGINNER"
+                                    ? "green"
+                                    : selectedCourse.courseType ==
+                                        "INTERMEDIATE"
+                                      ? "blue"
+                                      : selectedCourse.courseType == "ADVANCED"
+                                        ? "purple"
+                                        : "orange"
+                                }
+                                className="mt-2"
+                              >
+                                {selectedCourse.courseType}
+                              </Tag>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-gray-500">
+                                Course Fee
+                              </p>
+                              <p className="text-lg font-bold text-blue-600">
+                                ₹
+                                {(
+                                  formValues.coursePrice || selectedCourse.price
+                                ).toLocaleString("en-IN")}
+                              </p>
+                              {(() => {
+                                const carData = numericCarId
+                                  ? selectedCarData
+                                  : dropdownSelectedCar;
+                                const isAutomatic =
+                                  carData?.transmission === "AUTOMATIC" ||
+                                  carData?.transmission === "AMT" ||
+                                  carData?.transmission === "CVT";
+                                return isAutomatic &&
+                                  selectedCourse.automaticPrice ? (
+                                  <p className="text-xs text-blue-500 mt-1">
+                                    Automatic Car Price
+                                  </p>
+                                ) : (
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Manual Car Price
+                                  </p>
+                                );
+                              })()}
+                            </div>
                           </div>
-                        )}
-                        {customerData.address && (
-                          <div className="md:col-span-2">
-                            <span className="text-gray-600">Address:</span>
-                            <p className="font-semibold text-gray-900">
-                              {customerData.address}
-                            </p>
+
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="bg-white rounded-lg p-3 border border-blue-200">
+                              <div className="flex items-center gap-2 mb-1">
+                                {/* <span className="text-lg">📅</span> */}
+                                <p className="text-xs text-gray-500 font-semibold">
+                                  Total Days
+                                </p>
+                              </div>
+                              <p className="text-sm font-bold text-gray-900">
+                                {selectedCourse.courseDays} Days
+                              </p>
+                            </div>
+
+                            <div className="bg-white rounded-lg p-3 border border-blue-200">
+                              <div className="flex items-center gap-2 mb-1">
+                                {/* <span className="text-lg">⏱️</span> */}
+                                <p className="text-xs text-gray-500 font-semibold">
+                                  Mins/Day
+                                </p>
+                              </div>
+                              <p className="text-sm font-bold text-gray-900">
+                                {selectedCourse.minsPerDay}{" "}
+                                {selectedCourse.minsPerDay == 1
+                                  ? "Min"
+                                  : "Mins"}
+                              </p>
+                            </div>
+
+                              <div className="bg-white rounded-lg p-3 border border-blue-200">
+                              <div className="flex items-center gap-2 mb-1">
+                                {/* <span className="text-lg">📅</span> */}
+                                <p className="text-xs text-gray-500 font-semibold">
+                                  Total Mins
+                                </p>
+                              </div>
+                              <p className="text-sm font-bold text-gray-900">
+                                {selectedCourse.courseDays *
+                                  selectedCourse.minsPerDay}{" "}
+                                Mins
+                              </p>
+                            </div>
+
                           </div>
-                        )}
-                        <div>
-                          <span className="text-gray-600">Role:</span>
-                          <p className="font-semibold text-gray-900 capitalize">
-                            {customerData.role?.toLowerCase()}
-                          </p>
+
+                          {/* <div className="bg-white rounded-lg p-3 border border-blue-200">
+                            <div className="flex items-center justify-between text-sm">
+                              <div className="flex items-center gap-2">
+                                <span>⏰</span>
+                                <span className="text-gray-600">
+                                  Total Duration
+                                </span>
+                              </div>
+                              <span className="font-bold text-gray-900">
+                                {selectedCourse.courseDays *
+                                  selectedCourse.minsPerDay}{" "}
+                                Mins
+                              </span>
+                            </div>
+                          </div> */}
+
+                          {selectedCourse.enrolledStudents > 0 && (
+                            <div className="bg-green-50 rounded-lg p-2 border border-green-200">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-green-700">
+                                  👥 Enrolled Students
+                                </span>
+                                <span className="font-bold text-green-900">
+                                  {selectedCourse.enrolledStudents}
+                                </span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
-
-              {/* Course Selection Card */}
+              {/* Location Card */}
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <BookOutlined className="text-blue-600" />
-                  Select Course
-                </h2>
-
-                <div className="space-y-4">
-                  <MultiSelect<BookingFormData>
-                    name="courseId"
-                    title=""
-                    placeholder={
-                      loadingCourses
-                        ? "Loading courses..."
-                        : "Choose a driving course"
-                    }
-                    required={true}
-                    options={courses.map((course) => ({
-                      value: course.id.toString(),
-                      label: course.name,
-                    }))}
-                    disable={loadingCourses}
-                  />
-                  <div></div>
-
-                  {selectedCourse && (
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-5 border-2 border-blue-300 shadow-sm">
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between border-b border-blue-200 pb-3">
-                          <div>
-                            <p className="text-xl font-bold text-gray-900">
-                              {selectedCourse.name}
-                            </p>
-                            <Tag
-                              color={
-                                selectedCourse.courseType == "BEGINNER"
-                                  ? "green"
-                                  : selectedCourse.courseType == "INTERMEDIATE"
-                                    ? "blue"
-                                    : selectedCourse.courseType == "ADVANCED"
-                                      ? "purple"
-                                      : "orange"
-                              }
-                              className="mt-2"
-                            >
-                              {selectedCourse.courseType}
-                            </Tag>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-gray-500">Course Fee</p>
-                            <p className="text-2xl font-bold text-blue-600">
-                              ₹
-                              {(
-                                formValues.coursePrice || selectedCourse.price
-                              ).toLocaleString("en-IN")}
-                            </p>
-                            {(() => {
-                              const carData = numericCarId
-                                ? selectedCarData
-                                : dropdownSelectedCar;
-                              const isAutomatic =
-                                carData?.transmission === "AUTOMATIC" ||
-                                carData?.transmission === "AMT" ||
-                                carData?.transmission === "CVT";
-                              return isAutomatic &&
-                                selectedCourse.automaticPrice ? (
-                                <p className="text-xs text-blue-500 mt-1">
-                                  Automatic Car Price
-                                </p>
-                              ) : (
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Manual Car Price
-                                </p>
-                              );
-                            })()}
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-white rounded-lg p-3 border border-blue-200">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-lg">📅</span>
-                              <p className="text-xs text-gray-500 font-semibold">
-                                Total Days
-                              </p>
-                            </div>
-                            <p className="text-lg font-bold text-gray-900">
-                              {selectedCourse.courseDays} Days
-                            </p>
-                          </div>
-
-                          <div className="bg-white rounded-lg p-3 border border-blue-200">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-lg">⏱️</span>
-                              <p className="text-xs text-gray-500 font-semibold">
-                                Mins/Day
-                              </p>
-                            </div>
-                            <p className="text-lg font-bold text-gray-900">
-                              {selectedCourse.minsPerDay}{" "}
-                              {selectedCourse.minsPerDay == 1 ? "Min" : "Mins"}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="bg-white rounded-lg p-3 border border-blue-200">
-                          <div className="flex items-center justify-between text-sm">
-                            <div className="flex items-center gap-2">
-                              <span>⏰</span>
-                              <span className="text-gray-600">
-                                Total Duration
-                              </span>
-                            </div>
-                            <span className="font-bold text-gray-900">
-                              {selectedCourse.courseDays *
-                                selectedCourse.minsPerDay}{" "}
-                              Mins
-                            </span>
-                          </div>
-                        </div>
-
-                        {selectedCourse.enrolledStudents > 0 && (
-                          <div className="bg-green-50 rounded-lg p-2 border border-green-200">
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-green-700">
-                                👥 Enrolled Students
-                              </span>
-                              <span className="font-bold text-green-900">
-                                {selectedCourse.enrolledStudents}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold text-gray-900">Location</h2>
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={() => setLocationModalOpen(true)}
+                    size="small"
+                  >
+                    Add New
+                  </Button>
                 </div>
+                <AutoComplete
+                  value={formValues.location}
+                  onChange={(value) => setValue("location", value)}
+                  options={locations.map((loc) => ({
+                    value: loc.location,
+                    label: loc.location,
+                  }))}
+                  placeholder="Enter or select pickup/dropoff location..."
+                  filterOption={(inputValue, option) =>
+                    option?.value
+                      .toUpperCase()
+                      .indexOf(inputValue.toUpperCase()) !== -1
+                  }
+                  style={{ width: "100%" }}
+                  size="large"
+                />
               </div>
 
               {/* Services Card */}
@@ -2042,7 +2163,7 @@ const BookingForm = () => {
                     <Spin size="large" />
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-3">
                     {services.map((service) => (
                       <div
                         key={service.id}
@@ -2053,18 +2174,24 @@ const BookingForm = () => {
                         }`}
                         onClick={() => handleServiceToggle(service.id)}
                       >
-                        <div className="flex items-start gap-3">
-                          <Checkbox
-                            checked={selectedServices.includes(service.id)}
-                            className="mt-1"
-                            onChange={() => handleServiceToggle(service.id)}
-                          />
+                        <div className="flex flex-col items-start gap-1">
+                          <div className="flex gap-2 w-full items-center flex-wrap">
+                            <Checkbox
+                              checked={selectedServices.includes(service.id)}
+                              className="text-sm"
+                              onChange={() => handleServiceToggle(service.id)}
+                            />
+                            <p className="font-bold text-gray-900 shrink-0">
+                              {service.name}
+                            </p>
+                            <div className="grow"></div>
+                            <p className="text-lg font-bold text-blue-600">
+                              ₹{service.addonPrice.toLocaleString("en-IN")}
+                            </p>
+                          </div>
                           <div className="flex-1">
                             <div className="flex items-center justify-between">
                               <div>
-                                <p className="font-bold text-gray-900">
-                                  {service.name}
-                                </p>
                                 <Tag
                                   color={
                                     service.serviceType == "NEW_LICENSE" ||
@@ -2072,16 +2199,13 @@ const BookingForm = () => {
                                       ? "purple"
                                       : "cyan"
                                   }
-                                  className="mt-1"
+                                  className="text-sm"
                                 >
                                   {service.serviceType}
                                 </Tag>
                               </div>
-                              <p className="text-lg font-bold text-blue-600">
-                                ₹{service.addonPrice.toLocaleString("en-IN")}
-                              </p>
                             </div>
-                            <p className="text-sm text-gray-600 mt-2">
+                            <p className="text-xs text-gray-600 mt-2">
                               {service.description || "No description"}
                             </p>
                           </div>
@@ -2107,7 +2231,7 @@ const BookingForm = () => {
                   </Tag>
                 </h2>
 
-                <div className="space-y-4">
+                <div className="flex gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Booking Discount (₹)
@@ -2373,20 +2497,6 @@ const BookingForm = () => {
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* Location Card */}
-              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-6">
-                  Location
-                </h2>
-                <TextInput
-                  name="location"
-                  title=""
-                  placeholder="Enter pickup/dropoff location..."
-                  required={false}
-                  maxlength={30}
-                />
               </div>
 
               {/* Notes Card */}
@@ -3218,6 +3328,54 @@ const BookingForm = () => {
           </div>
         </div>
       </Drawer>
+
+      {/* Add New Location Modal */}
+      <Modal
+        title="Add New Location"
+        open={locationModalOpen}
+        onCancel={() => {
+          setLocationModalOpen(false);
+          setNewLocationValue("");
+        }}
+        footer={[
+          <Button
+            key="cancel"
+            onClick={() => {
+              setLocationModalOpen(false);
+              setNewLocationValue("");
+            }}
+          >
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={creatingLocation}
+            onClick={handleCreateLocation}
+          >
+            Add Location
+          </Button>,
+        ]}
+      >
+        <div className="space-y-4 py-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Location Name <span className="text-red-500">*</span>
+            </label>
+            <Input
+              size="large"
+              placeholder="Enter location (e.g., Main Street, Downtown, etc.)"
+              value={newLocationValue}
+              onChange={(e) => setNewLocationValue(e.target.value)}
+              maxLength={200}
+              onPressEnter={handleCreateLocation}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Minimum 3 characters required
+            </p>
+          </div>
+        </div>
+      </Modal>
 
       <style jsx global>{`
         @keyframes fadeIn {

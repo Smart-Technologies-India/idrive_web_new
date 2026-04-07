@@ -21,7 +21,7 @@ import {
 import { Button, Spin, Alert } from "antd";
 import { getCookie } from "cookies-next";
 import { getSchoolById, updateSchool } from "@/services/school.api";
-import { getAllCourses } from "@/services/course.api";
+import { getAllBookings } from "@/services/booking.api";
 import {
   getAllTraingRules,
   createTraingRules,
@@ -120,15 +120,24 @@ const EditSchoolProfilePage = () => {
     enabled: schoolId > 0,
   });
 
-  // Fetch active/running courses to restrict slotDuration editing
-  const { data: activeCoursesResponse } = useQuery({
-    queryKey: ["activeCourses", schoolId],
-    queryFn: () => getAllCourses({ schoolId, status: "ACTIVE" }),
+  // Fetch active/running bookings to restrict slotDuration editing
+  const { data: activeBookingsResponse } = useQuery({
+    queryKey: ["activeBookings", schoolId],
+    queryFn: async () => {
+      // Fetch all bookings for the school
+      const response = await getAllBookings({ schoolId });
+      // Filter for active bookings (not COMPLETED or CANCELLED)
+      const activeBookings = response?.data?.getAllBooking?.filter(
+        (booking) =>
+          booking.status !== "COMPLETED" && booking.status !== "CANCELLED"
+      );
+      return { ...response, activeBookings };
+    },
     enabled: schoolId > 0,
   });
 
-  const hasActiveCourses =
-    (activeCoursesResponse?.data?.getAllCourse?.length ?? 0) > 0;
+  const hasActiveBookings =
+    (activeBookingsResponse?.activeBookings?.length ?? 0) > 0;
 
   // Set form values when data is loaded
   useEffect(() => {
@@ -492,15 +501,15 @@ const EditSchoolProfilePage = () => {
                       required={true}
                       name="slotDuration"
                       placeholder="Select slot duration"
-                      disable={hasActiveCourses}
+                      disable={hasActiveBookings}
                       options={[
                         { label: "30 Minutes", value: "30" },
                         { label: "60 Minutes", value: "60" },
                       ]}
                     />
-                    {hasActiveCourses && (
+                    {hasActiveBookings && (
                       <p className="text-xs text-amber-600 mt-1">
-                        ⚠️ Cannot change slot duration while active courses
+                        ⚠️ Cannot change slot duration while active bookings
                         exist.
                       </p>
                     )}

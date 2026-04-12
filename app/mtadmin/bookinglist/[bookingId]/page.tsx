@@ -30,6 +30,7 @@ import {
   updateBooking,
   type BookingSession,
 } from "@/services/booking.api";
+import { getSchoolById } from "@/services/school.api";
 import {
   getPaymentsByBooking,
   getTotalPaidAmount,
@@ -88,6 +89,13 @@ const BookingDetailsPage = () => {
   const [editAdminContact, setEditAdminContact] = useState("");
   const [editOtpCountdown, setEditOtpCountdown] = useState(0);
   const [editLoading, setEditLoading] = useState(false);
+  const discountTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [discountOtpModalVisible, setDiscountOtpModalVisible] = useState(false);
+  const [discountOtp, setDiscountOtp] = useState("");
+  const [discountOtpCountdown, setDiscountOtpCountdown] = useState(0);
+  const [discountLoading, setDiscountLoading] = useState(false);
+  const [schoolOtpContact, setSchoolOtpContact] = useState("");
+  const [pendingDiscountAmount, setPendingDiscountAmount] = useState(0);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["booking-details", bookingId],
@@ -424,6 +432,7 @@ const BookingDetailsPage = () => {
   const {
     control,
     handleSubmit,
+    watch,
     reset,
     formState: { errors },
   } = useForm<PaymentFormData>({
@@ -502,6 +511,35 @@ const BookingDetailsPage = () => {
     },
   });
 
+  const markDiscountMutation = useMutation({
+    mutationFn: async (newDiscount: number) => {
+      if (!booking) throw new Error("Booking not found");
+      const newTotalAmount = Math.max(
+        Number(booking.totalAmount || 0) - Number(pendingDiscountAmount || 0),
+        0,
+      );
+
+      return await updateBooking({
+        id: booking.id,
+        discount: newDiscount,
+        totalAmount: newTotalAmount,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Discount marked successfully");
+      queryClient.invalidateQueries({ queryKey: ["booking-details", bookingId] });
+      queryClient.invalidateQueries({ queryKey: ["payment-total", bookingId] });
+      setDiscountOtpModalVisible(false);
+      setDiscountOtp("");
+      setPendingDiscountAmount(0);
+      if (discountTimerRef.current) clearInterval(discountTimerRef.current);
+      setDiscountOtpCountdown(0);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to mark discount");
+    },
+  });
+
   // Update payment mutation
   const updatePaymentMutation = useMutation({
     mutationFn: async ({
@@ -559,6 +597,29 @@ const BookingDetailsPage = () => {
     setEditOtpCountdown(0);
     editForm.resetFields();
     editOtpForm.resetFields();
+  };
+
+  const startDiscountCountdown = () => {
+    setDiscountOtpCountdown(60);
+    if (discountTimerRef.current) clearInterval(discountTimerRef.current);
+    discountTimerRef.current = setInterval(() => {
+      setDiscountOtpCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(discountTimerRef.current!);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const closeDiscountOtpModal = () => {
+    if (discountTimerRef.current) clearInterval(discountTimerRef.current);
+    setDiscountOtpModalVisible(false);
+    setDiscountOtp("");
+    setDiscountOtpCountdown(0);
+    setPendingDiscountAmount(0);
+    setSchoolOtpContact("");
   };
 
   const handleEditPayment = async (payment: Payment) => {
@@ -657,6 +718,98 @@ const BookingDetailsPage = () => {
       toast.error("OTP verification failed. Please try again.");
     } finally {
       setEditLoading(false);
+    }
+  };
+
+  const handleMarkDiscountRequest = async () => {
+    if (!booking) {
+      toast.error("Booking not found");
+      return;
+    }
+
+    const currentBooking = booking;
+    const amount = Number(watch("amount") || 0);
+
+    if (amount <= 0) {
+      toast.error("Enter a valid amount to mark as discount");
+      return;
+    }
+
+    if (amount > remainingAmount) {
+      toast.error("Discount amount cannot be greater than remaining due");
+      return;
+    }
+
+    setDiscountLoading(true);
+    try {
+      const schoolRes = await getSchoolById(currentBooking.schoolId);
+      const schoolContact = schoolRes?.data?.getSchoolById?.phone;
+
+      if (!schoolRes.status || !schoolContact) {
+        toast.error("School contact not found for OTP verification");
+        return;
+      }
+
+      const otpRes = await sendOtp(schoolContact);
+      if (!otpRes.status) {
+        toast.error(otpRes.message || "Failed to send OTP");
+        return;
+      }
+
+      setPendingDiscountAmount(amount);
+      setSchoolOtpContact(schoolContact);
+      setDiscountOtpModalVisible(true);
+      startDiscountCountdown();
+      toast.success("OTP sent to school contact");
+    } catch {
+      toast.error("Failed to initiate discount verification");
+    } finally {
+      setDiscountLoading(false);
+    }
+  };
+
+  const handleResendDiscountOtp = async () => {
+    if (!schoolOtpContact || discountOtpCountdown > 0) return;
+
+    setDiscountLoading(true);
+    try {
+      const otpRes = await sendOtp(schoolOtpContact);
+      if (!otpRes.status) {
+        toast.error(otpRes.message || "Failed to resend OTP");
+        return;
+      }
+      startDiscountCountdown();
+      toast.success("OTP resent successfully");
+    } catch {
+      toast.error("Failed to resend OTP");
+    } finally {
+      setDiscountLoading(false);
+    }
+  };
+
+  const handleVerifyDiscountOtp = async () => {
+    if (!booking) return;
+    if (!discountOtp || discountOtp.length !== 6) {
+      toast.error("Enter a valid 6-digit OTP");
+      return;
+    }
+
+    setDiscountLoading(true);
+    try {
+      const verifyRes = await verifyUserOtp(schoolOtpContact, discountOtp);
+      if (!verifyRes.status) {
+        toast.error(verifyRes.message || "Invalid OTP. Please try again.");
+        return;
+      }
+
+      const currentDiscount = Number(booking.discount || 0);
+      const newDiscount = currentDiscount + pendingDiscountAmount;
+      await markDiscountMutation.mutateAsync(newDiscount);
+      setIsModalOpen(false);
+    } catch {
+      toast.error("OTP verification failed. Please try again.");
+    } finally {
+      setDiscountLoading(false);
     }
   };
 
@@ -1278,6 +1431,12 @@ const BookingDetailsPage = () => {
                 ₹{remainingAmount.toLocaleString("en-IN")}
               </span>
             </div>
+            <div className="flex justify-between mt-2">
+              <span className="text-gray-600">Current Discount:</span>
+              <span className="font-semibold text-blue-600">
+                ₹{Number(booking.discount || 0).toLocaleString("en-IN")}
+              </span>
+            </div>
           </div>
 
           <div>
@@ -1302,6 +1461,8 @@ const BookingDetailsPage = () => {
                   parser={(value) =>
                     value?.replace(/,/g, "") as unknown as number
                   }
+                  // remove the default up/down controls
+                  controls={false}
                 />
               )}
             />
@@ -1393,6 +1554,13 @@ const BookingDetailsPage = () => {
           <div className="flex justify-end gap-2 pt-4">
             <Button onClick={() => setIsModalOpen(false)}>Cancel</Button>
             <Button
+              onClick={handleMarkDiscountRequest}
+              loading={discountLoading}
+              disabled={remainingAmount <= 0}
+            >
+              Mark Discount
+            </Button>
+            <Button
               type="primary"
               htmlType="submit"
               loading={createPaymentMutation.isPending}
@@ -1401,6 +1569,61 @@ const BookingDetailsPage = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        title="Verify OTP for Discount"
+        open={discountOtpModalVisible}
+        onCancel={closeDiscountOtpModal}
+        footer={null}
+        width={500}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            You are marking <span className="font-semibold">₹{pendingDiscountAmount.toLocaleString("en-IN")}</span> as discount.
+            Enter OTP sent to school contact <span className="font-semibold">{schoolOtpContact}</span>.
+          </p>
+
+          <Input
+            size="large"
+            maxLength={6}
+            value={discountOtp}
+            onChange={(e) => setDiscountOtp(e.target.value.replace(/\D/g, ""))}
+            placeholder="Enter 6-digit OTP"
+            className="tracking-widest text-center text-lg font-mono"
+          />
+
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500">
+              {discountOtpCountdown > 0
+                ? `Resend OTP in ${discountOtpCountdown}s`
+                : "Didn't receive the OTP?"}
+            </span>
+            <button
+              type="button"
+              disabled={discountOtpCountdown > 0 || discountLoading}
+              onClick={handleResendDiscountOtp}
+              className={`text-sm font-medium transition-colors ${
+                discountOtpCountdown > 0
+                  ? "text-gray-400 cursor-not-allowed"
+                  : "text-blue-600 hover:text-purple-600 cursor-pointer"
+              }`}
+            >
+              Resend OTP
+            </button>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button onClick={closeDiscountOtpModal}>Cancel</Button>
+            <Button
+              type="primary"
+              onClick={handleVerifyDiscountOtp}
+              loading={discountLoading || markDiscountMutation.isPending}
+            >
+              Verify &amp; Confirm
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       {/* Attendance Marking Modal */}

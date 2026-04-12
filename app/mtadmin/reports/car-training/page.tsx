@@ -67,6 +67,8 @@ const CarTrainingPage = () => {
   const schoolId = parseInt((getCookie("school") as string) || "0");
   const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
   const [selectedCarId, setSelectedCarId] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const { data: carsData } = useQuery<Car[]>({
     queryKey: ["cars", schoolId],
@@ -133,58 +135,89 @@ const CarTrainingPage = () => {
 
   const handleExport = (exportAll = false) => {
     try {
-      const tableElement = document.querySelector(".report-content table");
-      if (!tableElement) { message.error("No data to export"); return; }
+      const allData = filteredData || [];
+      if (allData.length === 0) { message.error("No data to export"); return; }
+
+      const sourceData = (exportAll
+        ? allData
+        : allData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+      ).slice().sort((a, b) => {
+        const dateDiff = dayjs(a.sessionDate).unix() - dayjs(b.sessionDate).unix();
+        if (dateDiff !== 0) return dateDiff;
+        return a.slot.localeCompare(b.slot);
+      });
+
       const generatedDate = dayjs().format("DD MMM YYYY, hh:mm A");
-      const headerRows = [`"${REPORT_TITLE}"`, `"Generated on: ${generatedDate}"`, ""];
-      if (dateRange?.[0] && dateRange?.[1]) {
-        headerRows.push(`"Period: ${dateRange[0].format("DD MMM YYYY")} to ${dateRange[1].format("DD MMM YYYY")}"`);
-        headerRows.push("");
-      }
-      if (selectedCarId) {
-        const car = carsData?.find((c) => c.id === selectedCarId);
-        if (car) { headerRows.push(`"Car: ${car.carName} (${car.registrationNumber})"`); headerRows.push(""); }
-      }
-      const statsCards = document.querySelectorAll(".report-content .ant-statistic");
-      if (statsCards.length > 0) {
-        headerRows.push('"Summary Statistics:"');
-        statsCards.forEach((card) => {
-          const title = card.querySelector(".ant-statistic-title")?.textContent?.trim() || "";
-          const value = card.querySelector(".ant-statistic-content")?.textContent?.trim().replace(/\s+/g, " ") || "";
-          if (title && value) headerRows.push(`"${title}: ${value}"`);
-        });
-        headerRows.push("");
-      }
-      const headers: string[] = [];
-      tableElement.querySelectorAll("thead th").forEach((cell) => {
-        const text = cell.textContent?.trim() || "";
-        if (text) headers.push(text);
-      });
-      const rows: string[][] = [];
-      const bodyRows = exportAll
-        ? tableElement.querySelectorAll("tbody tr.ant-table-row")
-        : tableElement.querySelectorAll("tbody tr");
-      bodyRows.forEach((row) => {
-        const rowData: string[] = [];
-        row.querySelectorAll("td").forEach((cell) => {
-          rowData.push(cell.textContent?.trim().replace(/\s+/g, " ") || "");
-        });
-        if (rowData.length > 0) rows.push(rowData);
-      });
-      const csvContent = [
-        ...headerRows,
-        headers.join(","),
-        ...rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")),
-      ].join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const car = carsData?.find((c) => c.id === selectedCarId);
+
+      const headerParts: string[] = [
+        `<b>${REPORT_TITLE}</b>`,
+        `Generated: ${generatedDate}`,
+        car ? `Car: ${car.carName} (${car.registrationNumber})` : "",
+        dateRange?.[0] && dateRange?.[1]
+          ? `Period: ${dateRange[0].format("DD/MM/YY")} – ${dateRange[1].format("DD/MM/YY")}`
+          : "",
+      ].filter(Boolean);
+      const headerLine = headerParts.join(" &nbsp;|&nbsp; ");
+
+      const headers = ["Date", "Time Slot", "Student Name", "Contact", "Location", "Start Date", "End Date", "Balance", "Next"];
+
+      const tableRows = sourceData.map((session) => {
+        const { startDate, endDate } = session.booking
+          ? getBookingDateRange(session.booking.id)
+          : { startDate: null, endDate: null };
+        const totalPaid = session.booking?.payments?.reduce((s, p) => s + (p.amount || 0), 0) || 0;
+        const pending = Math.max((session.booking?.totalAmount || 0) - totalPaid, 0);
+        const next = getNextStudent(session);
+
+        const cells = [
+          dayjs(session.sessionDate).format("DD/MM/YY"),
+          convertSlotTo12Hour(session.slot),
+          session.booking?.customerName || "N/A",
+          session.booking?.customerMobile || "N/A",
+          session.booking?.location || "-",
+          startDate ? startDate.format("DD/MM/YY") : "-",
+          endDate ? endDate.format("DD/MM/YY") : "-",
+          `Rs. ${pending.toLocaleString()}`,
+          next ? `${next.name} [${next.mobile}] - ${next.startDate} | ${next.endDate}` : "-",
+        ];
+        return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
+      }).join("\n");
+
+      const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><title>${REPORT_TITLE}</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 11px; margin: 8px; }
+  .info { margin-bottom: 5px; color: #333; }
+  .print-btn { margin-bottom: 8px; padding: 5px 14px; font-size: 12px; cursor: pointer; background: #1677ff; color: #fff; border: none; border-radius: 4px; }
+  .print-btn:hover { background: #0958d9; }
+  table { border-collapse: collapse; }
+  th, td { border: 1px solid #999; padding: 4px 7px; text-align: left; white-space: nowrap; }
+  th { background: #e0e0e0; font-weight: bold; }
+  tr:nth-child(even) { background: #f5f5f5; }
+  @media print { .print-btn { display: none; } }
+</style>
+</head><body>
+<button class="print-btn" onclick="window.print()">🖨 Print</button>
+<div class="info">${headerLine}</div>
+<table>
+  <thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
+  <tbody>${tableRows}</tbody>
+</table>
+</body></html>`;
+
+      const blob = new Blob([html], { type: "text/html;charset=utf-8;" });
       const link = document.createElement("a");
       link.setAttribute("href", URL.createObjectURL(blob));
-      link.setAttribute("download", `${REPORT_TITLE.replace(/\s+/g, "_")}${exportAll ? "_ALL" : ""}_${dayjs().format("YYYY-MM-DD_HH-mm")}.csv`);
+      link.setAttribute(
+        "download",
+        `${REPORT_TITLE.replace(/\s+/g, "_")}${exportAll ? "_ALL" : "_PAGE"}_${dayjs().format("YYYY-MM-DD_HH-mm")}.html`,
+      );
       link.style.visibility = "hidden";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      message.success(`Report exported!${exportAll ? " (All records)" : ""}`);
+      message.success(`Report exported!${exportAll ? " (All records)" : " (Current page)"}`);
     } catch {
       message.error("Failed to export report");
     }
@@ -203,12 +236,68 @@ const CarTrainingPage = () => {
     return { startDate, endDate };
   };
 
+  // Find next student with same car and time slot after current booking ends
+  const getNextStudent = (session: BookingSession) => {
+    if (!data || !session.booking) return null;
+    
+    // Get current booking's end date
+    const { endDate: currentEndDate } = getBookingDateRange(session.booking.id);
+    if (!currentEndDate) return null;
+    
+    // Get all unique bookings with same car and time slot (excluding current booking)
+    const sameCarSameTimeBookings = new Map<number, BookingSession>();
+    data.forEach(s => {
+      if (
+        s.car?.id === session.car?.id && 
+        s.slot === session.slot && 
+        s.booking?.id !== session.booking?.id
+      ) {
+        if (!sameCarSameTimeBookings.has(s.booking?.id || 0)) {
+          sameCarSameTimeBookings.set(s.booking?.id || 0, s);
+        }
+      }
+    });
+    
+    if (sameCarSameTimeBookings.size === 0) return null;
+    
+    // Find booking that starts after current booking ends, with earliest start date
+    let nextBooking: BookingSession | null = null;
+    let earliestStartDate: dayjs.Dayjs | null = null;
+    
+    for (const s of sameCarSameTimeBookings.values()) {
+      if (s.booking) {
+        const { startDate } = getBookingDateRange(s.booking.id);
+        if (startDate && startDate.isAfter(currentEndDate)) {
+          if (!earliestStartDate || startDate.isBefore(earliestStartDate)) {
+            earliestStartDate = startDate;
+            nextBooking = s;
+          }
+        }
+      }
+    }
+    
+    if (!nextBooking) return null;
+    const nb = nextBooking as BookingSession;
+    if (!nb.booking) return null;
+    
+    const { startDate, endDate } = getBookingDateRange(nb.booking.id);
+    const startDateStr = startDate ? startDate.format("DD/MM/YY") : "";
+    const endDateStr = endDate ? endDate.format("DD/MM/YY") : "";
+    
+    return {
+      name: nb.booking.customerName,
+      mobile: nb.booking.customerMobile,
+      startDate: startDateStr,
+      endDate: endDateStr,
+    };
+  };
+
   const columns = [
     {
       title: "Date",
       dataIndex: "sessionDate",
       key: "sessionDate",
-      render: (d: string) => dayjs(d).format("DD MMM YYYY"),
+      render: (d: string) => dayjs(d).format("DD/MM/YY"),
       sorter: (a: BookingSession, b: BookingSession) => {
         const dateCompare = dayjs(a.sessionDate).unix() - dayjs(b.sessionDate).unix();
         if (dateCompare !== 0) return dateCompare;
@@ -237,7 +326,7 @@ const CarTrainingPage = () => {
       render: (r: BookingSession) => {
         if (!r.booking) return "-";
         const { startDate } = getBookingDateRange(r.booking.id);
-        return startDate ? startDate.format("DD MMM YYYY") : "-";
+        return startDate ? startDate.format("DD/MM/YY") : "-";
       },
     },
     {
@@ -246,7 +335,7 @@ const CarTrainingPage = () => {
       render: (r: BookingSession) => {
         if (!r.booking) return "-";
         const { endDate } = getBookingDateRange(r.booking.id);
-        return endDate ? endDate.format("DD MMM YYYY") : "-";
+        return endDate ? endDate.format("DD/MM/YY") : "-";
       },
     },
     {
@@ -257,6 +346,15 @@ const CarTrainingPage = () => {
         const totalPaid = r.booking.payments?.reduce((s, p) => s + (p.amount || 0), 0) || 0;
         const pending = Math.max((r.booking.totalAmount || 0) - totalPaid, 0);
         return <Tag color={pending > 0 ? "red" : "green"}>Rs. {pending.toLocaleString()}</Tag>;
+      },
+    },
+    {
+      title: "Next",
+      key: "next",
+      render: (r: BookingSession) => {
+        const next = getNextStudent(r);
+        if (!next) return "-";
+        return `${next.name} [${next.mobile}] - ${next.startDate} | ${next.endDate}`;
       },
     },
     {
@@ -307,7 +405,7 @@ const CarTrainingPage = () => {
                 className="w-full"
                 value={dateRange}
                 onChange={(dates) => setDateRange(dates as [Dayjs, Dayjs])}
-                format="DD MMM YYYY"
+                format="DD/MM/YY"
                 size="large"
               />
             </div>
@@ -374,10 +472,13 @@ const CarTrainingPage = () => {
                 loading={isLoading}
                 rowKey="id"
                 pagination={{
+                  current: currentPage,
+                  pageSize: pageSize,
                   defaultPageSize: 10,
                   showSizeChanger: true,
                   pageSizeOptions: ["10", "25", "50", "100"],
                   showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+                  onChange: (page, size) => { setCurrentPage(page); setPageSize(size); },
                 }}
                 className="shadow-sm"
               />

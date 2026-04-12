@@ -78,6 +78,7 @@ export interface Booking {
   courseId: number;
   courseName: string;
   coursePrice: number;
+  discount?: number;
   totalAmount: number;
   location?: string;
   notes?: string;
@@ -156,6 +157,7 @@ const GET_PAGINATED_BOOKINGS = `
         courseId
         courseName
         coursePrice
+        discount
         totalAmount
         location
         notes
@@ -263,6 +265,7 @@ const GET_ALL_BOOKINGS = `
       courseId
       courseName
       coursePrice
+      discount
       totalAmount
       location
       notes
@@ -344,6 +347,7 @@ const GET_BOOKING_BY_ID = `
       courseId
       courseName
       coursePrice
+      discount
       totalAmount
       location
       notes
@@ -460,6 +464,8 @@ const UPDATE_BOOKING = `
     updateBooking(id: $id, updateType: $updateType) {
       id
       bookingId
+      discount
+      totalAmount
       status
       updatedAt
     }
@@ -535,6 +541,8 @@ export const updateBookingSession = async (updateData: {
 export const updateBooking = async (updateData: {
   id: number;
   status?: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
+  discount?: number;
+  totalAmount?: number;
 }) => {
   const { id, ...updateType } = updateData;
   return ApiCall({

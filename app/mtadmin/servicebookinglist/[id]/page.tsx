@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Card,
   Descriptions,
@@ -20,9 +20,11 @@ import {
   InputNumber,
 } from "antd";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { getBookingServiceById } from "@/services/service.booking.api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getBookingServiceById, updateBookingService } from "@/services/service.booking.api";
 import type { BookingService } from "@/services/service.booking.api";
+import { getSchoolById } from "@/services/school.api";
+import { sendOtp, verifyOtp as verifyUserOtp } from "@/services/auth.api";
 import { formatDate, formatDateTime } from "@/utils/date-format";
 import {
   updateLicenseApplication,
@@ -47,7 +49,6 @@ import dayjs from "dayjs";
 import isSameOrAfter from "dayjs/plugin/isSameOrAfter";
 import { toast } from "react-toastify";
 import { getCookie } from "cookies-next";
-import { useQueryClient } from "@tanstack/react-query";
 import { decryptURLData, encryptURLData } from "@/utils/methods";
 
 dayjs.extend(isSameOrAfter);
@@ -87,6 +88,15 @@ const ServiceBookingViewPage = () => {
   const [resultForm] = Form.useForm();
   const [paymentForm] = Form.useForm();
   const [testResult, setTestResult] = useState<string>("");
+
+  // Discount marking state
+  const discountTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [discountOtpModalVisible, setDiscountOtpModalVisible] = useState(false);
+  const [discountOtp, setDiscountOtp] = useState("");
+  const [discountOtpCountdown, setDiscountOtpCountdown] = useState(0);
+  const [discountLoading, setDiscountLoading] = useState(false);
+  const [schoolOtpContact, setSchoolOtpContact] = useState("");
+  const [pendingDiscountAmount, setPendingDiscountAmount] = useState(0);
 
   // Unwrap params
   // useEffect(() => {
@@ -167,6 +177,37 @@ const ServiceBookingViewPage = () => {
     },
   });
 
+  // Mark discount mutation
+  const markDiscountMutation = useMutation({
+    mutationFn: async (newDiscount: number) => {
+      if (!bookingService) throw new Error("Booking service not found");
+      return await updateBookingService({
+        id: bookingService.id,
+        discount: newDiscount,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Discount marked successfully");
+      queryClient.invalidateQueries({
+        queryKey: ["service-booking-detail", bookingServiceId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["service-payments", bookingServiceId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["service-payment-total", bookingServiceId],
+      });
+      setDiscountOtpModalVisible(false);
+      setDiscountOtp("");
+      setPendingDiscountAmount(0);
+      if (discountTimerRef.current) clearInterval(discountTimerRef.current);
+      setDiscountOtpCountdown(0);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to mark discount");
+    },
+  });
+
   // Handle payment form submit
   const onPaymentSubmit = (values: {
     amount: number;
@@ -185,6 +226,125 @@ const ServiceBookingViewPage = () => {
       paymentNumber,
       ...values,
     });
+  };
+
+  // Discount OTP countdown timer
+  const startDiscountCountdown = () => {
+    setDiscountOtpCountdown(60);
+    if (discountTimerRef.current) clearInterval(discountTimerRef.current);
+    discountTimerRef.current = setInterval(() => {
+      setDiscountOtpCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(discountTimerRef.current!);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // Close discount OTP modal
+  const closeDiscountOtpModal = () => {
+    if (discountTimerRef.current) clearInterval(discountTimerRef.current);
+    setDiscountOtpModalVisible(false);
+    setDiscountOtp("");
+    setDiscountOtpCountdown(0);
+    setPendingDiscountAmount(0);
+    setSchoolOtpContact("");
+  };
+
+  // Handle mark discount request
+  const handleMarkDiscountRequest = async () => {
+    if (!bookingService) {
+      toast.error("Booking service not found");
+      return;
+    }
+
+    const amount = Number(paymentForm.getFieldValue("amount") || 0);
+
+    if (amount <= 0) {
+      toast.error("Enter a valid amount to mark as discount");
+      return;
+    }
+
+    if (amount > remainingServiceAmount) {
+      toast.error("Discount amount cannot be greater than remaining due");
+      return;
+    }
+
+    setDiscountLoading(true);
+    try {
+      const schoolRes = await getSchoolById(bookingService.schoolId);
+      const schoolContact = schoolRes?.data?.getSchoolById?.phone;
+
+      if (!schoolRes.status || !schoolContact) {
+        toast.error("School contact not found for OTP verification");
+        return;
+      }
+
+      const otpRes = await sendOtp(schoolContact);
+      if (!otpRes.status) {
+        toast.error(otpRes.message || "Failed to send OTP");
+        return;
+      }
+
+      setPendingDiscountAmount(amount);
+      setSchoolOtpContact(schoolContact);
+      setDiscountOtpModalVisible(true);
+      startDiscountCountdown();
+      toast.success("OTP sent to school contact");
+    } catch {
+      toast.error("Failed to initiate discount verification");
+    } finally {
+      setDiscountLoading(false);
+    }
+  };
+
+  // Handle resend discount OTP
+  const handleResendDiscountOtp = async () => {
+    if (!schoolOtpContact || discountOtpCountdown > 0) return;
+
+    setDiscountLoading(true);
+    try {
+      const otpRes = await sendOtp(schoolOtpContact);
+      if (!otpRes.status) {
+        toast.error(otpRes.message || "Failed to resend OTP");
+        return;
+      }
+      startDiscountCountdown();
+      toast.success("OTP resent successfully");
+    } catch {
+      toast.error("Failed to resend OTP");
+    } finally {
+      setDiscountLoading(false);
+    }
+  };
+
+  // Handle verify discount OTP
+  const handleVerifyDiscountOtp = async () => {
+    if (!bookingService) return;
+    if (!discountOtp || discountOtp.length !== 6) {
+      toast.error("Enter a valid 6-digit OTP");
+      return;
+    }
+
+    setDiscountLoading(true);
+    try {
+      const verifyRes = await verifyUserOtp(schoolOtpContact, discountOtp);
+      if (!verifyRes.status) {
+        toast.error(verifyRes.message || "Invalid OTP. Please try again.");
+        return;
+      }
+
+      const currentDiscount = Number(bookingService.discount || 0);
+      const newDiscount = currentDiscount + pendingDiscountAmount;
+      await markDiscountMutation.mutateAsync(newDiscount);
+      setIsPaymentModalOpen(false);
+    } catch {
+      toast.error("OTP verification failed. Please try again.");
+    } finally {
+      setDiscountLoading(false);
+    }
   };
 
   // Handle open payment modal
@@ -1522,6 +1682,12 @@ const ServiceBookingViewPage = () => {
                 ₹{remainingServiceAmount.toLocaleString("en-IN")}
               </span>
             </div>
+            <div className="flex justify-between mt-2">
+              <span className="text-gray-600">Current Discount:</span>
+              <span className="font-semibold text-blue-600">
+                ₹{Number(bookingService?.discount || 0).toLocaleString("en-IN")}
+              </span>
+            </div>
           </div>
 
           <Form.Item
@@ -1619,6 +1785,14 @@ const ServiceBookingViewPage = () => {
                 Cancel
               </Button>
               <Button
+                onClick={handleMarkDiscountRequest}
+                size="large"
+                loading={discountLoading}
+                disabled={remainingServiceAmount <= 0}
+              >
+                Mark Discount
+              </Button>
+              <Button
                 type="primary"
                 size="large"
                 htmlType="submit"
@@ -1630,6 +1804,62 @@ const ServiceBookingViewPage = () => {
             </Space>
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Discount OTP Verification Modal */}
+      <Modal
+        title="Verify OTP for Discount"
+        open={discountOtpModalVisible}
+        onCancel={closeDiscountOtpModal}
+        footer={null}
+        width={500}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            You are marking <span className="font-semibold">₹{pendingDiscountAmount.toLocaleString("en-IN")}</span> as discount.
+            Enter OTP sent to school contact <span className="font-semibold">{schoolOtpContact}</span>.
+          </p>
+
+          <Input
+            size="large"
+            maxLength={6}
+            value={discountOtp}
+            onChange={(e) => setDiscountOtp(e.target.value.replace(/\D/g, ""))}
+            placeholder="Enter 6-digit OTP"
+            className="tracking-widest text-center text-lg font-mono"
+          />
+
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500">
+              {discountOtpCountdown > 0
+                ? `Resend OTP in ${discountOtpCountdown}s`
+                : "Didn't receive the OTP?"}
+            </span>
+            <button
+              type="button"
+              disabled={discountOtpCountdown > 0 || discountLoading}
+              onClick={handleResendDiscountOtp}
+              className={`text-sm font-medium transition-colors ${
+                discountOtpCountdown > 0
+                  ? "text-gray-400 cursor-not-allowed"
+                  : "text-blue-600 hover:text-purple-600 cursor-pointer"
+              }`}
+            >
+              Resend OTP
+            </button>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button onClick={closeDiscountOtpModal}>Cancel</Button>
+            <Button
+              type="primary"
+              onClick={handleVerifyDiscountOtp}
+              loading={discountLoading || markDiscountMutation.isPending}
+            >
+              Verify &amp; Confirm
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

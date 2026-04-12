@@ -71,6 +71,8 @@ const StudentJoinPage = () => {
   const schoolId = parseInt((getCookie("school") as string) || "0");
   const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("bookings");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const { data: bookingsData, isLoading: isLoadingBookings } = useQuery<Booking[]>({
     queryKey: ["student-join-report", dateRange, schoolId],
@@ -158,58 +160,97 @@ const StudentJoinPage = () => {
 
   const handleExport = (exportAll = false) => {
     try {
-      const tableElement = document.querySelector(".report-content table");
-      if (!tableElement) { message.error("No data to export"); return; }
+      const allData = viewMode === "bookings" ? (bookingsData || []) : (servicesData || []);
+      if (allData.length === 0) { message.error("No data to export"); return; }
+
+      const sourceData = (exportAll
+        ? allData
+        : allData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+      ).slice().sort((a, b) => dayjs(a.createdAt).unix() - dayjs(b.createdAt).unix());
+
       const generatedDate = dayjs().format("DD MMM YYYY, hh:mm A");
-      const headerRows = [
-        `"${REPORT_TITLE}"`,
-        `"Generated on: ${generatedDate}"`,
-        "",
-      ];
-      if (dateRange?.[0] && dateRange?.[1]) {
-        headerRows.push(`"Period: ${dateRange[0].format("DD MMM YYYY")} to ${dateRange[1].format("DD MMM YYYY")}"`);
-        headerRows.push("");
+      const headerParts: string[] = [
+        `<b>${REPORT_TITLE}</b>`,
+        `Generated: ${generatedDate}`,
+        viewMode === "bookings" ? "Type: Course Bookings" : "Type: Services",
+        dateRange?.[0] && dateRange?.[1]
+          ? `Period: ${dateRange[0].format("DD/MM/YY")} – ${dateRange[1].format("DD/MM/YY")}`
+          : "",
+      ].filter(Boolean);
+      const headerLine = headerParts.join(" &nbsp;|&nbsp; ");
+
+      let headers: string[];
+      let tableRows: string;
+
+      if (viewMode === "bookings") {
+        headers = ["Ref No", "Join Date", "Student Name", "Contact", "Car Name", "Course", "Balance"];
+        tableRows = (sourceData as Booking[]).map((record) => {
+          const totalPaid = record.payments?.reduce((s, p) => s + (p.amount || 0), 0) || 0;
+          const pending = Math.max((record.totalAmount || 0) - totalPaid, 0);
+          const cells = [
+            record.bookingId || "-",
+            record.createdAt ? dayjs(record.createdAt).format("DD/MM/YY") : "-",
+            record.customerName || "-",
+            record.customerMobile || "-",
+            record.carName || "-",
+            record.courseName || "-",
+            `Rs. ${pending.toLocaleString()}`,
+          ];
+          return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
+        }).join("\n");
+      } else {
+        headers = ["Confirmation No", "Join Date", "Student Name", "Contact", "Service Name", "Price", "Balance"];
+        tableRows = (sourceData as BookingService[]).map((record) => {
+          const finalPrice = (record.price || 0) - (record.discount || 0);
+          const totalPaid = record.servicePayments?.reduce((s, p) => s + (p.amount || 0), 0) || 0;
+          const pending = Math.max(finalPrice - totalPaid, 0);
+          const cells = [
+            record.confirmationNumber || "-",
+            record.createdAt ? dayjs(record.createdAt).format("DD/MM/YY") : "-",
+            record.user ? `${record.user.name} ${record.user.surname}`.trim() : "-",
+            record.user?.contact1 || "-",
+            record.serviceName || "-",
+            `Rs. ${finalPrice.toLocaleString()}`,
+            `Rs. ${pending.toLocaleString()}`,
+          ];
+          return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
+        }).join("\n");
       }
-      const statsCards = document.querySelectorAll(".report-content .ant-statistic");
-      if (statsCards.length > 0) {
-        headerRows.push('"Summary Statistics:"');
-        statsCards.forEach((card) => {
-          const title = card.querySelector(".ant-statistic-title")?.textContent?.trim() || "";
-          const value = card.querySelector(".ant-statistic-content")?.textContent?.trim().replace(/\s+/g, " ") || "";
-          if (title && value) headerRows.push(`"${title}: ${value}"`);
-        });
-        headerRows.push("");
-      }
-      const headers: string[] = [];
-      tableElement.querySelectorAll("thead th").forEach((cell) => {
-        const text = cell.textContent?.trim() || "";
-        if (text) headers.push(text);
-      });
-      const rows: string[][] = [];
-      const bodyRows = exportAll
-        ? tableElement.querySelectorAll("tbody tr.ant-table-row")
-        : tableElement.querySelectorAll("tbody tr");
-      bodyRows.forEach((row) => {
-        const rowData: string[] = [];
-        row.querySelectorAll("td").forEach((cell) => {
-          rowData.push(cell.textContent?.trim().replace(/\s+/g, " ") || "");
-        });
-        if (rowData.length > 0) rows.push(rowData);
-      });
-      const csvContent = [
-        ...headerRows,
-        headers.join(","),
-        ...rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")),
-      ].join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+
+      const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><title>${REPORT_TITLE}</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 11px; margin: 8px; }
+  .info { margin-bottom: 5px; color: #333; }
+  .print-btn { margin-bottom: 8px; padding: 5px 14px; font-size: 12px; cursor: pointer; background: #1677ff; color: #fff; border: none; border-radius: 4px; }
+  .print-btn:hover { background: #0958d9; }
+  table { border-collapse: collapse; }
+  th, td { border: 1px solid #999; padding: 4px 7px; text-align: left; white-space: nowrap; }
+  th { background: #e0e0e0; font-weight: bold; }
+  tr:nth-child(even) { background: #f5f5f5; }
+  @media print { .print-btn { display: none; } }
+</style>
+</head><body>
+<button class="print-btn" onclick="window.print()">🖨 Print</button>
+<div class="info">${headerLine}</div>
+<table>
+  <thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
+  <tbody>${tableRows}</tbody>
+</table>
+</body></html>`;
+
+      const blob = new Blob([html], { type: "text/html;charset=utf-8;" });
       const link = document.createElement("a");
       link.setAttribute("href", URL.createObjectURL(blob));
-      link.setAttribute("download", `${REPORT_TITLE.replace(/\s+/g, "_")}${exportAll ? "_ALL" : ""}_${dayjs().format("YYYY-MM-DD_HH-mm")}.csv`);
+      link.setAttribute(
+        "download",
+        `${REPORT_TITLE.replace(/\s+/g, "_")}${exportAll ? "_ALL" : "_PAGE"}_${dayjs().format("YYYY-MM-DD_HH-mm")}.html`,
+      );
       link.style.visibility = "hidden";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      message.success(`Report exported successfully!${exportAll ? " (All records)" : ""}`);
+      message.success(`Report exported!${exportAll ? " (All records)" : " (Current page)"}`);
     } catch {
       message.error("Failed to export report");
     }
@@ -396,10 +437,12 @@ const StudentJoinPage = () => {
               loading={isLoadingBookings}
               rowKey="id"
               pagination={{
-                defaultPageSize: 10,
+                current: currentPage,
+                pageSize,
                 showSizeChanger: true,
                 pageSizeOptions: ["10", "25", "50", "100"],
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+                onChange: (page, size) => { setCurrentPage(page); setPageSize(size); },
               }}
               className="shadow-sm"
             />
@@ -410,10 +453,12 @@ const StudentJoinPage = () => {
               loading={isLoadingServices}
               rowKey="id"
               pagination={{
-                defaultPageSize: 10,
+                current: currentPage,
+                pageSize,
                 showSizeChanger: true,
                 pageSizeOptions: ["10", "25", "50", "100"],
                 showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+                onChange: (page, size) => { setCurrentPage(page); setPageSize(size); },
               }}
               className="shadow-sm"
             />

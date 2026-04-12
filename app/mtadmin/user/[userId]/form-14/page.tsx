@@ -45,9 +45,11 @@ const Form14Page = ({ params }: { params: Promise<{ userId: string }> }) => {
   const user = userResponse?.data?.getUserById;
   const school = schoolResponse?.data?.getSchoolById;
   const allBookings = bookingsResponse?.data?.getAllBooking || [];
-  
+
   // Filter bookings for this specific user
-  const bookings = allBookings.filter((booking) => booking.customerId === numericUserId);
+  const bookings = allBookings.filter(
+    (booking) => booking.customerId === numericUserId,
+  );
 
   // Get the first booking for course details
   const firstBooking = bookings.length > 0 ? bookings[0] : null;
@@ -117,7 +119,7 @@ const Form14Page = ({ params }: { params: Promise<{ userId: string }> }) => {
             {user.profile ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={`${baseurl}${user.profile}`}
+                src={`${baseurl}/${user.profile}`}
                 alt="User"
                 className="w-full h-full object-cover"
               />
@@ -132,7 +134,8 @@ const Form14Page = ({ params }: { params: Promise<{ userId: string }> }) => {
               {school?.name || "CHOHAN MOTOR DRIVING SCHOOL"}
             </div>
             <div className="text-sm mb-1">
-              {school?.address || "Kalewadi, Gangve Chs., Alandi Nagre, near Bandgore, Audyogic (V.), Mumbai KY."}
+              {school?.address ||
+                "Kalewadi, Gangve Chs., Alandi Nagre, near Bandgore, Audyogic (V.), Mumbai KY."}
             </div>
             <div className="text-sm mb-1">
               {school?.phone && `T.A.: ${school.phone}`}
@@ -144,7 +147,8 @@ const Form14Page = ({ params }: { params: Promise<{ userId: string }> }) => {
 
           {/* Title */}
           <div className="text-center font-bold mb-6 text-base">
-            REGISTER SHOWING THE ENROLMENT OF TRAINEE (S) IN THE<br />
+            REGISTER SHOWING THE ENROLMENT OF TRAINEE (S) IN THE
+            <br />
             DRIVING SCHOOL ESTABLISHMENTS
           </div>
 
@@ -162,15 +166,19 @@ const Form14Page = ({ params }: { params: Promise<{ userId: string }> }) => {
             <div className="flex">
               <div className="w-64">1. Enrolment number</div>
               <div className="flex-1 border-b border-black font-semibold">
-                {firstBooking?.bookingId || `PRA ${new Date().getFullYear()} - ${user.id.toString().padStart(4, "0")}`}
+                {firstBooking?.bookingId ||
+                  `PRA ${new Date().getFullYear()} - ${user.id.toString().padStart(4, "0")}`}
               </div>
             </div>
 
             {/* Name of Trainee */}
             <div className="flex">
-              <div className="w-64">2. Name of the trainee with his photograph</div>
+              <div className="w-64">
+                2. Name of the trainee with his photograph
+              </div>
               <div className="flex-1 border-b border-black font-semibold uppercase">
-                {user.surname && user.surname.toUpperCase()}, {user.name.toUpperCase()}
+                {user.name.toUpperCase()}{" "}
+                {user.surname && user.surname.toUpperCase()}
               </div>
             </div>
 
@@ -190,16 +198,19 @@ const Form14Page = ({ params }: { params: Promise<{ userId: string }> }) => {
                   {user.address || ""}
                 </div>
               </div>
+
+              <div className="flex">
+                <div className="w-64 pl-8">
+                  (a) Temporary Address/Official Address (if any)
+                </div>
+                <div className="flex-1 border-b border-black font-semibold">
+                  {user.address || ""}
+                </div>
+              </div>
               <div className="flex">
                 <div className="w-64 pl-8">(b) Permanent Address</div>
                 <div className="flex-1 border-b border-black font-semibold">
                   {user.permanentAddress || user.address || ""}
-                </div>
-              </div>
-              <div className="flex">
-                <div className="w-64 pl-8">(a) Temporary Address/Official Address (if any)</div>
-                <div className="flex-1 border-b border-black font-semibold">
-                  {user.address || ""}
                 </div>
               </div>
             </div>
@@ -214,9 +225,11 @@ const Form14Page = ({ params }: { params: Promise<{ userId: string }> }) => {
 
             {/* Class of Vehicle */}
             <div className="flex">
-              <div className="w-64">6. Class of vehicle for which training imparted</div>
+              <div className="w-64">
+                6. Class of vehicle for which training imparted
+              </div>
               <div className="flex-1 border-b border-black font-semibold">
-                {firstBooking?.courseName || ""}
+                {/* {firstBooking?.courseName || ""} */}LMV
               </div>
             </div>
 
@@ -232,20 +245,23 @@ const Form14Page = ({ params }: { params: Promise<{ userId: string }> }) => {
 
             {/* Learner's License */}
             <div className="flex">
-              <div className="w-64">8. Learner&apos;s License Number & date of its expiry</div>
+              <div className="w-64">
+                8. Learner&apos;s License Number & date of its expiry
+              </div>
               <div className="flex-1 border-b border-black"></div>
             </div>
 
             {/* Date of Completion */}
             <div className="flex">
               <div className="w-64">9. Date of completion of the course</div>
-              <div className="flex-1 border-b border-black font-semibold">
-              </div>
+              <div className="flex-1 border-b border-black font-semibold"></div>
             </div>
 
             {/* Date of Test */}
             <div className="flex">
-              <div className="w-64">10. Date of pertagthe test of competence to drive</div>
+              <div className="w-64">
+                10. Date of pertagthe test of competence to drive
+              </div>
               <div className="flex-1 border-b border-black"></div>
             </div>
 
@@ -253,7 +269,9 @@ const Form14Page = ({ params }: { params: Promise<{ userId: string }> }) => {
             <div className="flex">
               <div className="w-64">
                 11. Driving License Number & date of issue &<br />
-                <span className="pl-4">Licensing authority which issued the licenre</span>
+                <span className="pl-4">
+                  Licensing authority which issued the license
+                </span>
               </div>
               <div className="flex-1 border-b border-black"></div>
             </div>
@@ -266,7 +284,7 @@ const Form14Page = ({ params }: { params: Promise<{ userId: string }> }) => {
 
             {/* Signature of License Holder */}
             <div className="flex">
-              <div className="w-64">13. Signature of the licence holder</div>
+              <div className="w-64">13. Signature of the license holder</div>
               <div className="flex-1 border-b border-black"></div>
             </div>
 

@@ -277,6 +277,17 @@ const GET_BOOKING_SERVICE_BY_ID = `
   }
 `;
 
+const UPDATE_BOOKING_SERVICE = `
+  mutation UpdateBookingService($id: Int!, $updateType: UpdateBookingServiceInput!) {
+    updateBookingService(id: $id, updateType: $updateType) {
+      id
+      discount
+      price
+      updatedAt
+    }
+  }
+`;
+
 // API Functions
 export const getPaginatedBookingServices = async (variables: {
   searchPaginationInput: {
@@ -319,5 +330,17 @@ export const getBookingServiceById = async (id: number) => {
   return ApiCall<SingleBookingService>({
     query: GET_BOOKING_SERVICE_BY_ID,
     variables: { id },
+  });
+};
+
+export const updateBookingService = async (updateData: {
+  id: number;
+  discount?: number;
+  price?: number;
+}) => {
+  const { id, ...updateType } = updateData;
+  return ApiCall({
+    query: UPDATE_BOOKING_SERVICE,
+    variables: { id, updateType },
   });
 };

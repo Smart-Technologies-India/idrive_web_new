@@ -70,7 +70,8 @@ const StudentReportDetailPage = () => {
     refetchOnWindowFocus: false,
   });
 
-  const schoolBranchName = schoolResponse?.data?.getSchoolById?.branchName || "-";
+  const schoolBranchName =
+    schoolResponse?.data?.getSchoolById?.branchName || "-";
 
   const studentBookings = useMemo(() => {
     const bookings = bookingsResponse?.data?.getAllBooking || [];
@@ -100,10 +101,10 @@ const StudentReportDetailPage = () => {
   const trainingRules = useMemo(() => {
     const rules = traingRulesResponse?.data?.getAllTraingRules || [];
     if (rules.length === 0) return [];
-    
+
     const firstRule = rules[0];
     const rulesList: string[] = [];
-    
+
     if (firstRule.rule1) rulesList.push(firstRule.rule1);
     if (firstRule.rule2) rulesList.push(firstRule.rule2);
     if (firstRule.rule3) rulesList.push(firstRule.rule3);
@@ -112,7 +113,7 @@ const StudentReportDetailPage = () => {
     if (firstRule.rule6) rulesList.push(firstRule.rule6);
     if (firstRule.rule7) rulesList.push(firstRule.rule7);
     if (firstRule.rule8) rulesList.push(firstRule.rule8);
-    
+
     return rulesList;
   }, [traingRulesResponse]);
 
@@ -205,6 +206,18 @@ const StudentReportDetailPage = () => {
       courseDetails: courseDetails.length > 0 ? courseDetails.join(", ") : "-",
     };
   }, [studentBookings]);
+  
+  const slot24to12 = (slot: string): string => {
+    const [start, end] = slot.split("-");
+    const formatTime = (time: string) => {
+      const [hourStr, minute] = time.split(":");
+      let hour = parseInt(hourStr, 10);
+      const ampm = hour >= 12 ? "PM" : "AM";
+      hour = hour % 12 || 12;
+      return `${hour}:${minute} ${ampm}`;
+    };
+    return `${formatTime(start)} - ${formatTime(end)}`;
+  };
 
   const sessionRows: SessionRow[] = useMemo(() => {
     return studentBookings
@@ -217,16 +230,17 @@ const StudentReportDetailPage = () => {
               session.status !== "HOLD",
           )
           .map((session: BookingSession) => ({
-        key: `${booking.id}-${session.id}`,
-        bookingId: booking.bookingId,
-        sessionTime: dayjs(session.sessionDate).valueOf(),
-        date: dayjs(session.sessionDate).format("DD MMM YYYY"),
-        slot: session.slot,
-        carName: booking.car?.carName || booking.carName,
-        courseName: booking.course?.courseName || booking.courseName,
-        status: session.status,
-        remark: session.instructorNotes || booking.notes || "-",
-      })),
+            key: `${booking.id}-${session.id}`,
+            bookingId: booking.bookingId,
+            sessionTime: dayjs(session.sessionDate).valueOf(),
+            date: dayjs(session.sessionDate).format("DD MMM YYYY"),
+            // slot: session.slot,
+            slot: slot24to12(session.slot || ""),
+            carName: booking.car?.carName || booking.carName,
+            courseName: booking.course?.courseName || booking.courseName,
+            status: session.status,
+            remark: session.instructorNotes || booking.notes || "-",
+          })),
       )
       .sort((a, b) => a.sessionTime - b.sessionTime);
   }, [studentBookings]);
@@ -234,7 +248,7 @@ const StudentReportDetailPage = () => {
   const columns = [
     {
       title: "Sr. No",
-      key: "srNo", 
+      key: "srNo",
       width: 80,
       render: (_: SessionRow, __: SessionRow, index: number) => index + 1,
     },
@@ -347,17 +361,16 @@ const StudentReportDetailPage = () => {
                   {student?.customer?.contact2 || "-"}
                 </p>
                 <p>
-                  <span className="font-medium">Address:</span>{" "}
-                  {studentAddress}
+                  <span className="font-medium">Address:</span> {studentAddress}
                 </p>
                 <p>
                   <span className="font-medium">Pickup/Drop Location:</span>{" "}
                   {studentLocations}
                 </p>
-                <p>
+                {/* <p>
                   <span className="font-medium">Branch Location:</span>{" "}
                   {schoolBranchName}
-                </p>
+                </p> */}
                 <p>
                   <span className="font-medium">Start Dt: </span>
                   <span className="font-normal">
@@ -425,7 +438,9 @@ const StudentReportDetailPage = () => {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-gray-500 italic">No training rules configured.</p>
+                <p className="text-sm text-gray-500 italic">
+                  No training rules configured.
+                </p>
               )}
             </div>
           </div>

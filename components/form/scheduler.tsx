@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   Table,
   Tag,
@@ -90,7 +90,7 @@ interface Holiday {
   carId: number | null;
   startDate: string;
   endDate: string;
-  slots: string | null;
+  slots: string | string[] | null;
   reason: string;
   status: string;
 }
@@ -373,6 +373,71 @@ const CarScheduler = () => {
     return (data?.getAllHoliday || []) as Holiday[];
   }, [holidaysResponse]);
 
+  const parseHolidaySlots = useCallback((slots: Holiday["slots"]): string[] => {
+    if (!slots) return [];
+
+    if (Array.isArray(slots)) {
+      return slots;
+    }
+
+    try {
+      const parsed = JSON.parse(slots);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch {
+      // Fallback for non-JSON values
+    }
+
+    return slots
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }, []);
+
+  const isDateInHolidayRange = useCallback((date: Dayjs, holiday: Holiday): boolean => {
+    const checkDate = date.format("YYYY-MM-DD");
+    const holidayStart = dayjs.utc(holiday.startDate).format("YYYY-MM-DD");
+    const holidayEnd = dayjs.utc(holiday.endDate).format("YYYY-MM-DD");
+    return checkDate >= holidayStart && checkDate <= holidayEnd;
+  }, []);
+
+  const isSlotBlockedByHoliday = useCallback((
+    car: EnrichedCar | CarData,
+    slot: string,
+    date: Dayjs
+  ): boolean => {
+    return holidays.some((holiday) => {
+      if (!isDateInHolidayRange(date, holiday)) {
+        return false;
+      }
+
+      if (holiday.declarationType == "ALL_CARS_MULTIPLE_DATES") {
+        return true;
+      }
+
+      if (
+        holiday.declarationType == "ONE_CAR_MULTIPLE_DATES" &&
+        holiday.carId == car.id
+      ) {
+        return true;
+      }
+
+      if (holiday.declarationType == "ALL_CARS_PARTICULAR_SLOTS") {
+        return parseHolidaySlots(holiday.slots).includes(slot);
+      }
+
+      if (
+        holiday.declarationType == "ONE_CAR_PARTICULAR_SLOTS" &&
+        holiday.carId == car.id
+      ) {
+        return parseHolidaySlots(holiday.slots).includes(slot);
+      }
+
+      return false;
+    });
+  }, [holidays, isDateInHolidayRange, parseHolidaySlots]);
+
   // Enrich cars with bookings and holiday information
   const enrichedCars: EnrichedCar[] = useMemo(() => {
     return carsData.map((car) => {
@@ -409,46 +474,10 @@ const CarScheduler = () => {
 
       const carBookings = Array.from(bookingsMap.values());
 
-      // Get holiday slots for this car
-      const holidaySlots: string[] = [];
-
-      holidays.forEach((holiday) => {
-        // Use UTC to avoid timezone issues - compare only dates, not times
-        const holidayStart = dayjs.utc(holiday.startDate).format("YYYY-MM-DD");
-        const holidayEnd = dayjs.utc(holiday.endDate).format("YYYY-MM-DD");
-        const selectedDay = selectedDate.format("YYYY-MM-DD");
-
-        // Check if selected date falls within holiday range (inclusive of start and end dates)
-        const isDateInHolidayRange =
-          selectedDay >= holidayStart && selectedDay <= holidayEnd;
-
-        if (!isDateInHolidayRange) return;
-
-        if (
-          holiday.declarationType == "ALL_CARS_MULTIPLE_DATES" ||
-          (holiday.declarationType == "ONE_CAR_MULTIPLE_DATES" &&
-            holiday.carId == car.id)
-        ) {
-          // All slots are holidays
-          holidaySlots.push(...allSlots);
-        } else if (
-          holiday.declarationType == "ALL_CARS_PARTICULAR_SLOTS" ||
-          (holiday.declarationType == "ONE_CAR_PARTICULAR_SLOTS" &&
-            holiday.carId == car.id)
-        ) {
-          // Specific slots are holidays
-          if (holiday.slots) {
-            try {
-              const slots = JSON.parse(holiday.slots);
-              if (Array.isArray(slots)) {
-                holidaySlots.push(...slots);
-              }
-            } catch (e) {
-              console.error("Error parsing holiday slots:", e);
-            }
-          }
-        }
-      });
+      // Get holiday slots for this car on selected date
+      const holidaySlots = allSlots.filter((slot) =>
+        isSlotBlockedByHoliday(car, slot, selectedDate)
+      );
 
       return {
         ...car,
@@ -456,7 +485,7 @@ const CarScheduler = () => {
         holidaySlots: [...new Set(holidaySlots)], // Remove duplicates
       };
     });
-  }, [carsData, allSessions, holidays, selectedDate, allSlots]);
+  }, [carsData, allSessions, selectedDate, allSlots, isSlotBlockedByHoliday]);
 
   // Filter cars by status
   const filteredCars = useMemo(() => {
@@ -533,8 +562,11 @@ const CarScheduler = () => {
     // Use UTC to ensure consistent date parsing
     let nextDate = dayjs.utc(lastSession.sessionDate).add(1, "day");
 
-    // Skip school weekly/test holiday days if the next day falls on either.
-    while (isSchoolWeeklyOrTestHoliday(nextDate)) {
+    // Skip weekly/test holidays and declared holiday ranges for this car+slot.
+    while (
+      isSchoolWeeklyOrTestHoliday(nextDate) ||
+      isSlotBlockedByHoliday(car, slot, nextDate)
+    ) {
       nextDate = nextDate.add(1, "day");
     }
 

@@ -10,6 +10,17 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizeCss: true,
   },
+  // Allow images from Unsplash
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        port: '',
+        pathname: '/**',
+      },
+    ],
+  },
 };
 
 export default nextConfig;

@@ -1046,22 +1046,30 @@ const BookingDetailsPage = () => {
               title: "Mark Attendance",
               key: "markAttendance",
               width: 150,
-              render: (_, record) => (
-                <Button
-                  type="primary"
-                  size="small"
-                  onClick={() => handleMarkAttendance(record)}
-                  disabled={
-                    record.status === "COMPLETED" ||
-                    record.status === "CANCELLED" ||
-                    record.attended
-                  }
-                >
-                  {record.attended || record.status === "COMPLETED"
-                    ? "Marked"
-                    : "Mark"}
-                </Button>
-              ),
+              render: (_, record) => {
+                const isDriverChangedSession = record.status === "EDITED";
+
+                if (isDriverChangedSession) {
+                  return <span className="text-gray-400">N/A</span>;
+                }
+
+                return (
+                  <Button
+                    type="primary"
+                    size="small"
+                    onClick={() => handleMarkAttendance(record)}
+                    disabled={
+                      record.status === "COMPLETED" ||
+                      record.status === "CANCELLED" ||
+                      record.attended
+                    }
+                  >
+                    {record.attended || record.status === "COMPLETED"
+                      ? "Marked"
+                      : "Mark"}
+                  </Button>
+                );
+              },
             },
           ]}
           dataSource={sortedSessions}

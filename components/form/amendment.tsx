@@ -476,6 +476,14 @@ const generateTimeSlots = (
   return slots;
 };
 
+const normalizeStatus = (status?: string) => (status || "").toUpperCase();
+
+const isStatus = (status: string | undefined, ...allowed: string[]) =>
+  allowed.includes(normalizeStatus(status));
+
+const isUnmarkedSessionStatus = (status?: string) =>
+  !["COMPLETED", "CANCELLED", "HOLD"].includes(normalizeStatus(status));
+
 const AmendmentForm = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -691,8 +699,7 @@ const AmendmentForm = () => {
           return (
             (sessionDate.isAfter(clickedDate) ||
               sessionDate.isSame(clickedDate, "day")) &&
-            session.status !== "COMPLETED" &&
-            session.status !== "CANCELLED"
+            isUnmarkedSessionStatus(session.status)
           );
         });
 
@@ -721,7 +728,7 @@ const AmendmentForm = () => {
           return (
             (sessionDate.isAfter(clickedDate) ||
               sessionDate.isSame(clickedDate, "day")) &&
-            (session.status === "PENDING" || session.status === "CONFIRMED")
+            isUnmarkedSessionStatus(session.status)
           );
         });
 
@@ -750,8 +757,7 @@ const AmendmentForm = () => {
           return (
             (sessionDate.isAfter(clickedDate) ||
               sessionDate.isSame(clickedDate, "day")) &&
-            session.status !== "COMPLETED" &&
-            session.status !== "CANCELLED"
+            isUnmarkedSessionStatus(session.status)
           );
         });
 
@@ -912,8 +918,7 @@ const AmendmentForm = () => {
       const bookedCarIds = new Set(
         allBookedSessions
           .filter((session: BookingSession) => 
-            session.status === "PENDING" || 
-            session.status === "CONFIRMED"
+            isUnmarkedSessionStatus(session.status)
           )
           .map((session: BookingSession) => session.carId)
       );
@@ -986,9 +991,7 @@ const AmendmentForm = () => {
       // This includes dates from the current booking to prevent selecting the old dates again
       return (
         sessionDateStr == dateStr &&
-        (session.status == "PENDING" ||
-          session.status == "CONFIRMED" ||
-          session.status == "CANCELLED")
+        isStatus(session.status, "PENDING", "CONFIRMED", "CANCELLED")
       );
     });
 
@@ -1722,11 +1725,11 @@ const AmendmentForm = () => {
                             </span>
                             <Badge
                               status={
-                                booking.status == "CONFIRMED"
+                                isStatus(booking.status, "CONFIRMED")
                                   ? "success"
-                                  : booking.status == "PENDING"
+                                  : isStatus(booking.status, "PENDING")
                                   ? "warning"
-                                  : booking.status == "CANCELLED"
+                                  : isStatus(booking.status, "CANCELLED")
                                   ? "error"
                                   : "default"
                               }
@@ -1774,8 +1777,7 @@ const AmendmentForm = () => {
                     (() => {
                       const sortedSessions = [...selectedBooking.sessions]
                         .filter(
-                          (s) =>
-                            s.status == "PENDING" || s.status == "CONFIRMED"
+                          (s) => isUnmarkedSessionStatus(s.status)
                         )
                         .sort((a, b) =>
                           dayjs
@@ -1934,9 +1936,11 @@ const AmendmentForm = () => {
                             selectedDates.includes(sessionDate);
                           const isDisabled =
                             amendmentAction == "RELEASE_HOLD"
-                              ? session.status !== "HOLD"
-                              : (session.status !== "PENDING" &&
-                                  session.status !== "CONFIRMED") ||
+                              ? !isStatus(session.status, "HOLD")
+                              : amendmentAction == "CHANGE_DATE" ||
+                                amendmentAction == "CAR_DATE_TIME_CHANGE"
+                              ? !isUnmarkedSessionStatus(session.status)
+                              : !isUnmarkedSessionStatus(session.status) ||
                                 !isFuture;
 
                           return (
@@ -1978,11 +1982,11 @@ const AmendmentForm = () => {
                                 <div className="mt-1">
                                   <Tag
                                     color={
-                                      session.status == "COMPLETED"
+                                      isStatus(session.status, "COMPLETED")
                                         ? "success"
-                                        : session.status == "CANCELLED"
+                                        : isStatus(session.status, "CANCELLED")
                                         ? "error"
-                                        : session.status == "HOLD"
+                                        : isStatus(session.status, "HOLD")
                                         ? "warning"
                                         : isFuture
                                         ? "processing"
@@ -1990,11 +1994,11 @@ const AmendmentForm = () => {
                                     }
                                     className="text-xs px-1 py-0"
                                   >
-                                    {session.status == "COMPLETED"
+                                    {isStatus(session.status, "COMPLETED")
                                       ? "Done"
-                                      : session.status == "CANCELLED"
+                                      : isStatus(session.status, "CANCELLED")
                                       ? "Cancelled"
-                                      : session.status == "HOLD"
+                                      : isStatus(session.status, "HOLD")
                                       ? "Hold"
                                       : isFuture
                                       ? "Upcoming"
@@ -2008,8 +2012,9 @@ const AmendmentForm = () => {
                     </div>
 
                     <div className="mt-3 text-xs text-gray-600 bg-blue-50 rounded-lg p-2">
-                      <strong>Note:</strong> Only future scheduled dates can be
-                      modified
+                      <strong>Note:</strong> For Change Date and Car/Date/Time
+                      Change, all unmarked sessions can be modified. Other
+                      actions still allow only future sessions.
                     </div>
                   </div>
 
@@ -2098,7 +2103,7 @@ const AmendmentForm = () => {
                       </div>
 
                       {selectedBooking?.sessions?.some(
-                        (s) => s.status == "HOLD"
+                        (s) => isStatus(s.status, "HOLD")
                       ) && (
                         <div
                           className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${

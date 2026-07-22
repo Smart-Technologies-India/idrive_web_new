@@ -166,10 +166,8 @@ export default function Home() {
             </div>
 
             <div className="hidden md:flex items-center space-x-4">
-              <Link href="/login" className="text-gray-700 hover:text-purple-500 transition-colors font-medium">
-                Sign In
-              </Link>
-              <Link href="/adminlogin" className="bg-purple-500 text-white px-6 py-2.5 rounded-full hover:bg-purple-600 transition-all font-medium shadow-md hover:shadow-lg">
+           
+              <Link href="/login" className="bg-purple-500 text-white px-6 py-2.5 rounded-full hover:bg-purple-600 transition-all font-medium shadow-md hover:shadow-lg">
                 Login
               </Link>
             </div>
@@ -198,10 +196,8 @@ export default function Home() {
                 <a href="#features" className="text-gray-700 hover:text-purple-500 transition-colors font-medium">Features</a>
                 <a href="#testimonials" className="text-gray-700 hover:text-purple-500 transition-colors font-medium">Testimonials</a>
                 <a href="#contact" className="text-gray-700 hover:text-purple-500 transition-colors font-medium">Contact</a>
-                <Link href="/login" className="text-gray-700 hover:text-purple-500 transition-colors font-medium">
-                  Sign In
-                </Link>
-                <Link href="/adminlogin" className="bg-purple-500 text-white px-5 py-2 rounded-full hover:bg-purple-600 transition-colors font-medium text-center">
+              
+                <Link href="/login" className="bg-purple-500 text-white px-5 py-2 rounded-full hover:bg-purple-600 transition-colors font-medium text-center">
                   Login
                 </Link>
               </div>
@@ -231,8 +227,8 @@ export default function Home() {
                 Streamline operations, manage bookings, track students, and grow your driving school with our all-in-one platform.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link href="/adminlogin" className="bg-purple-500 text-white px-8 py-4 rounded-full hover:bg-purple-600 transition-all font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1">
-                  Start Free Trial
+                <Link href="/register" className="bg-purple-500 text-white px-8 py-4 rounded-full hover:bg-purple-600 transition-all font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                  Register Your School
                 </Link>
                 <a href="#features" className="bg-white text-gray-700 border-2 border-gray-300 px-8 py-4 rounded-full hover:bg-gray-50 transition-all font-semibold text-lg">
                   Learn More
@@ -510,18 +506,18 @@ export default function Home() {
           <div className="max-w-7xl mx-auto overflow-hidden">
             <div 
               ref={testimonialsRef}
-              className="flex gap-8"
+              className="flex gap-8 p-6"
               style={{ width: 'fit-content' }}
             >
               {/* Duplicate testimonials for infinite loop effect */}
               {[...testimonials, ...testimonials].map((testimonial, index) => (
                 <div
                   key={index}
-                  className="flex-shrink-0 w-[500px]"
+                  className="shrink-0 w-[500px]"
                 >
-                  <div className="bg-white rounded-3xl p-8 shadow-2xl border border-gray-200 h-full">
+                  <div className="bg-white rounded-3xl p-8 shadow-lg border border-gray-200 h-full">
                     <div className="flex flex-col items-center text-center gap-6">
-                      <div className="flex-shrink-0">
+                      <div className="shrink-0">
                         <Image
                           src={testimonial.image}
                           alt={testimonial.name}
@@ -564,10 +560,10 @@ export default function Home() {
             and grow their business. Start your free trial today – no credit card required.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/adminlogin" className="bg-white text-purple-600 px-8 py-4 rounded-full hover:bg-gray-100 transition-all font-semibold text-lg shadow-2xl hover:shadow-3xl transform hover:-translate-y-1">
+            <Link href="/register" className="bg-white text-purple-600 px-8 py-4 rounded-full hover:bg-gray-100 transition-all font-semibold text-lg shadow-2xl hover:shadow-3xl transform hover:-translate-y-1">
               Get Started Free
             </Link>
-            <a href="#features" className="bg-white/20 backdrop-blur text-white border-2 border-white px-8 py-4 rounded-full hover:bg-white/30 transition-all font-semibold text-lg">
+            <a href="/register" className="bg-white/20 backdrop-blur text-white border-2 border-white px-8 py-4 rounded-full hover:bg-white/30 transition-all font-semibold text-lg">
               Schedule Demo
             </a>
           </div>

@@ -39,6 +39,11 @@ const menuItems: MenuItem[] = [
     icon: <span className="text-lg">🎫</span>,
     label: "Services & Add-ons",
   },
+  {
+    key: "/admin/school-register-requests",
+    icon: <span className="text-lg">📝</span>,
+    label: "School Register Requests",
+  },
 ];
 
 export default function AdminLayout({
